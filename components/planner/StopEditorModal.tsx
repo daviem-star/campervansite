@@ -167,6 +167,18 @@ export default function StopEditorModal({
     return null;
   }
 
+  const parseLocalDateTimeInput = (value: string, fieldLabel: string): string => {
+    if (!value.trim()) {
+      throw new Error(`${fieldLabel} is required.`);
+    }
+
+    try {
+      return toIsoFromLocalInput(value);
+    } catch {
+      throw new Error(`Enter a valid ${fieldLabel.toLowerCase()} date and time.`);
+    }
+  };
+
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -186,11 +198,19 @@ export default function StopEditorModal({
           return;
         }
 
-        const checkInIso = toIsoFromLocalInput(stayCheckInAt);
-        const checkOutIso = toIsoFromLocalInput(stayCheckOutAt);
+        const checkInIso = parseLocalDateTimeInput(stayCheckInAt, "Check-in");
+        const checkOutIso = parseLocalDateTimeInput(stayCheckOutAt, "Check-out");
 
         if (new Date(checkOutIso).getTime() <= new Date(checkInIso).getTime()) {
           setError("Checkout must be after check-in.");
+          return;
+        }
+
+        const parsedCost =
+          stayCostPerNight.trim().length > 0 ? Number.parseFloat(stayCostPerNight) : undefined;
+
+        if (typeof parsedCost === "number" && (!Number.isFinite(parsedCost) || parsedCost < 0)) {
+          setError("Cost per night must be a valid number of 0 or more.");
           return;
         }
 
@@ -201,8 +221,7 @@ export default function StopEditorModal({
           place: stayPlace,
           checkInAt: checkInIso,
           checkOutAt: checkOutIso,
-          costPerNight:
-            stayCostPerNight.trim().length > 0 ? Number.parseFloat(stayCostPerNight) : undefined,
+          costPerNight: parsedCost,
         };
 
         if (mode === "edit" && initialStop) {
@@ -218,9 +237,9 @@ export default function StopEditorModal({
           return;
         }
 
-        const departureIso = toIsoFromLocalInput(ferryDepartureAt);
-        const arrivalIso = toIsoFromLocalInput(ferryArrivalAt);
-        const checkInByIso = toIsoFromLocalInput(ferryCheckInBy);
+        const departureIso = parseLocalDateTimeInput(ferryDepartureAt, "Departure");
+        const arrivalIso = parseLocalDateTimeInput(ferryArrivalAt, "Arrival");
+        const checkInByIso = parseLocalDateTimeInput(ferryCheckInBy, "Check-in by");
 
         if (new Date(arrivalIso).getTime() <= new Date(departureIso).getTime()) {
           setError("Arrival time must be after departure.");
@@ -258,6 +277,11 @@ export default function StopEditorModal({
           return;
         }
 
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(poiVisitDate)) {
+          setError("Visit date is required.");
+          return;
+        }
+
         const payload: NewTripStop = {
           type: "point_of_interest",
           title: normalizedTitle,
@@ -274,6 +298,8 @@ export default function StopEditorModal({
       }
 
       onClose();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Unable to save stop right now.");
     } finally {
       setIsSaving(false);
     }

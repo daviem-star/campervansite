@@ -48,30 +48,48 @@ export default function StopSearchInput({
       return;
     }
 
+    let cancelled = false;
     const timeoutId = window.setTimeout(async () => {
       setIsLoading(true);
       setError(null);
 
       try {
         const response = await fetch(`/api/geocode?q=${encodeURIComponent(normalized)}`);
+        if (cancelled) {
+          return;
+        }
         if (!response.ok) {
           const body = (await response.json()) as { error?: string };
+          if (cancelled) {
+            return;
+          }
           setError(body.error ?? "Search failed.");
           setResults([]);
           return;
         }
 
         const json = (await response.json()) as GeocodeResult[];
+        if (cancelled) {
+          return;
+        }
         setResults(json);
       } catch {
+        if (cancelled) {
+          return;
+        }
         setError("Location service is unavailable right now.");
         setResults([]);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     }, 350);
 
-    return () => window.clearTimeout(timeoutId);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
   }, [query]);
 
   const selectedLabel = useMemo(() => value?.label ?? "", [value?.label]);
@@ -106,8 +124,12 @@ export default function StopSearchInput({
             <p className="px-3 py-2 text-xs text-rose-500">{error}</p>
           ) : null}
 
-          {!isLoading && !error && results.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-slate-500">No results yet.</p>
+          {!isLoading && !error && query.trim().length < 2 ? (
+            <p className="px-3 py-2 text-xs text-slate-500">Type at least 2 characters.</p>
+          ) : null}
+
+          {!isLoading && !error && query.trim().length >= 2 && results.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-slate-500">No matching locations found.</p>
           ) : null}
 
           {!isLoading && !error
