@@ -1,4 +1,11 @@
-import { toIsoFromLocalInput } from "@/lib/date";
+import { differenceInCalendarDays, parseISO } from "date-fns";
+
+import {
+  shiftDateOnlyByDays,
+  shiftIsoByDays,
+  toIsoFromLocalInput,
+  todayDateInTimezone,
+} from "@/lib/date";
 import { AppDataV1, Trip } from "@/types/trip";
 
 const seedTrip: Trip = {
@@ -191,13 +198,52 @@ const seedTrip: Trip = {
   ],
 };
 
-export const getSeedData = (): AppDataV1 => ({
+const createAppData = (trip: Trip): AppDataV1 => ({
   schemaVersion: 1,
-  activeTripId: seedTrip.id,
+  activeTripId: trip.id,
   trips: [
     {
-      ...seedTrip,
+      ...trip,
       updatedAt: new Date().toISOString(),
     },
   ],
 });
+
+const shiftSeedTripByDays = (dayOffset: number): Trip => ({
+  ...seedTrip,
+  createdAt: shiftIsoByDays(seedTrip.createdAt, dayOffset),
+  updatedAt: shiftIsoByDays(seedTrip.updatedAt, dayOffset),
+  stops: seedTrip.stops.map((stop) => {
+    if (stop.type === "stay") {
+      return {
+        ...stop,
+        checkInAt: shiftIsoByDays(stop.checkInAt, dayOffset),
+        checkOutAt: shiftIsoByDays(stop.checkOutAt, dayOffset),
+      };
+    }
+
+    if (stop.type === "ferry") {
+      return {
+        ...stop,
+        departureAt: shiftIsoByDays(stop.departureAt, dayOffset),
+        arrivalAt: shiftIsoByDays(stop.arrivalAt, dayOffset),
+        checkInBy: shiftIsoByDays(stop.checkInBy, dayOffset),
+      };
+    }
+
+    return {
+      ...stop,
+      visitDate: shiftDateOnlyByDays(stop.visitDate, dayOffset),
+    };
+  }),
+});
+
+export const getSeedData = (): AppDataV1 => createAppData(seedTrip);
+
+export const getSeedDataShiftedToTodayAlignedTo = (
+  seedAnchorDate: "2026-08-08" = "2026-08-08",
+): AppDataV1 => {
+  const today = todayDateInTimezone();
+  const dayOffset = differenceInCalendarDays(parseISO(today), parseISO(seedAnchorDate));
+  return createAppData(shiftSeedTripByDays(dayOffset));
+};

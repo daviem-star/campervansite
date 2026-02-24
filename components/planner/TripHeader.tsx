@@ -7,6 +7,7 @@ type TripHeaderProps = {
   totalNights: number;
   totalCost: number;
   onResetSeed: () => Promise<void>;
+  onResetSeedAlignedToToday: () => Promise<void>;
 };
 
 export default function TripHeader({
@@ -16,23 +17,32 @@ export default function TripHeader({
   totalNights,
   totalCost,
   onResetSeed,
+  onResetSeedAlignedToToday,
 }: TripHeaderProps) {
   return (
     <header className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-2 flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Your itinerary</p>
-          <h1 className="mt-1 text-2xl font-semibold text-slate-900">{tripName}</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">{tripName}</h1>
           <p className="mt-1 text-sm text-slate-600">{dateRangeLabel}</p>
         </div>
 
-        <button
-          type="button"
-          onClick={onResetSeed}
-          className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
-        >
-          Reset seed data
-        </button>
+        <div className="flex flex-col items-end gap-2">
+          <button
+            type="button"
+            onClick={onResetSeed}
+            className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+          >
+            Reset seed data
+          </button>
+          <button
+            type="button"
+            onClick={onResetSeedAlignedToToday}
+            className="rounded-xl border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100"
+          >
+            Make trip happen now
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-2 text-sm sm:grid-cols-3">

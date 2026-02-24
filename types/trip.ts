@@ -1,4 +1,5 @@
 export type StopType = "stay" | "ferry" | "point_of_interest";
+export type StopVisualKind = StopType;
 
 export type Coordinates = {
   lat: number;
@@ -81,6 +82,7 @@ export type TodayAction = {
   id: string;
   type: TodayActionType;
   dueAt: string;
+  departureAt?: string;
   label: string;
   detail: string;
   overdue: boolean;
@@ -98,6 +100,9 @@ export type MapMarker = {
   role: MapMarkerRole;
   label: string;
   coordinates: Coordinates;
+  stopId?: string;
+  entityKind?: StopType;
+  ferryPart?: "departure" | "arrival";
 };
 
 export type MapSegmentType = "road" | "ferry";
@@ -107,4 +112,35 @@ export type MapSegment = {
   type: MapSegmentType;
   from: Coordinates;
   to: Coordinates;
+  stopId?: string;
+  entityKind?: StopType;
 };
+
+export type SelectedEntity = {
+  kind: StopType;
+  stopId: string;
+} | null;
+
+type BaseItinerarySection = {
+  id: string;
+  primaryDate: string;
+  dates: string[];
+};
+
+export type StayGroupSection = BaseItinerarySection & {
+  kind: "stay_group";
+  stay: StayStop;
+  pois: PointOfInterestStop[];
+};
+
+export type FerrySection = BaseItinerarySection & {
+  kind: "ferry";
+  ferry: FerryStop;
+};
+
+export type StandalonePoiSection = BaseItinerarySection & {
+  kind: "standalone_poi";
+  poi: PointOfInterestStop;
+};
+
+export type ItinerarySection = StayGroupSection | FerrySection | StandalonePoiSection;

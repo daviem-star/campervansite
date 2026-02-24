@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDateTime } from "@/lib/date";
+import { formatTime } from "@/lib/date";
 import { TodayAction } from "@/types/trip";
 
 type TodayActionsPanelProps = {
@@ -43,10 +43,16 @@ export default function TodayActionsPanel({ actions }: TodayActionsPanelProps) {
                   {action.type === "ferry_check_in" ? "Ferry" : "Checkout"}
                 </span>
               </div>
-              <p className="text-xs text-slate-600">{action.detail}</p>
-              <p className={`mt-1 text-xs ${action.overdue ? "text-rose-700" : "text-slate-500"}`}>
-                Due {formatDateTime(action.dueAt)}
-              </p>
+              {action.type === "stay_checkout" ? (
+                <p className={`text-xs ${action.overdue ? "text-rose-700" : "text-slate-600"}`}>
+                  Checkout by {formatTime(action.dueAt)}
+                </p>
+              ) : (
+                <div className={`space-y-0.5 text-xs ${action.overdue ? "text-rose-700" : "text-slate-600"}`}>
+                  <p>Departure: {action.departureAt ? formatTime(action.departureAt) : "--:--"}</p>
+                  <p>Latest check-in: {formatTime(action.dueAt)}</p>
+                </div>
+              )}
             </li>
           ))}
         </ul>

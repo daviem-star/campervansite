@@ -23,6 +23,7 @@ type TripStoreState = {
   error: string | null;
   loadData: () => Promise<void>;
   resetToSeed: () => Promise<void>;
+  resetToSeedAlignedToToday: () => Promise<void>;
   updateTrip: (nextTrip: Trip) => Promise<void>;
   addStop: (newStop: NewTripStop) => Promise<void>;
   updateStop: (stopId: string, updater: (stop: TripStop) => TripStop) => Promise<void>;
@@ -80,6 +81,11 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
   resetToSeed: async () => {
     const seed = await repository.resetToSeed();
     set({ data: seed, error: null });
+  },
+
+  resetToSeedAlignedToToday: async () => {
+    const shifted = await repository.resetToSeedAlignedToToday();
+    set({ data: shifted, error: null });
   },
 
   updateTrip: async (nextTrip) => {

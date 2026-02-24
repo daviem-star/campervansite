@@ -1,4 +1,4 @@
-import { getSeedData } from "@/lib/seedData";
+import { getSeedData, getSeedDataShiftedToTodayAlignedTo } from "@/lib/seedData";
 import { AppDataV1 } from "@/types/trip";
 
 const STORAGE_KEY = "campervan_trip_planner_v1";
@@ -7,6 +7,7 @@ export interface TripRepository {
   load(): Promise<AppDataV1>;
   save(data: AppDataV1): Promise<void>;
   resetToSeed(): Promise<AppDataV1>;
+  resetToSeedAlignedToToday(): Promise<AppDataV1>;
 }
 
 const isValidAppDataV1 = (value: unknown): value is AppDataV1 => {
@@ -63,5 +64,11 @@ export class LocalStorageTripRepository implements TripRepository {
     const seed = getSeedData();
     await this.save(seed);
     return seed;
+  }
+
+  async resetToSeedAlignedToToday(): Promise<AppDataV1> {
+    const shifted = getSeedDataShiftedToTodayAlignedTo("2026-08-08");
+    await this.save(shifted);
+    return shifted;
   }
 }

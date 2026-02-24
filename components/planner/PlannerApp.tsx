@@ -4,23 +4,24 @@ import { useEffect, useMemo, useState } from "react";
 
 import DayStrip from "@/components/planner/DayStrip";
 import GapWarnings from "@/components/planner/GapWarnings";
+import ItinerarySections from "@/components/planner/ItinerarySections";
 import PlannerMap from "@/components/planner/PlannerMap";
 import StopEditorModal from "@/components/planner/StopEditorModal";
-import StopTimeline from "@/components/planner/StopTimeline";
 import TodayActionsPanel from "@/components/planner/TodayActionsPanel";
 import TripHeader from "@/components/planner/TripHeader";
-import { todayDateInTimezone } from "@/lib/date";
+import { formatDateOnly, todayDateInTimezone } from "@/lib/date";
 import {
   formatTripDateRange,
   getCostSummary,
   getGapWarnings,
+  getItinerarySections,
   getMapData,
+  getSelectedEntityPrimaryDate,
   getTodayActions,
   getTripDays,
-  sortStopsByOrder,
 } from "@/lib/tripDerived";
 import { useTripStore } from "@/store/useTripStore";
-import { NewTripStop, StopType, TripStop } from "@/types/trip";
+import { NewTripStop, SelectedEntity, StopType, TripStop } from "@/types/trip";
 
 type EditorState = {
   isOpen: boolean;
@@ -28,6 +29,9 @@ type EditorState = {
   type: StopType;
   initialStop: TripStop | null;
 };
+
+type MobileTab = "today" | "itinerary" | "map";
+type SelectionOrigin = "itinerary" | "map" | "system";
 
 const defaultEditorState: EditorState = {
   isOpen: false,
@@ -43,15 +47,31 @@ export default function PlannerApp() {
     error,
     loadData,
     resetToSeed,
+    resetToSeedAlignedToToday,
     addStop,
     updateStop,
     deleteStop,
-    reorderStops,
   } = useTripStore();
 
   const [selectedDate, setSelectedDate] = useState(todayDateInTimezone());
+  const [selectedEntity, setSelectedEntity] = useState<SelectedEntity>(null);
+  const [selectionOrigin, setSelectionOrigin] = useState<SelectionOrigin>("system");
   const [editor, setEditor] = useState<EditorState>(defaultEditorState);
-  const [mobileMapOpen, setMobileMapOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState<MobileTab>("today");
+  const [isDesktopViewport, setIsDesktopViewport] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => setIsDesktopViewport(mediaQuery.matches);
+
+    onChange();
+    mediaQuery.addEventListener("change", onChange);
+    return () => mediaQuery.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     if (!data && !isLoading) {
@@ -67,19 +87,20 @@ export default function PlannerApp() {
     return data.trips.find((trip) => trip.id === data.activeTripId) ?? null;
   }, [data]);
 
-  const sortedStops = useMemo(
-    () => (activeTrip ? sortStopsByOrder(activeTrip.stops) : []),
-    [activeTrip],
-  );
-
   const tripDays = useMemo(() => (activeTrip ? getTripDays(activeTrip) : []), [activeTrip]);
   const effectiveSelectedDate = tripDays.includes(selectedDate)
     ? selectedDate
     : tripDays[0] ?? selectedDate;
 
-  const mapData = useMemo(() => (activeTrip ? getMapData(activeTrip) : { markers: [], segments: [] }), [
-    activeTrip,
-  ]);
+  const itinerarySections = useMemo(
+    () => (activeTrip ? getItinerarySections(activeTrip) : []),
+    [activeTrip],
+  );
+
+  const mapData = useMemo(
+    () => (activeTrip ? getMapData(activeTrip) : { markers: [], segments: [] }),
+    [activeTrip],
+  );
 
   const gapWarnings = useMemo(() => (activeTrip ? getGapWarnings(activeTrip) : []), [activeTrip]);
   const todayActions = useMemo(() => (activeTrip ? getTodayActions(activeTrip) : []), [activeTrip]);
@@ -87,6 +108,15 @@ export default function PlannerApp() {
     () => (activeTrip ? getCostSummary(activeTrip) : { totalNights: 0, totalCost: 0 }),
     [activeTrip],
   );
+  const effectiveSelectedEntity = useMemo<SelectedEntity>(() => {
+    if (!activeTrip || !selectedEntity) {
+      return null;
+    }
+
+    return activeTrip.stops.some((stop) => stop.id === selectedEntity.stopId)
+      ? selectedEntity
+      : null;
+  }, [activeTrip, selectedEntity]);
 
   const onCreateStop = async (stop: NewTripStop) => {
     await addStop(stop);
@@ -94,6 +124,33 @@ export default function PlannerApp() {
 
   const onUpdateStop = async (nextStop: TripStop) => {
     await updateStop(nextStop.id, () => nextStop);
+  };
+
+  const onSelectDate = (date: string) => {
+    setSelectedDate(date);
+  };
+
+  const selectEntity = (
+    entity: Exclude<SelectedEntity, null>,
+    origin: SelectionOrigin,
+  ) => {
+    setSelectionOrigin(origin);
+    setSelectedEntity(entity);
+
+    if (activeTrip) {
+      const entityDate = getSelectedEntityPrimaryDate(activeTrip, entity);
+      if (entityDate) {
+        setSelectedDate(entityDate);
+      }
+    }
+  };
+
+  const onSelectEntityFromItinerary = (entity: Exclude<SelectedEntity, null>) => {
+    selectEntity(entity, "itinerary");
+  };
+
+  const onSelectEntityFromMap = (entity: Exclude<SelectedEntity, null>) => {
+    selectEntity(entity, "map");
   };
 
   if (isLoading && !activeTrip) {
@@ -121,12 +178,25 @@ export default function PlannerApp() {
     );
   }
 
+  const renderPlannerMap = (isVisible: boolean) => (
+    <PlannerMap
+      trip={activeTrip}
+      markers={mapData.markers}
+      segments={mapData.segments}
+      selectedEntity={effectiveSelectedEntity}
+      selectionOrigin={selectionOrigin}
+      onSelectEntity={onSelectEntityFromMap}
+      isVisible={isVisible}
+      className="h-full w-full rounded-3xl border border-slate-200 bg-white shadow-sm"
+    />
+  );
+
   return (
     <>
-      <div className="min-h-screen bg-slate-100/80 pb-24 lg:pb-0">
-        <div className="mx-auto flex w-full max-w-[1750px] flex-col gap-4 p-3 lg:h-screen lg:flex-row lg:p-4">
-          <section className="h-full overflow-y-auto rounded-3xl bg-white/30 p-1 lg:w-[46%]">
-            <div className="space-y-4 rounded-3xl bg-transparent p-2">
+      <div className="min-h-screen bg-slate-100/80 pb-6">
+        <div className="mx-auto flex w-full max-w-[1750px] flex-col gap-4 p-3 lg:h-screen lg:flex-row lg:items-stretch lg:p-4">
+          <section className="rounded-3xl bg-white/30 p-1 lg:h-full lg:w-[46%] lg:overflow-hidden">
+            <div className="rounded-3xl p-2 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:gap-4">
               <TripHeader
                 tripName={activeTrip.name}
                 homeLabel={activeTrip.home.label}
@@ -134,139 +204,145 @@ export default function PlannerApp() {
                 totalNights={costSummary.totalNights}
                 totalCost={costSummary.totalCost}
                 onResetSeed={resetToSeed}
+                onResetSeedAlignedToToday={resetToSeedAlignedToToday}
               />
 
-              <TodayActionsPanel actions={todayActions} />
-
-              <GapWarnings warnings={gapWarnings} />
-
-              <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-900">Trip days</h3>
-                  <span className="text-xs text-slate-500">Selected: {effectiveSelectedDate}</span>
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-2 lg:mt-0 lg:hidden">
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    ["today", "Today"],
+                    ["itinerary", "Itinerary"],
+                    ["map", "Map"],
+                  ] as const).map(([tabId, label]) => (
+                    <button
+                      key={tabId}
+                      type="button"
+                      onClick={() => setMobileTab(tabId)}
+                      className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                        mobileTab === tabId
+                          ? "bg-slate-900 text-white"
+                          : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
-                <DayStrip
-                  days={tripDays}
-                  selectedDate={effectiveSelectedDate}
-                  onSelect={setSelectedDate}
-                />
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-900">Itinerary timeline</h3>
-                  <span className="text-xs text-slate-500">Drag to reorder</span>
+              <div className={`${mobileTab === "today" ? "block" : "hidden"} mt-4 space-y-4 lg:mt-0 lg:block`}>
+                <TodayActionsPanel actions={todayActions} />
+                <GapWarnings warnings={gapWarnings} />
+              </div>
+
+              <div
+                className={`${
+                  mobileTab === "itinerary" ? "block" : "hidden"
+                } mt-4 space-y-4 lg:mt-0 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col`}
+              >
+                <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-slate-900">Trip days</h3>
+                    <span className="text-xs text-slate-500">
+                      Selected: {formatDateOnly(effectiveSelectedDate)}
+                    </span>
+                  </div>
+                  <DayStrip
+                    days={tripDays}
+                    selectedDate={effectiveSelectedDate}
+                    onSelect={onSelectDate}
+                  />
                 </div>
 
-                <div className="mb-4 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditor({
-                        isOpen: true,
-                        mode: "create",
-                        type: "stay",
-                        initialStop: null,
-                      })
-                    }
-                    className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700"
-                  >
-                    + Stay
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditor({
-                        isOpen: true,
-                        mode: "create",
-                        type: "ferry",
-                        initialStop: null,
-                      })
-                    }
-                    className="rounded-full border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-700"
-                  >
-                    + Ferry
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditor({
-                        isOpen: true,
-                        mode: "create",
-                        type: "point_of_interest",
-                        initialStop: null,
-                      })
-                    }
-                    className="rounded-full border border-orange-300 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700"
-                  >
-                    + POI
-                  </button>
-                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-slate-900">Itinerary</h3>
+                    <span className="text-xs text-slate-500">Grouped by campsite stays and travel days</span>
+                  </div>
 
-                <StopTimeline
-                  stops={sortedStops}
-                  selectedDate={effectiveSelectedDate}
-                  onEdit={(stop) =>
-                    setEditor({
-                      isOpen: true,
-                      mode: "edit",
-                      type: stop.type,
-                      initialStop: stop,
-                    })
-                  }
-                  onDelete={(stop) => {
-                    const confirmed = window.confirm(`Delete \"${stop.title}\"?`);
-                    if (confirmed) {
-                      void deleteStop(stop.id);
-                    }
-                  }}
-                  onReorder={reorderStops}
-                />
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditor({
+                          isOpen: true,
+                          mode: "create",
+                          type: "stay",
+                          initialStop: null,
+                        })
+                      }
+                      className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700"
+                    >
+                      + Stay
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditor({
+                          isOpen: true,
+                          mode: "create",
+                          type: "ferry",
+                          initialStop: null,
+                        })
+                      }
+                      className="rounded-full border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-700"
+                    >
+                      + Ferry
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditor({
+                          isOpen: true,
+                          mode: "create",
+                          type: "point_of_interest",
+                          initialStop: null,
+                        })
+                      }
+                      className="rounded-full border border-orange-300 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700"
+                    >
+                      + POI
+                    </button>
+                  </div>
+
+                  <div className="max-h-[52vh] overflow-y-auto pr-1 lg:max-h-none lg:min-h-0 lg:flex-1">
+                    <ItinerarySections
+                      sections={itinerarySections}
+                      selectedDate={effectiveSelectedDate}
+                      selectedEntity={effectiveSelectedEntity}
+                      isVisible={isDesktopViewport || mobileTab === "itinerary"}
+                      onSelectDate={onSelectDate}
+                      onSelectEntity={onSelectEntityFromItinerary}
+                      onEdit={(stop) =>
+                        setEditor({
+                          isOpen: true,
+                          mode: "edit",
+                          type: stop.type,
+                          initialStop: stop,
+                        })
+                      }
+                      onDelete={(stop) => {
+                        const confirmed = window.confirm(`Delete \"${stop.title}\"?`);
+                        if (confirmed) {
+                          void deleteStop(stop.id);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className={`${mobileTab === "map" ? "block" : "hidden"} mt-4 lg:hidden`}>
+                <div className="h-[68vh]">{renderPlannerMap(mobileTab === "map")}</div>
               </div>
             </div>
           </section>
 
           <aside className="hidden h-full lg:block lg:w-[54%]">
-            <div className="h-full overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-                <h3 className="text-sm font-semibold text-slate-900">Map view</h3>
-                <p className="text-xs text-slate-500">
-                  Home pin + stays/POIs + ferry ports. Ferry legs are dashed.
-                </p>
-              </div>
-              <PlannerMap markers={mapData.markers} segments={mapData.segments} className="h-[calc(100%-53px)] w-full" />
-            </div>
+            {renderPlannerMap(true)}
           </aside>
         </div>
       </div>
-
-      <div className="fixed inset-x-4 bottom-4 z-40 lg:hidden">
-        <button
-          type="button"
-          onClick={() => setMobileMapOpen((current) => !current)}
-          className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-xl"
-        >
-          {mobileMapOpen ? "Show Itinerary" : "Show Map"}
-        </button>
-      </div>
-
-      {mobileMapOpen ? (
-        <div className="fixed inset-0 z-40 bg-slate-900/55 lg:hidden">
-          <div className="absolute inset-3 overflow-hidden rounded-3xl border border-slate-200 bg-white">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-              <h3 className="text-sm font-semibold text-slate-900">Trip map</h3>
-              <button
-                type="button"
-                onClick={() => setMobileMapOpen(false)}
-                className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700"
-              >
-                Close
-              </button>
-            </div>
-            <PlannerMap markers={mapData.markers} segments={mapData.segments} className="h-[calc(100%-51px)] w-full" />
-          </div>
-        </div>
-      ) : null}
 
       <StopEditorModal
         isOpen={editor.isOpen}
