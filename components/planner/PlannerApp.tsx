@@ -31,7 +31,6 @@ type EditorState = {
 };
 
 type MobileTab = "today" | "itinerary" | "map";
-type SelectionOrigin = "itinerary" | "map" | "system";
 
 const defaultEditorState: EditorState = {
   isOpen: false,
@@ -55,7 +54,6 @@ export default function PlannerApp() {
 
   const [selectedDate, setSelectedDate] = useState(todayDateInTimezone());
   const [selectedEntity, setSelectedEntity] = useState<SelectedEntity>(null);
-  const [selectionOrigin, setSelectionOrigin] = useState<SelectionOrigin>("system");
   const [editor, setEditor] = useState<EditorState>(defaultEditorState);
   const [mobileTab, setMobileTab] = useState<MobileTab>("today");
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
@@ -130,11 +128,7 @@ export default function PlannerApp() {
     setSelectedDate(date);
   };
 
-  const selectEntity = (
-    entity: Exclude<SelectedEntity, null>,
-    origin: SelectionOrigin,
-  ) => {
-    setSelectionOrigin(origin);
+  const selectEntity = (entity: Exclude<SelectedEntity, null>) => {
     setSelectedEntity(entity);
 
     if (activeTrip) {
@@ -146,11 +140,23 @@ export default function PlannerApp() {
   };
 
   const onSelectEntityFromItinerary = (entity: Exclude<SelectedEntity, null>) => {
-    selectEntity(entity, "itinerary");
+    selectEntity(entity);
   };
 
   const onSelectEntityFromMap = (entity: Exclude<SelectedEntity, null>) => {
-    selectEntity(entity, "map");
+    selectEntity(entity);
+  };
+
+  const onResetSeed = async () => {
+    await resetToSeed();
+    setSelectedEntity(null);
+    setSelectedDate(todayDateInTimezone());
+  };
+
+  const onResetSeedAlignedToToday = async () => {
+    await resetToSeedAlignedToToday();
+    setSelectedEntity(null);
+    setSelectedDate(todayDateInTimezone());
   };
 
   if (isLoading && !activeTrip) {
@@ -184,7 +190,6 @@ export default function PlannerApp() {
       markers={mapData.markers}
       segments={mapData.segments}
       selectedEntity={effectiveSelectedEntity}
-      selectionOrigin={selectionOrigin}
       onSelectEntity={onSelectEntityFromMap}
       isVisible={isVisible}
       className="h-full w-full rounded-3xl border border-slate-200 bg-white shadow-sm"
@@ -203,8 +208,8 @@ export default function PlannerApp() {
                 dateRangeLabel={formatTripDateRange(activeTrip)}
                 totalNights={costSummary.totalNights}
                 totalCost={costSummary.totalCost}
-                onResetSeed={resetToSeed}
-                onResetSeedAlignedToToday={resetToSeedAlignedToToday}
+                onResetSeed={onResetSeed}
+                onResetSeedAlignedToToday={onResetSeedAlignedToToday}
               />
 
               <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-2 lg:mt-0 lg:hidden">

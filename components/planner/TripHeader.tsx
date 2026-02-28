@@ -22,6 +22,26 @@ export default function TripHeader({
   onResetSeedAlignedToToday,
 }: TripHeaderProps) {
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
+  const [isResettingSeed, setIsResettingSeed] = useState(false);
+  const [isAligningToToday, setIsAligningToToday] = useState(false);
+
+  const handleResetSeed = async () => {
+    setIsResettingSeed(true);
+    try {
+      await onResetSeed();
+    } finally {
+      setIsResettingSeed(false);
+    }
+  };
+
+  const handleAlignToToday = async () => {
+    setIsAligningToToday(true);
+    try {
+      await onResetSeedAlignedToToday();
+    } finally {
+      setIsAligningToToday(false);
+    }
+  };
 
   return (
     <header className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -34,17 +54,23 @@ export default function TripHeader({
         <div className="flex flex-col items-end gap-2">
           <button
             type="button"
-            onClick={onResetSeed}
+            onClick={() => void handleResetSeed()}
+            disabled={isResettingSeed || isAligningToToday}
             className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
           >
-            Reset seed data
+            {isResettingSeed ? "Resetting..." : "Reset seed data"}
           </button>
           <button
             type="button"
-            onClick={onResetSeedAlignedToToday}
-            className="rounded-xl border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100"
+            onClick={() => void handleAlignToToday()}
+            disabled={isResettingSeed || isAligningToToday}
+            className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
+              isAligningToToday
+                ? "border-sky-300 bg-sky-50 text-sky-700"
+                : "border-slate-300 text-slate-700 hover:bg-slate-100"
+            }`}
           >
-            Make trip happen now
+            {isAligningToToday ? "Applying..." : "Make trip happen now"}
           </button>
         </div>
       </div>
