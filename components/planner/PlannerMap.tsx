@@ -29,6 +29,12 @@ const MAP_STYLE: maplibregl.StyleSpecification = {
       source: "osm",
       minzoom: 0,
       maxzoom: 22,
+      paint: {
+        "raster-brightness-min": 0.22,
+        "raster-brightness-max": 0.68,
+        "raster-contrast": 0.24,
+        "raster-saturation": -0.72,
+      },
     },
   ],
 };
@@ -92,7 +98,7 @@ const entityLabel = (kind: StopType): string => {
 const buildPopupHtml = (trip: Trip, selectedEntity: Exclude<SelectedEntity, null>): string => {
   const stop = findStopById(trip, selectedEntity.stopId);
   if (!stop) {
-    return `<div style="padding:8px;font:12px sans-serif;color:#334155;">Item not found.</div>`;
+    return `<div style="padding:8px;font:12px sans-serif;color:#cbd5e1;">Item not found.</div>`;
   }
 
   if (stop.type === "stay") {
@@ -101,13 +107,13 @@ const buildPopupHtml = (trip: Trip, selectedEntity: Exclude<SelectedEntity, null
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
           ${popupIconSvg("stay")}
           <div>
-            <div style="font-weight:700;color:#0f172a;">${escapeHtml(stop.title)}</div>
-            <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">${entityLabel("stay")}</div>
+            <div style="font-weight:700;color:#e2e8f0;">${escapeHtml(stop.title)}</div>
+            <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;">${entityLabel("stay")}</div>
           </div>
         </div>
-        <div style="font-size:12px;color:#334155;line-height:1.35;">${escapeHtml(stop.place.label)}</div>
-        <div style="margin-top:6px;font-size:12px;color:#475569;">Check-in: ${escapeHtml(formatDateTime(stop.checkInAt))}</div>
-        <div style="font-size:12px;color:#475569;">Check-out: ${escapeHtml(formatDateTime(stop.checkOutAt))}</div>
+        <div style="font-size:12px;color:#cbd5e1;line-height:1.35;">${escapeHtml(stop.place.label)}</div>
+        <div style="margin-top:6px;font-size:12px;color:#94a3b8;">Check-in: ${escapeHtml(formatDateTime(stop.checkInAt))}</div>
+        <div style="font-size:12px;color:#94a3b8;">Check-out: ${escapeHtml(formatDateTime(stop.checkOutAt))}</div>
       </div>`;
   }
 
@@ -117,14 +123,14 @@ const buildPopupHtml = (trip: Trip, selectedEntity: Exclude<SelectedEntity, null
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
           ${popupIconSvg("ferry")}
           <div>
-            <div style="font-weight:700;color:#0f172a;">${escapeHtml(stop.title)}</div>
-            <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">${entityLabel("ferry")}</div>
+            <div style="font-weight:700;color:#e2e8f0;">${escapeHtml(stop.title)}</div>
+            <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;">${entityLabel("ferry")}</div>
           </div>
         </div>
-        <div style="font-size:12px;color:#334155;line-height:1.35;">${escapeHtml(stop.departurePort.label)} to ${escapeHtml(stop.arrivalPort.label)}</div>
-        <div style="margin-top:6px;font-size:12px;color:#475569;">Departure: ${escapeHtml(formatDateTime(stop.departureAt))}</div>
-        <div style="font-size:12px;color:#475569;">Arrival: ${escapeHtml(formatDateTime(stop.arrivalAt))}</div>
-        <div style="font-size:12px;color:#475569;">Check-in by: ${escapeHtml(formatDateTime(stop.checkInBy))}</div>
+        <div style="font-size:12px;color:#cbd5e1;line-height:1.35;">${escapeHtml(stop.departurePort.label)} to ${escapeHtml(stop.arrivalPort.label)}</div>
+        <div style="margin-top:6px;font-size:12px;color:#94a3b8;">Departure: ${escapeHtml(formatDateTime(stop.departureAt))}</div>
+        <div style="font-size:12px;color:#94a3b8;">Arrival: ${escapeHtml(formatDateTime(stop.arrivalAt))}</div>
+        <div style="font-size:12px;color:#94a3b8;">Check-in by: ${escapeHtml(formatDateTime(stop.checkInBy))}</div>
       </div>`;
   }
 
@@ -133,12 +139,12 @@ const buildPopupHtml = (trip: Trip, selectedEntity: Exclude<SelectedEntity, null
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
         ${popupIconSvg("point_of_interest")}
         <div>
-          <div style="font-weight:700;color:#0f172a;">${escapeHtml(stop.title)}</div>
-          <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">${entityLabel("point_of_interest")}</div>
+          <div style="font-weight:700;color:#e2e8f0;">${escapeHtml(stop.title)}</div>
+          <div style="font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;">${entityLabel("point_of_interest")}</div>
         </div>
       </div>
-      <div style="font-size:12px;color:#334155;line-height:1.35;">${escapeHtml(stop.place.label)}</div>
-      <div style="margin-top:6px;font-size:12px;color:#475569;">Visit date: ${escapeHtml(formatDateOnly(stop.visitDate))}</div>
+      <div style="font-size:12px;color:#cbd5e1;line-height:1.35;">${escapeHtml(stop.place.label)}</div>
+      <div style="margin-top:6px;font-size:12px;color:#94a3b8;">Visit date: ${escapeHtml(formatDateOnly(stop.visitDate))}</div>
     </div>`;
 };
 
@@ -324,14 +330,22 @@ export default function PlannerMap({
       });
 
       map.addLayer({
+        id: "map-dark-overlay",
+        type: "background",
+        paint: {
+          "background-color": "rgba(7, 12, 22, 0.28)",
+        },
+      });
+
+      map.addLayer({
         id: "road-segments",
         type: "line",
         source: "segments",
         filter: ["==", ["get", "type"], "road"],
         paint: {
-          "line-color": "#64748b",
-          "line-width": 2.5,
-          "line-opacity": 0.65,
+          "line-color": "#7e8fb0",
+          "line-width": 2.8,
+          "line-opacity": 0.78,
         },
       });
 
@@ -341,10 +355,10 @@ export default function PlannerMap({
         source: "segments",
         filter: ["==", ["get", "type"], "ferry"],
         paint: {
-          "line-color": "#0891b2",
-          "line-width": 3.5,
+          "line-color": "#22d3ee",
+          "line-width": 3.8,
           "line-dasharray": [2, 2],
-          "line-opacity": 0.9,
+          "line-opacity": 0.92,
         },
       });
 
@@ -354,10 +368,10 @@ export default function PlannerMap({
         source: "segments",
         filter: ["all", ["==", ["get", "type"], "ferry"], ["==", ["get", "isSelected"], true]],
         paint: {
-          "line-color": "#0369a1",
-          "line-width": 6,
+          "line-color": "#67e8f9",
+          "line-width": 6.4,
           "line-dasharray": [2, 1.5],
-          "line-opacity": 0.95,
+          "line-opacity": 1,
         },
       });
 
@@ -391,17 +405,17 @@ export default function PlannerMap({
             "match",
             ["get", "role"],
             "home",
-            "#111827",
+            "#e2e8f0",
             "stay",
-            "#16a34a",
+            "#34d399",
             "poi",
-            "#f97316",
+            "#fb923c",
             "ferry_port",
-            "#0ea5e9",
-            "#6366f1",
+            "#22d3ee",
+            "#818cf8",
           ],
           "circle-stroke-width": 2,
-          "circle-stroke-color": "#ffffff",
+          "circle-stroke-color": "#0f172a",
         },
       });
 
@@ -415,13 +429,13 @@ export default function PlannerMap({
             "match",
             ["get", "role"],
             "ferry_port",
-            11,
+            11.2,
             "home",
-            12,
-            10,
+            12.2,
+            10.2,
           ],
-          "circle-color": "rgba(14,165,233,0.18)",
-          "circle-stroke-color": "#0284c7",
+          "circle-color": "rgba(103,232,249,0.2)",
+          "circle-stroke-color": "#67e8f9",
           "circle-stroke-width": 2,
         },
       });
@@ -450,9 +464,9 @@ export default function PlannerMap({
           "text-max-width": 12,
         },
         paint: {
-          "text-color": "#1f2937",
-          "text-halo-color": "#ffffff",
-          "text-halo-width": 1,
+          "text-color": "#e2e8f0",
+          "text-halo-color": "#0f172a",
+          "text-halo-width": 1.2,
         },
       });
 
@@ -581,7 +595,7 @@ export default function PlannerMap({
       <div ref={mapCanvasRef} className="h-full w-full" aria-label="Trip map" />
 
       <div className="pointer-events-none absolute left-3 right-3 top-3 z-10 flex items-start justify-between gap-3">
-        <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur">
+        <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-slate-700 bg-[#0f172a]/90 p-2 shadow-sm backdrop-blur">
           <button
             type="button"
             onClick={() => {
@@ -592,15 +606,15 @@ export default function PlannerMap({
                 popupRef.current = null;
               }
             }}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+            className="rounded-lg border border-slate-500 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-100 transition hover:border-slate-300"
           >
             Reset Map
           </button>
         </div>
 
         {currentSelectionTitle ? (
-          <div className="pointer-events-auto rounded-xl border border-sky-200 bg-white/95 px-3 py-2 text-xs text-slate-700 shadow-sm backdrop-blur">
-            <p className="font-semibold text-slate-900">Selected</p>
+          <div className="pointer-events-auto rounded-xl border border-cyan-400/40 bg-[#0f172a]/90 px-3 py-2 text-xs text-slate-200 shadow-sm backdrop-blur">
+            <p className="font-semibold text-cyan-200">Selected</p>
             <p>{currentSelectionTitle}</p>
           </div>
         ) : null}

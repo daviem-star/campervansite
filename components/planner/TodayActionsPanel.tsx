@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-
 import { formatTime } from "@/lib/date";
 import { TodayAction } from "@/types/trip";
 
@@ -15,8 +13,6 @@ const typePill = {
 } as const;
 
 export default function TodayActionsPanel({ actions }: TodayActionsPanelProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-2">
@@ -26,19 +22,9 @@ export default function TodayActionsPanel({ actions }: TodayActionsPanelProps) {
             {actions.length}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => setIsExpanded((current) => !current)}
-          aria-expanded={isExpanded}
-          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
-        >
-          {isExpanded ? "Hide" : "Show"}
-        </button>
       </div>
 
-      {!isExpanded ? (
-        <p className="text-xs text-slate-500">Collapsed by default to keep the itinerary in focus.</p>
-      ) : actions.length === 0 ? (
+      {actions.length === 0 ? (
         <p className="text-sm text-slate-500">No time-critical actions due today.</p>
       ) : (
         <ul className="space-y-2">

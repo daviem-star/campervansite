@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import DayStrip from "@/components/planner/DayStrip";
 import GapWarnings from "@/components/planner/GapWarnings";
@@ -30,7 +30,14 @@ type EditorState = {
   initialStop: TripStop | null;
 };
 
-type MobileTab = "today" | "itinerary" | "map";
+type PlannerPanelId = "trip_overview" | "today_actions" | "itinerary_map";
+
+type SidebarItem = {
+  id: PlannerPanelId;
+  label: string;
+  hint: string;
+  icon: ReactNode;
+};
 
 const defaultEditorState: EditorState = {
   isOpen: false,
@@ -39,14 +46,115 @@ const defaultEditorState: EditorState = {
   initialStop: null,
 };
 
+const sidebarItems: SidebarItem[] = [
+  {
+    id: "trip_overview",
+    label: "Trip overview",
+    hint: "Description, details and cost",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+        <path d="M6 5h12M6 12h12M6 19h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    id: "today_actions",
+    label: "Today actions",
+    hint: "Critical tasks due today",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+        <path
+          d="M7 4v3m10-3v3M5 9h14M6 20h12a1 1 0 001-1V8a1 1 0 00-1-1H6a1 1 0 00-1 1v11a1 1 0 001 1z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    id: "itinerary_map",
+    label: "Itinerary + map",
+    hint: "Plan days and route",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+        <path
+          d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2V6z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path d="M9 4v14M15 6v14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+];
+
+function PlannerChrome({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-h-screen bg-[var(--bg)] text-slate-100 md:h-[100dvh] md:overflow-hidden">
+      <div className="mx-auto max-w-[1780px] p-2 md:h-full md:p-4">
+        <div className="overflow-hidden rounded-[24px] border border-slate-800 bg-[#060a13] shadow-[0_30px_80px_rgba(2,6,23,0.7)] md:flex md:h-full md:flex-col">
+          <div className="flex items-center gap-2 border-b border-slate-800 bg-[#111827] px-4 py-3">
+            <span className="h-3 w-3 rounded-full bg-slate-600" />
+            <span className="h-3 w-3 rounded-full bg-slate-600" />
+            <span className="h-3 w-3 rounded-full bg-slate-600" />
+            <div className="mx-auto w-full max-w-[420px] truncate rounded-xl bg-[#334155] px-4 py-1.5 text-center text-sm text-slate-300">
+              Campervan Planner
+            </div>
+            <div className="h-6 w-6 rounded-full bg-amber-400 text-center text-[11px] font-bold leading-6 text-[#111827]">
+              CV
+            </div>
+          </div>
+          <div className="md:min-h-0 md:flex-1">{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SidebarNavItem({
+  item,
+  expanded,
+  active,
+  onSelect,
+}: {
+  item: SidebarItem;
+  expanded: boolean;
+  active: boolean;
+  onSelect: (panelId: PlannerPanelId) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(item.id)}
+      className={`flex w-full items-center rounded-xl border px-3 py-2.5 text-left text-sm transition ${
+        active
+          ? "border-[#2c3372] bg-[#171d47] text-white"
+          : "border-transparent text-slate-300 hover:bg-[#11172a] hover:text-slate-100"
+      }`}
+      title={item.label}
+    >
+      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center">{item.icon}</span>
+      <span
+        className={`ml-3 truncate text-[14px] font-medium transition-all duration-200 ${
+          expanded ? "max-w-[180px] opacity-100" : "max-w-0 opacity-0"
+        }`}
+      >
+        {item.label}
+      </span>
+    </button>
+  );
+}
+
 export default function PlannerApp() {
   const {
     data,
     isLoading,
     error,
     loadData,
-    resetToSeed,
-    resetToSeedAlignedToToday,
     addStop,
     updateStop,
     deleteStop,
@@ -55,21 +163,9 @@ export default function PlannerApp() {
   const [selectedDate, setSelectedDate] = useState(todayDateInTimezone());
   const [selectedEntity, setSelectedEntity] = useState<SelectedEntity>(null);
   const [editor, setEditor] = useState<EditorState>(defaultEditorState);
-  const [mobileTab, setMobileTab] = useState<MobileTab>("today");
-  const [isDesktopViewport, setIsDesktopViewport] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const mediaQuery = window.matchMedia("(min-width: 1024px)");
-    const onChange = () => setIsDesktopViewport(mediaQuery.matches);
-
-    onChange();
-    mediaQuery.addEventListener("change", onChange);
-    return () => mediaQuery.removeEventListener("change", onChange);
-  }, []);
+  const [activePanel, setActivePanel] = useState<PlannerPanelId>("itinerary_map");
+  const [desktopSidebarExpanded, setDesktopSidebarExpanded] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (!data && !isLoading) {
@@ -106,6 +202,7 @@ export default function PlannerApp() {
     () => (activeTrip ? getCostSummary(activeTrip) : { totalNights: 0, totalCost: 0 }),
     [activeTrip],
   );
+
   const effectiveSelectedEntity = useMemo<SelectedEntity>(() => {
     if (!activeTrip || !selectedEntity) {
       return null;
@@ -147,40 +244,37 @@ export default function PlannerApp() {
     selectEntity(entity);
   };
 
-  const onResetSeed = async () => {
-    await resetToSeed();
-    setSelectedEntity(null);
-    setSelectedDate(todayDateInTimezone());
-  };
-
-  const onResetSeedAlignedToToday = async () => {
-    await resetToSeedAlignedToToday();
-    setSelectedEntity(null);
-    setSelectedDate(todayDateInTimezone());
+  const setPanel = (panelId: PlannerPanelId) => {
+    setActivePanel(panelId);
+    setMobileSidebarOpen(false);
   };
 
   if (isLoading && !activeTrip) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
-        <p className="text-sm text-slate-600">Loading trip planner...</p>
-      </div>
+      <PlannerChrome>
+        <div className="flex min-h-[360px] items-center justify-center px-4 py-10">
+          <p className="text-sm text-slate-300">Loading trip planner...</p>
+        </div>
+      </PlannerChrome>
     );
   }
 
   if (!activeTrip) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-          <p className="text-sm text-slate-700">{error ?? "No trip loaded."}</p>
-          <button
-            type="button"
-            onClick={() => void loadData()}
-            className="mt-3 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
-          >
-            Reload
-          </button>
+      <PlannerChrome>
+        <div className="flex min-h-[360px] items-center justify-center px-4 py-10">
+          <div className="rounded-2xl border border-slate-700 bg-[#0d1322] p-6 text-center shadow-sm">
+            <p className="text-sm text-slate-300">{error ?? "No trip loaded."}</p>
+            <button
+              type="button"
+              onClick={() => void loadData()}
+              className="mt-3 rounded-xl border border-slate-500 bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:border-slate-300"
+            >
+              Reload
+            </button>
+          </div>
         </div>
-      </div>
+      </PlannerChrome>
     );
   }
 
@@ -192,162 +286,225 @@ export default function PlannerApp() {
       selectedEntity={effectiveSelectedEntity}
       onSelectEntity={onSelectEntityFromMap}
       isVisible={isVisible}
-      className="h-full w-full rounded-3xl border border-slate-200 bg-white shadow-sm"
+      className="h-full w-full rounded-3xl border border-slate-700/80 bg-[#0b1220] shadow-[0_20px_45px_rgba(2,6,23,0.45)]"
     />
   );
 
   return (
     <>
-      <div className="min-h-screen bg-slate-100/80 pb-6">
-        <div className="mx-auto flex w-full max-w-[1750px] flex-col gap-4 p-3 lg:h-screen lg:flex-row lg:items-stretch lg:p-4">
-          <section className="rounded-3xl bg-white/30 p-1 lg:h-full lg:w-[52%] lg:overflow-hidden">
-            <div className="rounded-3xl p-2 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:gap-4">
-              <TripHeader
-                tripName={activeTrip.name}
-                homeLabel={activeTrip.home.label}
-                dateRangeLabel={formatTripDateRange(activeTrip)}
-                totalNights={costSummary.totalNights}
-                totalCost={costSummary.totalCost}
-                onResetSeed={onResetSeed}
-                onResetSeedAlignedToToday={onResetSeedAlignedToToday}
-              />
-
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-2 lg:mt-0 lg:hidden">
-                <div className="grid grid-cols-3 gap-2">
-                  {([
-                    ["today", "Today"],
-                    ["itinerary", "Itinerary"],
-                    ["map", "Map"],
-                  ] as const).map(([tabId, label]) => (
-                    <button
-                      key={tabId}
-                      type="button"
-                      onClick={() => setMobileTab(tabId)}
-                      className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                        mobileTab === tabId
-                          ? "bg-slate-900 text-white"
-                          : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className={`${mobileTab === "today" ? "block" : "hidden"} mt-4 space-y-4 lg:mt-0 lg:block`}>
-                <TodayActionsPanel actions={todayActions} />
-                <GapWarnings warnings={gapWarnings} />
-              </div>
-
-              <div
-                className={`${
-                  mobileTab === "itinerary" ? "block" : "hidden"
-                } mt-4 space-y-4 lg:mt-0 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col`}
-              >
-                <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-slate-900">Trip days</h3>
-                    <span className="text-xs text-slate-500">
-                      Selected: {formatDateOnly(effectiveSelectedDate)}
-                    </span>
-                  </div>
-                  <DayStrip
-                    days={tripDays}
-                    selectedDate={effectiveSelectedDate}
-                    onSelect={onSelectDate}
-                  />
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold text-slate-900">Itinerary</h3>
-                    <span className="text-xs text-slate-500">Grouped by campsite stays and travel days</span>
-                  </div>
-
-                  <div className="mb-4 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditor({
-                          isOpen: true,
-                          mode: "create",
-                          type: "stay",
-                          initialStop: null,
-                        })
-                      }
-                      className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700"
-                    >
-                      + Stay
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditor({
-                          isOpen: true,
-                          mode: "create",
-                          type: "ferry",
-                          initialStop: null,
-                        })
-                      }
-                      className="rounded-full border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-700"
-                    >
-                      + Ferry
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditor({
-                          isOpen: true,
-                          mode: "create",
-                          type: "point_of_interest",
-                          initialStop: null,
-                        })
-                      }
-                      className="rounded-full border border-orange-300 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700"
-                    >
-                      + POI
-                    </button>
-                  </div>
-
-                  <div className="max-h-[52vh] overflow-y-auto pr-1 lg:max-h-none lg:min-h-0 lg:flex-1">
-                    <ItinerarySections
-                      sections={itinerarySections}
-                      selectedDate={effectiveSelectedDate}
-                      selectedEntity={effectiveSelectedEntity}
-                      isVisible={isDesktopViewport || mobileTab === "itinerary"}
-                      onSelectDate={onSelectDate}
-                      onSelectEntity={onSelectEntityFromItinerary}
-                      onEdit={(stop) =>
-                        setEditor({
-                          isOpen: true,
-                          mode: "edit",
-                          type: stop.type,
-                          initialStop: stop,
-                        })
-                      }
-                      onDelete={(stop) => {
-                        const confirmed = window.confirm(`Delete \"${stop.title}\"?`);
-                        if (confirmed) {
-                          void deleteStop(stop.id);
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className={`${mobileTab === "map" ? "block" : "hidden"} mt-4 lg:hidden`}>
-                <div className="h-[68vh]">{renderPlannerMap(mobileTab === "map")}</div>
+      <PlannerChrome>
+        <div className="relative flex min-h-[720px] md:h-full md:min-h-0">
+          <aside
+            className="hidden border-r border-slate-800/90 bg-[#060b14] py-4 md:block md:h-full md:min-h-0"
+            onMouseEnter={() => setDesktopSidebarExpanded(true)}
+            onMouseLeave={() => setDesktopSidebarExpanded(false)}
+            onFocusCapture={() => setDesktopSidebarExpanded(true)}
+            style={{ width: desktopSidebarExpanded ? 264 : 84, transition: "width 220ms ease" }}
+          >
+            <div className="mb-4 px-3">
+              <div className="flex h-10 items-center">
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 via-indigo-500 to-fuchsia-600" />
+                <span
+                  className={`ml-3 overflow-hidden whitespace-nowrap text-lg font-semibold tracking-tight text-slate-100 transition-all duration-200 ${
+                    desktopSidebarExpanded ? "max-w-[160px] opacity-100" : "max-w-0 opacity-0"
+                  }`}
+                >
+                  Planner
+                </span>
               </div>
             </div>
-          </section>
 
-          <aside className="hidden h-full lg:block lg:w-[48%]">
-            {renderPlannerMap(true)}
+            <nav className="space-y-1.5 px-2">
+              {sidebarItems.map((item) => (
+                <SidebarNavItem
+                  key={item.id}
+                  item={item}
+                  expanded={desktopSidebarExpanded}
+                  active={activePanel === item.id}
+                  onSelect={setPanel}
+                />
+              ))}
+            </nav>
+
+            <div
+              className={`mt-4 overflow-hidden rounded-xl border border-[#1f2740] bg-[#0d1322] transition-all duration-200 ${
+                desktopSidebarExpanded ? "mx-2 max-h-52 p-3 opacity-100" : "mx-0 max-h-0 p-0 opacity-0"
+              }`}
+            >
+              <p className="mb-1 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Current view</p>
+              <p className="text-sm text-slate-300">
+                {sidebarItems.find((item) => item.id === activePanel)?.hint}
+              </p>
+            </div>
+          </aside>
+
+          <main className="flex min-w-0 flex-1 flex-col md:min-h-0">
+            <div className="flex items-center gap-3 border-b border-slate-800/80 px-3 py-3 md:px-5">
+              <button
+                type="button"
+                onClick={() => setMobileSidebarOpen(true)}
+                className="rounded-lg border border-slate-700 bg-[#101625] p-2 text-slate-200 md:hidden"
+                aria-label="Open menu"
+              >
+                <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+                  <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+              </button>
+
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">Planner panel</p>
+                <p className="truncate text-sm font-semibold text-slate-100">
+                  {sidebarItems.find((item) => item.id === activePanel)?.label}
+                </p>
+              </div>
+            </div>
+
+            <section className="flex-1 min-h-0 p-3 md:overflow-hidden md:p-4">
+              {activePanel === "trip_overview" ? (
+                <div className="mx-auto max-w-[980px] space-y-4 md:h-full md:overflow-y-auto md:pr-1">
+                  <div>
+                    <TripHeader
+                      tripName={activeTrip.name}
+                      homeLabel={activeTrip.home.label}
+                      dateRangeLabel={formatTripDateRange(activeTrip)}
+                      totalNights={costSummary.totalNights}
+                      totalCost={costSummary.totalCost}
+                    />
+                    <div className="rounded-2xl border border-slate-700 bg-[#0d1322] px-4 py-3 text-sm text-slate-300">
+                      This panel centralizes trip description, details, and cost summary.
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {activePanel === "today_actions" ? (
+                <div className="mx-auto max-w-[980px] space-y-4 md:h-full md:overflow-y-auto md:pr-1">
+                  <div>
+                    <TodayActionsPanel actions={todayActions} />
+                    <GapWarnings warnings={gapWarnings} />
+                  </div>
+                </div>
+              ) : null}
+
+              {activePanel === "itinerary_map" ? (
+                <div className="flex min-h-[640px] flex-col gap-4 md:h-full md:min-h-0 md:flex-row md:items-stretch">
+                  <section className="rounded-3xl border border-slate-800/70 bg-[#090f1d] p-1 md:h-full md:min-h-0 md:w-[52%] md:overflow-hidden">
+                    <div className="rounded-3xl p-2 md:flex md:h-full md:min-h-0 md:flex-col md:gap-4">
+                      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between">
+                          <h3 className="text-sm font-semibold text-slate-900">Trip days</h3>
+                          <span className="text-xs text-slate-500">
+                            Selected: {formatDateOnly(effectiveSelectedDate)}
+                          </span>
+                        </div>
+                        <DayStrip
+                          days={tripDays}
+                          selectedDate={effectiveSelectedDate}
+                          onSelect={onSelectDate}
+                        />
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:flex md:min-h-0 md:flex-1 md:flex-col">
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <h3 className="text-sm font-semibold text-slate-900">Itinerary</h3>
+                          <span className="text-xs text-slate-500">Grouped by campsite stays and travel days</span>
+                        </div>
+
+                        <div className="mb-4">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setEditor({
+                                isOpen: true,
+                                mode: "create",
+                                type: "stay",
+                                initialStop: null,
+                              })
+                            }
+                            className="rounded-full border border-slate-300 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-800 transition hover:bg-slate-200"
+                          >
+                            Add item
+                          </button>
+                        </div>
+
+                        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                          <ItinerarySections
+                            sections={itinerarySections}
+                            selectedDate={effectiveSelectedDate}
+                            selectedEntity={effectiveSelectedEntity}
+                            isVisible={activePanel === "itinerary_map"}
+                            onSelectDate={onSelectDate}
+                            onSelectEntity={onSelectEntityFromItinerary}
+                            onEdit={(stop) =>
+                              setEditor({
+                                isOpen: true,
+                                mode: "edit",
+                                type: stop.type,
+                                initialStop: stop,
+                              })
+                            }
+                            onDelete={(stop) => {
+                              const confirmed = window.confirm(`Delete \"${stop.title}\"?`);
+                              if (confirmed) {
+                                void deleteStop(stop.id);
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <aside className="md:h-full md:min-h-0 md:w-[48%]">
+                    <div className="h-[66vh] md:h-full">{renderPlannerMap(activePanel === "itinerary_map")}</div>
+                  </aside>
+                </div>
+              ) : null}
+            </section>
+          </main>
+        </div>
+      </PlannerChrome>
+
+      {mobileSidebarOpen ? (
+        <div className="fixed inset-0 z-50 bg-black/65 md:hidden" onClick={() => setMobileSidebarOpen(false)}>
+          <aside
+            className="h-full w-[82%] max-w-[320px] border-r border-slate-800 bg-[#060b14] p-4"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Navigation</p>
+              <button
+                type="button"
+                onClick={() => setMobileSidebarOpen(false)}
+                className="rounded-lg border border-slate-700 px-2 py-1 text-xs text-slate-300"
+              >
+                Close
+              </button>
+            </div>
+
+            <nav className="space-y-1.5">
+              {sidebarItems.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setPanel(item.id)}
+                  className={`w-full rounded-xl border px-3 py-2.5 text-left text-sm transition ${
+                    activePanel === item.id
+                      ? "border-[#2c3372] bg-[#171d47] text-white"
+                      : "border-transparent text-slate-300 hover:bg-[#11172a] hover:text-slate-100"
+                  }`}
+                >
+                  <span className="flex items-center gap-2 font-medium">
+                    <span className="inline-flex h-5 w-5 items-center justify-center">{item.icon}</span>
+                    {item.label}
+                  </span>
+                  <span className="mt-1 block pl-7 text-xs text-slate-400">{item.hint}</span>
+                </button>
+              ))}
+            </nav>
           </aside>
         </div>
-      </div>
+      ) : null}
 
       <StopEditorModal
         isOpen={editor.isOpen}
