@@ -117,8 +117,8 @@ function SidebarNavItem({ item, expanded }: { item: SidebarItem; expanded: boole
       type="button"
       className={`flex w-full items-center rounded-xl border px-3 py-2.5 text-left text-sm transition ${
         item.active
-          ? "border-[#2c3372] bg-[#171d47] text-white"
-          : "border-transparent text-slate-300 hover:bg-[#11172a] hover:text-slate-100"
+          ? "border-ui-nav-border bg-ui-nav-active text-white"
+          : "border-transparent text-slate-300 hover:bg-ui-chrome-hover hover:text-slate-100"
       }`}
     >
       <span className="inline-flex h-5 w-5 items-center justify-center">{item.icon}</span>
@@ -173,7 +173,7 @@ function SidebarBlock({ expanded }: { expanded: boolean }) {
       </nav>
 
       <div
-        className={`mt-4 overflow-hidden rounded-xl border border-[#1f2740] bg-[#0d1322] transition-all duration-200 ${
+        className={`mt-4 overflow-hidden rounded-xl border border-ui-border bg-ui-raised transition-all duration-200 ${
           expanded ? "mx-2 max-h-80 p-3 opacity-100" : "mx-0 max-h-0 p-0 opacity-0"
         }`}
       >
@@ -184,8 +184,8 @@ function SidebarBlock({ expanded }: { expanded: boolean }) {
               key={item}
               className={`rounded-lg px-2 py-1.5 text-sm ${
                 index === 0
-                  ? "bg-[#152042] text-slate-100"
-                  : "text-slate-400 hover:bg-[#11172a] hover:text-slate-200"
+                  ? "bg-ui-nav-sub-active text-slate-100"
+                  : "text-slate-400 hover:bg-ui-chrome-hover hover:text-slate-200"
               }`}
             >
               {item}
@@ -212,8 +212,8 @@ function ToolbarButton({
       onClick={onClick}
       className={`rounded-xl border px-3 py-2 text-sm font-medium transition ${
         active
-          ? "border-[#3856ff] bg-[#1d2d75] text-white"
-          : "border-slate-700 bg-[#0d1322] text-slate-200 hover:border-slate-500"
+          ? "border-ui-accent bg-ui-accent-strong text-white"
+          : "border-slate-700 bg-ui-raised text-slate-200 hover:border-slate-500"
       }`}
     >
       {label}
@@ -241,26 +241,27 @@ export default function UiLabDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#05070f] text-slate-100">
+    <div className="min-h-screen bg-ui-bg text-slate-100">
       <div className="mx-auto max-w-[1780px] p-2 md:p-4">
-        <div className="overflow-hidden rounded-[24px] border border-slate-800 bg-[#060a13] shadow-[0_30px_80px_rgba(2,6,23,0.7)]">
-          <div className="flex items-center gap-2 border-b border-slate-800 bg-[#111827] px-4 py-3">
+        <div className="overflow-hidden rounded-[24px] border border-ui-border bg-ui-surface shadow-[0_30px_80px_rgba(2,6,23,0.7)]">
+          <div className="flex items-center gap-2 border-b border-ui-border bg-ui-chrome px-4 py-3">
             <span className="h-3 w-3 rounded-full bg-slate-600" />
             <span className="h-3 w-3 rounded-full bg-slate-600" />
             <span className="h-3 w-3 rounded-full bg-slate-600" />
-            <div className="mx-auto w-full max-w-[420px] truncate rounded-xl bg-[#334155] px-4 py-1.5 text-center text-sm text-slate-300">
+            <div className="mx-auto w-full max-w-[420px] truncate rounded-xl bg-ui-border-soft px-4 py-1.5 text-center text-sm text-slate-300">
               Campervan UI Lab
             </div>
-            <div className="h-6 w-6 rounded-full bg-amber-400 text-center text-xs font-bold leading-6 text-[#111827]">DM</div>
+            <div className="h-6 w-6 rounded-full bg-amber-400 text-center text-xs font-bold leading-6 text-ui-chrome">DM</div>
           </div>
 
           <div className="relative flex min-h-[720px]">
             <aside
-              className="hidden border-r border-slate-800/90 bg-[#060b14] py-4 md:block"
+              className={`hidden border-r border-ui-border bg-ui-surface-alt py-4 transition-[width] duration-200 md:block ${
+                desktopExpanded ? "md:w-[264px]" : "md:w-[84px]"
+              }`}
               onMouseEnter={() => setDesktopExpanded(true)}
               onMouseLeave={() => setDesktopExpanded(false)}
               onFocusCapture={() => setDesktopExpanded(true)}
-              style={{ width: desktopExpanded ? 264 : 84, transition: "width 220ms ease" }}
             >
               <SidebarBlock expanded={desktopExpanded} />
             </aside>
@@ -270,7 +271,7 @@ export default function UiLabDashboard() {
                 <button
                   type="button"
                   onClick={() => setMobileSidebarOpen(true)}
-                  className="rounded-lg border border-slate-700 bg-[#101625] p-2 text-slate-200 md:hidden"
+                  className="rounded-lg border border-slate-700 bg-ui-chrome-soft p-2 text-slate-200 md:hidden"
                   aria-label="Open menu"
                 >
                   <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
@@ -280,7 +281,7 @@ export default function UiLabDashboard() {
 
                 <Link
                   href="/"
-                  className="rounded-lg border border-slate-700 bg-[#101625] px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-200 hover:border-slate-500"
+                  className="rounded-lg border border-slate-700 bg-ui-chrome-soft px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-200 hover:border-slate-500"
                 >
                   Back to Planner
                 </Link>
@@ -291,7 +292,7 @@ export default function UiLabDashboard() {
                     value=""
                     readOnly
                     placeholder="Search items, sources, tags"
-                    className="w-full rounded-xl border border-slate-700 bg-[#0d1322] px-4 py-2 text-sm text-slate-300 placeholder:text-slate-500"
+                    className="w-full rounded-xl border border-slate-700 bg-ui-raised px-4 py-2 text-sm text-slate-300 placeholder:text-slate-500"
                   />
                 </div>
               </div>
@@ -321,8 +322,8 @@ export default function UiLabDashboard() {
                       onClick={() => setViewMode("chart")}
                       className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
                         viewMode === "chart"
-                          ? "border-[#3856ff] bg-[#1d2d75] text-white"
-                          : "border-slate-700 bg-[#0d1322] text-slate-300"
+                          ? "border-ui-accent bg-ui-accent-strong text-white"
+                          : "border-slate-700 bg-ui-raised text-slate-300"
                       }`}
                     >
                       Chart
@@ -332,8 +333,8 @@ export default function UiLabDashboard() {
                       onClick={() => setViewMode("list")}
                       className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
                         viewMode === "list"
-                          ? "border-[#3856ff] bg-[#1d2d75] text-white"
-                          : "border-slate-700 bg-[#0d1322] text-slate-300"
+                          ? "border-ui-accent bg-ui-accent-strong text-white"
+                          : "border-slate-700 bg-ui-raised text-slate-300"
                       }`}
                     >
                       List
@@ -341,7 +342,7 @@ export default function UiLabDashboard() {
                     <button
                       type="button"
                       onClick={() => setLiveMode((value) => !value)}
-                      className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-[#0d1322] px-3 py-2 text-sm"
+                      className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-ui-raised px-3 py-2 text-sm"
                     >
                       <span className="font-semibold text-slate-300">Live</span>
                       <span
@@ -361,8 +362,8 @@ export default function UiLabDashboard() {
               </div>
 
               <section className="flex-1 p-3 md:p-5">
-                <div className="h-full rounded-2xl border border-slate-800 bg-gradient-to-b from-[#0d1322] to-[#090e1a] p-4 md:p-6">
-                  <div className="grid grid-cols-7 gap-2 rounded-xl border border-slate-700/70 bg-[#141b2e] px-3 py-2 text-xs font-semibold uppercase tracking-[0.06em] text-slate-400 md:grid-cols-8">
+                <div className="h-full rounded-2xl border border-slate-800 bg-gradient-to-b from-ui-raised to-ui-panel p-4 md:p-6">
+                  <div className="grid grid-cols-7 gap-2 rounded-xl border border-slate-700/70 bg-ui-raised-2 px-3 py-2 text-xs font-semibold uppercase tracking-[0.06em] text-slate-400 md:grid-cols-8">
                     <span className="col-span-2 md:col-span-2">Source</span>
                     <span>Total accounts</span>
                     <span>SSO</span>
@@ -372,7 +373,7 @@ export default function UiLabDashboard() {
                     <span className="hidden md:block">Risk level</span>
                   </div>
 
-                  <div className="mt-8 flex h-[60vh] min-h-[320px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-700/80 bg-[#0b111f] text-center">
+                  <div className="mt-8 flex h-[60vh] min-h-[320px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-700/80 bg-ui-panel-alt text-center">
                     <div className="mb-4 h-16 w-16 rounded-full border border-slate-600" />
                     <p className="text-lg font-semibold text-slate-100">No results found</p>
                     <p className="mt-1 max-w-md text-sm text-slate-400">
@@ -381,7 +382,7 @@ export default function UiLabDashboard() {
                     </p>
                     <button
                       type="button"
-                      className="mt-5 rounded-xl border border-[#334ac2] bg-[#1f2f7f] px-4 py-2 text-sm font-semibold text-white"
+                      className="mt-5 rounded-xl border border-ui-accent-border bg-ui-accent-deep px-4 py-2 text-sm font-semibold text-white"
                     >
                       Go to Live view
                     </button>
@@ -396,7 +397,7 @@ export default function UiLabDashboard() {
       {mobileSidebarOpen ? (
         <div className="fixed inset-0 z-50 bg-black/65 md:hidden" onClick={() => setMobileSidebarOpen(false)}>
           <aside
-            className="h-full w-[82%] max-w-[320px] border-r border-slate-800 bg-[#060b14] p-4"
+            className="h-full w-[82%] max-w-[320px] border-r border-ui-border bg-ui-surface-alt p-4"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">

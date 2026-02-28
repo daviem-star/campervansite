@@ -8,6 +8,29 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        ui: {
+          bg: "#05070f",
+          surface: "#060a13",
+          "surface-alt": "#060b14",
+          panel: "#090e1a",
+          "panel-alt": "#0b111f",
+          map: "#0b1220",
+          raised: "#0d1322",
+          "raised-2": "#141b2e",
+          chrome: "#111827",
+          "chrome-soft": "#101625",
+          "chrome-hover": "#11172a",
+          border: "#1f2740",
+          "border-soft": "#334155",
+          "nav-active": "#171d47",
+          "nav-sub-active": "#152042",
+          "nav-border": "#2c3372",
+          accent: "#3856ff",
+          "accent-strong": "#1d2d75",
+          "accent-border": "#334ac2",
+          "accent-deep": "#1f2f7f",
+          overlay: "#0f172a",
+        },
         green: {
           50: '#30AF5B',
           90: '#292C27',

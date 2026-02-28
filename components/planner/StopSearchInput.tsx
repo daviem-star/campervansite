@@ -96,7 +96,7 @@ export default function StopSearchInput({
 
   return (
     <div ref={containerRef} className="relative">
-      <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+      <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
         {label}
       </label>
       <input
@@ -107,29 +107,29 @@ export default function StopSearchInput({
         }}
         onFocus={() => setIsOpen(true)}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+        className="w-full rounded-xl border border-ui-border bg-ui-surface px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-ui-accent focus:outline-none"
       />
 
       {selectedLabel && query === selectedLabel ? (
-        <p className="mt-1 text-xs text-emerald-600">Selected</p>
+        <p className="mt-1 text-xs text-emerald-300">Selected</p>
       ) : null}
 
       {isOpen ? (
-        <div className="absolute z-20 mt-2 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+        <div className="absolute z-20 mt-2 max-h-48 w-full overflow-y-auto rounded-xl border border-ui-border bg-ui-raised shadow-xl">
           {isLoading ? (
-            <p className="px-3 py-2 text-xs text-slate-500">Searching...</p>
+            <p className="px-3 py-2 text-xs text-slate-400">Searching...</p>
           ) : null}
 
           {!isLoading && error ? (
-            <p className="px-3 py-2 text-xs text-rose-500">{error}</p>
+            <p className="px-3 py-2 text-xs text-rose-300">{error}</p>
           ) : null}
 
           {!isLoading && !error && query.trim().length < 2 ? (
-            <p className="px-3 py-2 text-xs text-slate-500">Type at least 2 characters.</p>
+            <p className="px-3 py-2 text-xs text-slate-400">Type at least 2 characters.</p>
           ) : null}
 
           {!isLoading && !error && query.trim().length >= 2 && results.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-slate-500">No matching locations found.</p>
+            <p className="px-3 py-2 text-xs text-slate-400">No matching locations found.</p>
           ) : null}
 
           {!isLoading && !error
@@ -147,7 +147,7 @@ export default function StopSearchInput({
                     setQuery(result.label);
                     setIsOpen(false);
                   }}
-                  className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs text-slate-700 transition hover:bg-slate-50"
+                  className="block w-full border-b border-ui-border px-3 py-2 text-left text-xs text-slate-200 transition hover:bg-ui-surface-alt"
                 >
                   {result.label}
                 </button>

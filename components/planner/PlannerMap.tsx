@@ -595,7 +595,7 @@ export default function PlannerMap({
       <div ref={mapCanvasRef} className="h-full w-full" aria-label="Trip map" />
 
       <div className="pointer-events-none absolute left-3 right-3 top-3 z-10 flex items-start justify-between gap-3">
-        <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-slate-700 bg-[#0f172a]/90 p-2 shadow-sm backdrop-blur">
+        <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-slate-700 bg-ui-overlay/90 p-2 shadow-sm backdrop-blur">
           <button
             type="button"
             onClick={() => {
@@ -613,7 +613,7 @@ export default function PlannerMap({
         </div>
 
         {currentSelectionTitle ? (
-          <div className="pointer-events-auto rounded-xl border border-cyan-400/40 bg-[#0f172a]/90 px-3 py-2 text-xs text-slate-200 shadow-sm backdrop-blur">
+          <div className="pointer-events-auto rounded-xl border border-cyan-400/40 bg-ui-overlay/90 px-3 py-2 text-xs text-slate-200 shadow-sm backdrop-blur">
             <p className="font-semibold text-cyan-200">Selected</p>
             <p>{currentSelectionTitle}</p>
           </div>

@@ -94,17 +94,17 @@ const sidebarItems: SidebarItem[] = [
 
 function PlannerChrome({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-[var(--bg)] text-slate-100 md:h-[100dvh] md:overflow-hidden">
+    <div className="min-h-screen bg-ui-bg text-slate-100 md:h-[100dvh] md:overflow-hidden">
       <div className="mx-auto max-w-[1780px] p-2 md:h-full md:p-4">
-        <div className="overflow-hidden rounded-[24px] border border-slate-800 bg-[#060a13] shadow-[0_30px_80px_rgba(2,6,23,0.7)] md:flex md:h-full md:flex-col">
-          <div className="flex items-center gap-2 border-b border-slate-800 bg-[#111827] px-4 py-3">
+        <div className="overflow-hidden rounded-[24px] border border-ui-border bg-ui-surface shadow-[0_30px_80px_rgba(2,6,23,0.7)] md:flex md:h-full md:flex-col">
+          <div className="flex items-center gap-2 border-b border-ui-border bg-ui-chrome px-4 py-3">
             <span className="h-3 w-3 rounded-full bg-slate-600" />
             <span className="h-3 w-3 rounded-full bg-slate-600" />
             <span className="h-3 w-3 rounded-full bg-slate-600" />
-            <div className="mx-auto w-full max-w-[420px] truncate rounded-xl bg-[#334155] px-4 py-1.5 text-center text-sm text-slate-300">
+            <div className="mx-auto w-full max-w-[420px] truncate rounded-xl bg-ui-border-soft px-4 py-1.5 text-center text-sm text-slate-300">
               Campervan Planner
             </div>
-            <div className="h-6 w-6 rounded-full bg-amber-400 text-center text-[11px] font-bold leading-6 text-[#111827]">
+            <div className="h-6 w-6 rounded-full bg-amber-400 text-center text-[11px] font-bold leading-6 text-ui-chrome">
               CV
             </div>
           </div>
@@ -132,8 +132,8 @@ function SidebarNavItem({
       onClick={() => onSelect(item.id)}
       className={`flex w-full items-center rounded-xl border px-3 py-2.5 text-left text-sm transition ${
         active
-          ? "border-[#2c3372] bg-[#171d47] text-white"
-          : "border-transparent text-slate-300 hover:bg-[#11172a] hover:text-slate-100"
+          ? "border-ui-nav-border bg-ui-nav-active text-white"
+          : "border-transparent text-slate-300 hover:bg-ui-chrome-hover hover:text-slate-100"
       }`}
       title={item.label}
     >
@@ -263,12 +263,12 @@ export default function PlannerApp() {
     return (
       <PlannerChrome>
         <div className="flex min-h-[360px] items-center justify-center px-4 py-10">
-          <div className="rounded-2xl border border-slate-700 bg-[#0d1322] p-6 text-center shadow-sm">
+          <div className="rounded-2xl border border-ui-border bg-ui-raised p-6 text-center shadow-sm">
             <p className="text-sm text-slate-300">{error ?? "No trip loaded."}</p>
             <button
               type="button"
               onClick={() => void loadData()}
-              className="mt-3 rounded-xl border border-slate-500 bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:border-slate-300"
+              className="mt-3 rounded-xl border border-ui-border-soft bg-ui-overlay px-4 py-2 text-sm font-semibold text-white transition hover:border-slate-300"
             >
               Reload
             </button>
@@ -286,7 +286,7 @@ export default function PlannerApp() {
       selectedEntity={effectiveSelectedEntity}
       onSelectEntity={onSelectEntityFromMap}
       isVisible={isVisible}
-      className="h-full w-full rounded-3xl border border-slate-700/80 bg-[#0b1220] shadow-[0_20px_45px_rgba(2,6,23,0.45)]"
+      className="h-full w-full rounded-3xl border border-slate-700/80 bg-ui-map shadow-[0_20px_45px_rgba(2,6,23,0.45)]"
     />
   );
 
@@ -295,11 +295,12 @@ export default function PlannerApp() {
       <PlannerChrome>
         <div className="relative flex min-h-[720px] md:h-full md:min-h-0">
           <aside
-            className="hidden border-r border-slate-800/90 bg-[#060b14] py-4 md:block md:h-full md:min-h-0"
+            className={`hidden border-r border-ui-border bg-ui-surface-alt py-4 transition-[width] duration-200 md:block md:h-full md:min-h-0 ${
+              desktopSidebarExpanded ? "md:w-[264px]" : "md:w-[84px]"
+            }`}
             onMouseEnter={() => setDesktopSidebarExpanded(true)}
             onMouseLeave={() => setDesktopSidebarExpanded(false)}
             onFocusCapture={() => setDesktopSidebarExpanded(true)}
-            style={{ width: desktopSidebarExpanded ? 264 : 84, transition: "width 220ms ease" }}
           >
             <div className="mb-4 px-3">
               <div className="flex h-10 items-center">
@@ -327,7 +328,7 @@ export default function PlannerApp() {
             </nav>
 
             <div
-              className={`mt-4 overflow-hidden rounded-xl border border-[#1f2740] bg-[#0d1322] transition-all duration-200 ${
+              className={`mt-4 overflow-hidden rounded-xl border border-ui-border bg-ui-raised transition-all duration-200 ${
                 desktopSidebarExpanded ? "mx-2 max-h-52 p-3 opacity-100" : "mx-0 max-h-0 p-0 opacity-0"
               }`}
             >
@@ -343,7 +344,7 @@ export default function PlannerApp() {
               <button
                 type="button"
                 onClick={() => setMobileSidebarOpen(true)}
-                className="rounded-lg border border-slate-700 bg-[#101625] p-2 text-slate-200 md:hidden"
+                className="rounded-lg border border-slate-700 bg-ui-chrome-soft p-2 text-slate-200 md:hidden"
                 aria-label="Open menu"
               >
                 <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
@@ -370,7 +371,7 @@ export default function PlannerApp() {
                       totalNights={costSummary.totalNights}
                       totalCost={costSummary.totalCost}
                     />
-                    <div className="rounded-2xl border border-slate-700 bg-[#0d1322] px-4 py-3 text-sm text-slate-300">
+                    <div className="rounded-2xl border border-ui-border bg-ui-raised px-4 py-3 text-sm text-slate-300">
                       This panel centralizes trip description, details, and cost summary.
                     </div>
                   </div>
@@ -388,12 +389,12 @@ export default function PlannerApp() {
 
               {activePanel === "itinerary_map" ? (
                 <div className="flex min-h-[640px] flex-col gap-4 md:h-full md:min-h-0 md:flex-row md:items-stretch">
-                  <section className="rounded-3xl border border-slate-800/70 bg-[#090f1d] p-1 md:h-full md:min-h-0 md:w-[52%] md:overflow-hidden">
+                  <section className="rounded-3xl border border-slate-800/70 bg-ui-panel p-1 md:h-full md:min-h-0 md:w-[52%] md:overflow-hidden">
                     <div className="rounded-3xl p-2 md:flex md:h-full md:min-h-0 md:flex-col md:gap-4">
-                      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                      <div className="rounded-2xl border border-ui-border bg-ui-raised p-3 shadow-sm">
                         <div className="mb-3 flex items-center justify-between">
-                          <h3 className="text-sm font-semibold text-slate-900">Trip days</h3>
-                          <span className="text-xs text-slate-500">
+                          <h3 className="text-sm font-semibold text-slate-100">Trip days</h3>
+                          <span className="text-xs text-slate-400">
                             Selected: {formatDateOnly(effectiveSelectedDate)}
                           </span>
                         </div>
@@ -404,10 +405,10 @@ export default function PlannerApp() {
                         />
                       </div>
 
-                      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm md:flex md:min-h-0 md:flex-1 md:flex-col">
+                      <div className="rounded-2xl border border-ui-border bg-ui-raised p-3 shadow-sm md:flex md:min-h-0 md:flex-1 md:flex-col">
                         <div className="mb-3 flex items-center justify-between gap-2">
-                          <h3 className="text-sm font-semibold text-slate-900">Itinerary</h3>
-                          <span className="text-xs text-slate-500">Grouped by campsite stays and travel days</span>
+                          <h3 className="text-sm font-semibold text-slate-100">Itinerary</h3>
+                          <span className="text-xs text-slate-400">Grouped by campsite stays and travel days</span>
                         </div>
 
                         <div className="mb-4">
@@ -421,7 +422,7 @@ export default function PlannerApp() {
                                 initialStop: null,
                               })
                             }
-                            className="rounded-full border border-slate-300 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-800 transition hover:bg-slate-200"
+                            className="rounded-full border border-ui-accent-border bg-ui-accent-strong px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-ui-accent-deep"
                           >
                             Add item
                           </button>
@@ -468,7 +469,7 @@ export default function PlannerApp() {
       {mobileSidebarOpen ? (
         <div className="fixed inset-0 z-50 bg-black/65 md:hidden" onClick={() => setMobileSidebarOpen(false)}>
           <aside
-            className="h-full w-[82%] max-w-[320px] border-r border-slate-800 bg-[#060b14] p-4"
+            className="h-full w-[82%] max-w-[320px] border-r border-ui-border bg-ui-surface-alt p-4"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between">
@@ -476,7 +477,7 @@ export default function PlannerApp() {
               <button
                 type="button"
                 onClick={() => setMobileSidebarOpen(false)}
-                className="rounded-lg border border-slate-700 px-2 py-1 text-xs text-slate-300"
+                className="rounded-lg border border-ui-border px-2 py-1 text-xs text-slate-300 transition hover:border-slate-500"
               >
                 Close
               </button>
@@ -490,8 +491,8 @@ export default function PlannerApp() {
                   onClick={() => setPanel(item.id)}
                   className={`w-full rounded-xl border px-3 py-2.5 text-left text-sm transition ${
                     activePanel === item.id
-                      ? "border-[#2c3372] bg-[#171d47] text-white"
-                      : "border-transparent text-slate-300 hover:bg-[#11172a] hover:text-slate-100"
+                      ? "border-ui-nav-border bg-ui-nav-active text-white"
+                      : "border-transparent text-slate-300 hover:bg-ui-chrome-hover hover:text-slate-100"
                   }`}
                 >
                   <span className="flex items-center gap-2 font-medium">

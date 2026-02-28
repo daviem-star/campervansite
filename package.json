@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint . --max-warnings=0"
+    "lint": "eslint . --max-warnings=0",
+    "lint:styles": "node scripts/style-audit.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

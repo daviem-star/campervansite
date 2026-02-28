@@ -67,6 +67,18 @@ Run before merging:
 npm run lint && npm run build
 ```
 
+Style consistency audit:
+
+```bash
+npm run lint:styles
+```
+
+## Styling Standards
+- Tailwind utility classes are the default styling approach.
+- Prefer semantic Tailwind tokens from `tailwind.config.ts` over raw hex values in `className`.
+- Keep custom CSS in `app/globals.css` for global concerns only (base styles, shared utilities, third-party overrides).
+- Avoid inline `style={{ ... }}` unless the value is truly runtime dynamic and cannot be expressed with Tailwind classes.
+
 ## Data Model Notes
 - Root storage key: `campervan_trip_planner_v1`
 - Root schema:

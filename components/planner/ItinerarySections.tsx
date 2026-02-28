@@ -26,7 +26,7 @@ type ItinerarySectionsProps = {
 const dayChipClass =
   "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition";
 
-const stopRowSelectedClass = "ring-2 ring-sky-300 border-sky-300 bg-sky-50/70";
+const stopRowSelectedClass = "ring-2 ring-ui-accent/70 border-ui-accent bg-ui-accent-strong/35";
 
 function DateChip({
   date,
@@ -46,8 +46,8 @@ function DateChip({
       }}
       className={`${dayChipClass} ${
         active
-          ? "border-sky-300 bg-sky-100 text-sky-900"
-          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+          ? "border-ui-accent bg-ui-accent-strong text-white"
+          : "border-ui-border bg-ui-surface text-slate-300 hover:bg-ui-chrome-soft"
       }`}
       title={formatDateOnly(date)}
     >
@@ -63,14 +63,14 @@ function ItemActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
       <button
         type="button"
         onClick={onEdit}
-        className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+        className="rounded-lg border border-ui-border-soft bg-ui-surface px-2.5 py-1 text-xs font-semibold text-slate-200 transition hover:bg-ui-chrome-soft"
       >
         Edit
       </button>
       <button
         type="button"
         onClick={onDelete}
-        className="rounded-lg border border-rose-200 px-2.5 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
+        className="rounded-lg border border-rose-500/50 px-2.5 py-1 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/15"
       >
         Delete
       </button>
@@ -112,11 +112,11 @@ function PoiRows({
   }
 
   return (
-    <div className="mt-3 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+    <div className="mt-3 space-y-3 rounded-xl border border-ui-border bg-ui-surface-alt p-3">
       {groupedByDate.map(([date, datePois]) => (
         <div key={date} className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">
               Points of interest
             </p>
             <DateChip date={date} active={selectedDate === date} onClick={onSelectDate} />
@@ -133,24 +133,24 @@ function PoiRows({
                   key={poi.id}
                   ref={registerItemRef(poi.id)}
                   onClick={() => onSelectEntity({ kind: "point_of_interest", stopId: poi.id })}
-                  className={`cursor-pointer rounded-xl border bg-white p-3 transition ${
+                  className={`cursor-pointer rounded-xl border bg-ui-raised p-3 transition ${
                     exactSelected
                       ? stopRowSelectedClass
                       : daySelected
-                        ? "border-sky-200 bg-sky-50/30"
-                        : "border-slate-200 hover:border-slate-300"
+                        ? "border-ui-accent/70 bg-ui-accent-strong/25"
+                        : "border-ui-border hover:border-slate-600"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100 text-orange-700">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-500/20 text-orange-300">
                           <StopTypeIcon kind="point_of_interest" className="h-4 w-4" />
                         </span>
-                        <p className="text-sm font-semibold text-slate-900">{poi.title}</p>
+                        <p className="text-sm font-semibold text-slate-100">{poi.title}</p>
                       </div>
-                      <p className="mt-1 text-xs text-slate-600">{poi.place.label}</p>
-                      {poi.notes ? <p className="mt-1 text-xs text-slate-500">{poi.notes}</p> : null}
+                      <p className="mt-1 text-xs text-slate-300">{poi.place.label}</p>
+                      {poi.notes ? <p className="mt-1 text-xs text-slate-400">{poi.notes}</p> : null}
                     </div>
 
                     <ItemActions onEdit={() => onEdit(poi)} onDelete={() => onDelete(poi)} />
@@ -211,7 +211,7 @@ export default function ItinerarySections({
 
   if (sections.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500">
+      <div className="rounded-2xl border border-dashed border-ui-border bg-ui-surface px-4 py-8 text-center text-sm text-slate-400">
         No itinerary sections yet. Add a campsite, ferry, or POI to start planning.
       </div>
     );
@@ -229,37 +229,37 @@ export default function ItinerarySections({
             <section
               key={section.id}
               ref={registerSectionRef(section.id)}
-              className={`rounded-2xl border bg-white p-3 shadow-sm transition ${
+              className={`rounded-2xl border bg-ui-raised p-3 shadow-sm transition ${
                 staySelected
                   ? stopRowSelectedClass
                   : daySelected
-                    ? "border-sky-200 bg-sky-50/20"
-                    : "border-slate-200"
+                    ? "border-ui-accent/70 bg-ui-accent-strong/25"
+                    : "border-ui-border"
               }`}
             >
               <div
                 ref={registerItemRef(section.stay.id)}
                 onClick={() => onSelectEntity({ kind: "stay", stopId: section.stay.id })}
-                className="cursor-pointer rounded-xl border border-transparent p-1 transition hover:bg-slate-50"
+                className="cursor-pointer rounded-xl border border-transparent p-1 transition hover:bg-ui-chrome-soft/60"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300">
                         <StopTypeIcon kind="stay" className="h-4 w-4" />
                       </span>
                       <div>
-                        <p className="text-sm font-semibold text-slate-900">{section.stay.title}</p>
-                        <p className="text-xs text-slate-600">{section.stay.place.label}</p>
+                        <p className="text-sm font-semibold text-slate-100">{section.stay.title}</p>
+                        <p className="text-xs text-slate-300">{section.stay.place.label}</p>
                       </div>
                     </div>
-                    <p className="mt-2 text-xs text-slate-500">{stayWindowLabel(section.stay)}</p>
-                    <p className="mt-1 text-xs font-medium text-slate-600">
+                    <p className="mt-2 text-xs text-slate-400">{stayWindowLabel(section.stay)}</p>
+                    <p className="mt-1 text-xs font-medium text-slate-300">
                       {formatDateOnly(dateOnlyFromIso(section.stay.checkInAt))} -{" "}
                       {formatDateOnly(dateOnlyFromIso(section.stay.checkOutAt))}
                     </p>
                     {section.stay.notes ? (
-                      <p className="mt-1 text-xs text-slate-500">{section.stay.notes}</p>
+                      <p className="mt-1 text-xs text-slate-400">{section.stay.notes}</p>
                     ) : null}
                   </div>
 
@@ -293,38 +293,38 @@ export default function ItinerarySections({
             <section
               key={section.id}
               ref={registerSectionRef(section.id)}
-              className={`rounded-2xl border bg-white p-3 shadow-sm transition ${
+              className={`rounded-2xl border bg-ui-raised p-3 shadow-sm transition ${
                 exactSelected
                   ? stopRowSelectedClass
                   : daySelected
-                    ? "border-sky-200 bg-sky-50/20"
-                    : "border-slate-200"
+                    ? "border-ui-accent/70 bg-ui-accent-strong/25"
+                    : "border-ui-border"
               }`}
             >
               <div
                 ref={registerItemRef(section.ferry.id)}
                 onClick={() => onSelectEntity({ kind: "ferry", stopId: section.ferry.id })}
-                className="cursor-pointer"
+                className="cursor-pointer rounded-xl border border-transparent p-1 transition hover:bg-ui-chrome-soft/60"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-100 text-cyan-700">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-300">
                         <StopTypeIcon kind="ferry" className="h-4 w-4" />
                       </span>
                       <div>
-                        <p className="text-sm font-semibold text-slate-900">{section.ferry.title}</p>
-                        <p className="text-xs text-slate-600">
+                        <p className="text-sm font-semibold text-slate-100">{section.ferry.title}</p>
+                        <p className="text-xs text-slate-300">
                           {section.ferry.departurePort.label} to {section.ferry.arrivalPort.label}
                         </p>
                       </div>
                     </div>
-                    <p className="mt-2 text-xs text-slate-500">{ferryWindowLabel(section.ferry)}</p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-2 text-xs text-slate-400">{ferryWindowLabel(section.ferry)}</p>
+                    <p className="mt-1 text-xs text-slate-400">
                       Check-in by {formatDateTime(section.ferry.checkInBy)}
                     </p>
                     {section.ferry.notes ? (
-                      <p className="mt-1 text-xs text-slate-500">{section.ferry.notes}</p>
+                      <p className="mt-1 text-xs text-slate-400">{section.ferry.notes}</p>
                     ) : null}
                   </div>
 
@@ -352,32 +352,32 @@ export default function ItinerarySections({
           <section
             key={section.id}
             ref={registerSectionRef(section.id)}
-            className={`rounded-2xl border bg-white p-3 shadow-sm transition ${
+            className={`rounded-2xl border bg-ui-raised p-3 shadow-sm transition ${
               exactSelected
                 ? stopRowSelectedClass
                 : daySelected
-                  ? "border-sky-200 bg-sky-50/20"
-                  : "border-slate-200"
+                  ? "border-ui-accent/70 bg-ui-accent-strong/25"
+                  : "border-ui-border"
             }`}
           >
             <div
               ref={registerItemRef(section.poi.id)}
               onClick={() => onSelectEntity({ kind: "point_of_interest", stopId: section.poi.id })}
-              className="cursor-pointer"
+              className="cursor-pointer rounded-xl border border-transparent p-1 transition hover:bg-ui-chrome-soft/60"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-orange-700">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/20 text-orange-300">
                       <StopTypeIcon kind="point_of_interest" className="h-4 w-4" />
                     </span>
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">{section.poi.title}</p>
-                      <p className="text-xs text-slate-600">{section.poi.place.label}</p>
+                      <p className="text-sm font-semibold text-slate-100">{section.poi.title}</p>
+                      <p className="text-xs text-slate-300">{section.poi.place.label}</p>
                     </div>
                   </div>
                   {section.poi.notes ? (
-                    <p className="mt-2 text-xs text-slate-500">{section.poi.notes}</p>
+                    <p className="mt-2 text-xs text-slate-400">{section.poi.notes}</p>
                   ) : null}
                 </div>
 
