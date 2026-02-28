@@ -33,6 +33,12 @@ const MAP_STYLE: maplibregl.StyleSpecification = {
   ],
 };
 
+const DETAIL_ZOOM = 10.5;
+const OVERVIEW_MIN_ZOOM = 8;
+const OVERVIEW_MAX_ZOOM = 10;
+const OVERVIEW_DURATION_MS = 680;
+const CAMERA_DURATION_MS = 620;
+
 type PlannerMapProps = {
   trip: Trip;
   markers: MapMarker[];
@@ -168,7 +174,6 @@ export default function PlannerMap({
   const segmentsRef = useRef(segments);
   const selectedEntityRef = useRef(selectedEntity);
   const selectionOriginRef = useRef(selectionOrigin);
-  const cameraModeRef = useRef<"overview" | "focused">("overview");
 
   useEffect(() => {
     onSelectEntityRef.current = onSelectEntity;
@@ -236,7 +241,45 @@ export default function PlannerMap({
     [segments, selectedEntity],
   );
 
-  const fitAll = useCallback((map: maplibregl.Map) => {
+  const markerFeatureCollectionRef = useRef(markerFeatureCollection);
+  const segmentFeatureCollectionRef = useRef(segmentFeatureCollection);
+  const hasFocusedFromOverviewRef = useRef(false);
+  const lastSelectionRef = useRef<string | null>(null);
+  const lastSelectionOriginRef = useRef<"itinerary" | "map" | "system" | null>(null);
+  const pendingMapClickAnchorRef = useRef<maplibregl.LngLatLike | null>(null);
+
+  useEffect(() => {
+    markerFeatureCollectionRef.current = markerFeatureCollection;
+    segmentFeatureCollectionRef.current = segmentFeatureCollection;
+  }, [markerFeatureCollection, segmentFeatureCollection]);
+
+  const getFerryMarkersForStop = useCallback((stopId: string): MapMarker[] => {
+    return markersRef.current.filter(
+      (marker) => marker.stopId === stopId && marker.entityKind === "ferry",
+    );
+  }, []);
+
+  const getFerryMidpoint = useCallback(
+    (stopId: string): [number, number] | null => {
+      const ferryMarkers = getFerryMarkersForStop(stopId);
+
+      if (ferryMarkers.length === 0) {
+        return null;
+      }
+
+      if (ferryMarkers.length === 1) {
+        return [ferryMarkers[0].coordinates.lng, ferryMarkers[0].coordinates.lat];
+      }
+
+      return [
+        (ferryMarkers[0].coordinates.lng + ferryMarkers[1].coordinates.lng) / 2,
+        (ferryMarkers[0].coordinates.lat + ferryMarkers[1].coordinates.lat) / 2,
+      ];
+    },
+    [getFerryMarkersForStop],
+  );
+
+  const fitOverview = useCallback((map: maplibregl.Map) => {
     if (markersRef.current.length === 0) {
       return;
     }
@@ -246,95 +289,87 @@ export default function PlannerMap({
       bounds.extend([marker.coordinates.lng, marker.coordinates.lat]);
     });
 
-    if (!bounds.isEmpty()) {
-      map.fitBounds(bounds, {
-        padding: 60,
-        maxZoom: 10,
-        duration: 500,
-      });
-    }
-  }, []);
-
-  const getFerryMidpoint = useCallback((stopId: string): [number, number] | null => {
-    const ferryMarkers = markersRef.current.filter(
-      (marker) => marker.stopId === stopId && marker.entityKind === "ferry",
-    );
-
-    if (ferryMarkers.length === 0) {
-      return null;
-    }
-
-    if (ferryMarkers.length === 1) {
-      return [ferryMarkers[0].coordinates.lng, ferryMarkers[0].coordinates.lat];
-    }
-
-    return [
-      (ferryMarkers[0].coordinates.lng + ferryMarkers[1].coordinates.lng) / 2,
-      (ferryMarkers[0].coordinates.lat + ferryMarkers[1].coordinates.lat) / 2,
-    ];
-  }, []);
-
-  const focusSelected = useCallback((map: maplibregl.Map) => {
-    const selection = selectedEntityRef.current;
-    if (!selection) {
-      fitAll(map);
+    if (bounds.isEmpty()) {
       return;
     }
 
-    if (selection.kind === "ferry") {
-      const ferryMarkers = markersRef.current.filter(
-        (marker) => marker.stopId === selection.stopId && marker.entityKind === "ferry",
-      );
-      if (ferryMarkers.length > 0) {
-        const bounds = new LngLatBounds();
-        ferryMarkers.forEach((marker) => bounds.extend([marker.coordinates.lng, marker.coordinates.lat]));
-        map.fitBounds(bounds, { padding: 80, maxZoom: 10, duration: 450 });
-        return;
-      }
-    }
+    map.fitBounds(bounds, {
+      padding: 60,
+      maxZoom: OVERVIEW_MAX_ZOOM,
+      duration: OVERVIEW_DURATION_MS,
+    });
 
-    const marker = markersRef.current.find(
-      (candidate) => candidate.stopId === selection.stopId && candidate.entityKind === selection.kind,
-    );
-
-    if (marker) {
-      map.flyTo({ center: [marker.coordinates.lng, marker.coordinates.lat], zoom: 9.5, duration: 450 });
-      return;
-    }
-
-    fitAll(map);
-  }, [fitAll]);
-
-  const panToSelectionPreserveZoom = useCallback((map: maplibregl.Map) => {
-    const selection = selectedEntityRef.current;
-    if (!selection) {
-      return;
-    }
-
-    if (selection.kind === "ferry") {
-      const midpoint = getFerryMidpoint(selection.stopId);
-      if (midpoint) {
-        map.flyTo({
-          center: midpoint,
-          zoom: map.getZoom(),
-          duration: 450,
+    map.once("moveend", () => {
+      if (map.getZoom() < OVERVIEW_MIN_ZOOM) {
+        map.easeTo({
+          zoom: OVERVIEW_MIN_ZOOM,
+          duration: 260,
+          essential: true,
         });
       }
-      return;
-    }
+    });
 
-    const marker = markersRef.current.find(
-      (candidate) => candidate.stopId === selection.stopId && candidate.entityKind === selection.kind,
-    );
+    hasFocusedFromOverviewRef.current = false;
+    lastSelectionRef.current = null;
+    lastSelectionOriginRef.current = null;
+  }, []);
 
-    if (marker) {
+  const getSelectionCenter = useCallback(
+    (selection: Exclude<SelectedEntity, null>): [number, number] | null => {
+      if (selection.kind === "ferry") {
+        return getFerryMidpoint(selection.stopId);
+      }
+
+      const marker = markersRef.current.find(
+        (candidate) => candidate.stopId === selection.stopId && candidate.entityKind === selection.kind,
+      );
+      if (!marker) {
+        return null;
+      }
+
+      return [marker.coordinates.lng, marker.coordinates.lat];
+    },
+    [getFerryMidpoint],
+  );
+
+  const animatePanZoom = useCallback(
+    (map: maplibregl.Map, center: [number, number], zoom: number) => {
       map.flyTo({
-        center: [marker.coordinates.lng, marker.coordinates.lat],
-        zoom: map.getZoom(),
-        duration: 450,
+        center,
+        zoom,
+        duration: CAMERA_DURATION_MS,
+        curve: 1.25,
+        speed: 0.9,
+        essential: true,
       });
-    }
-  }, [getFerryMidpoint]);
+    },
+    [],
+  );
+
+  const focusFerryPorts = useCallback(
+    (map: maplibregl.Map, stopId: string): boolean => {
+      const ferryMarkers = getFerryMarkersForStop(stopId);
+
+      if (ferryMarkers.length === 0) {
+        return false;
+      }
+
+      if (ferryMarkers.length === 1) {
+        animatePanZoom(map, [ferryMarkers[0].coordinates.lng, ferryMarkers[0].coordinates.lat], DETAIL_ZOOM);
+        return true;
+      }
+
+      const bounds = new LngLatBounds();
+      ferryMarkers.forEach((marker) => bounds.extend([marker.coordinates.lng, marker.coordinates.lat]));
+      map.fitBounds(bounds, {
+        padding: 90,
+        maxZoom: DETAIL_ZOOM,
+        duration: CAMERA_DURATION_MS,
+      });
+      return true;
+    },
+    [animatePanZoom, getFerryMarkersForStop],
+  );
 
   const openPopupForSelection = (
     map: maplibregl.Map,
@@ -397,12 +432,12 @@ export default function PlannerMap({
     map.on("load", () => {
       map.addSource("markers", {
         type: "geojson",
-        data: markerFeatureCollection,
+        data: markerFeatureCollectionRef.current,
       });
 
       map.addSource("segments", {
         type: "geojson",
-        data: segmentFeatureCollection,
+        data: segmentFeatureCollectionRef.current,
       });
 
       map.addLayer({
@@ -563,8 +598,8 @@ export default function PlannerMap({
         }
 
         const nextSelection = { kind: entityKind, stopId } as Exclude<SelectedEntity, null>;
+        pendingMapClickAnchorRef.current = event.lngLat;
         onSelectEntityRef.current(nextSelection);
-        openPopupForSelection(map, nextSelection, event.lngLat);
       });
 
       map.on("click", "ferry-segments-hit", (event) => {
@@ -575,12 +610,11 @@ export default function PlannerMap({
         }
 
         const nextSelection: Exclude<SelectedEntity, null> = { kind: "ferry", stopId };
+        pendingMapClickAnchorRef.current = event.lngLat;
         onSelectEntityRef.current(nextSelection);
-        openPopupForSelection(map, nextSelection, event.lngLat);
       });
 
-      fitAll(map);
-      cameraModeRef.current = "overview";
+      fitOverview(map);
     });
 
     mapRef.current = map;
@@ -591,7 +625,7 @@ export default function PlannerMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [fitAll, markerFeatureCollection, segmentFeatureCollection]);
+  }, [fitOverview]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -611,10 +645,9 @@ export default function PlannerMap({
       return;
     }
 
-    fitAll(map);
-    cameraModeRef.current = "overview";
+    fitOverview(map);
     // geometrySignature intentionally excludes selection flags so the map does not re-fit on selection.
-  }, [fitAll, geometrySignature]);
+  }, [fitOverview, geometrySignature]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -633,23 +666,50 @@ export default function PlannerMap({
       return;
     }
 
-    if (selectedEntity && selectionOriginRef.current === "itinerary") {
-      if (cameraModeRef.current === "overview") {
-        focusSelected(map);
-        cameraModeRef.current = "focused";
-      } else {
-        panToSelectionPreserveZoom(map);
-      }
-    }
+    const selection = selectedEntityRef.current;
+    const origin = selectionOriginRef.current;
 
-    if (!selectedEntity) {
+    if (!selection) {
       popupRef.current?.remove();
       popupRef.current = null;
+      lastSelectionRef.current = null;
+      lastSelectionOriginRef.current = null;
+      pendingMapClickAnchorRef.current = null;
       return;
     }
 
-    openPopupForSelection(map, selectedEntity);
-  }, [focusSelected, isVisible, panToSelectionPreserveZoom, selectedEntity, trip]);
+    const selectionKey = `${selection.kind}:${selection.stopId}`;
+    const isSameSelection =
+      lastSelectionRef.current === selectionKey &&
+      lastSelectionOriginRef.current === origin &&
+      !pendingMapClickAnchorRef.current;
+
+    if (!isSameSelection) {
+      if (selection.kind === "ferry") {
+        focusFerryPorts(map, selection.stopId);
+      } else {
+        const center = getSelectionCenter(selection);
+        if (center) {
+          animatePanZoom(map, center, DETAIL_ZOOM);
+        }
+      }
+
+      hasFocusedFromOverviewRef.current = true;
+    }
+
+    openPopupForSelection(map, selection, pendingMapClickAnchorRef.current ?? undefined);
+    pendingMapClickAnchorRef.current = null;
+    lastSelectionRef.current = selectionKey;
+    lastSelectionOriginRef.current = origin;
+  }, [
+    animatePanZoom,
+    focusFerryPorts,
+    getSelectionCenter,
+    isVisible,
+    selectedEntity,
+    selectionOrigin,
+    trip,
+  ]);
 
   const currentSelectionTitle = selectedTitle(trip, selectedEntity);
 
@@ -664,8 +724,7 @@ export default function PlannerMap({
             onClick={() => {
               const map = mapRef.current;
               if (map) {
-                fitAll(map);
-                cameraModeRef.current = "overview";
+                fitOverview(map);
                 popupRef.current?.remove();
                 popupRef.current = null;
               }

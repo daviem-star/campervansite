@@ -195,7 +195,7 @@ export default function PlannerApp() {
     <>
       <div className="min-h-screen bg-slate-100/80 pb-6">
         <div className="mx-auto flex w-full max-w-[1750px] flex-col gap-4 p-3 lg:h-screen lg:flex-row lg:items-stretch lg:p-4">
-          <section className="rounded-3xl bg-white/30 p-1 lg:h-full lg:w-[46%] lg:overflow-hidden">
+          <section className="rounded-3xl bg-white/30 p-1 lg:h-full lg:w-[52%] lg:overflow-hidden">
             <div className="rounded-3xl p-2 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:gap-4">
               <TripHeader
                 tripName={activeTrip.name}
@@ -338,7 +338,7 @@ export default function PlannerApp() {
             </div>
           </section>
 
-          <aside className="hidden h-full lg:block lg:w-[54%]">
+          <aside className="hidden h-full lg:block lg:w-[48%]">
             {renderPlannerMap(true)}
           </aside>
         </div>
