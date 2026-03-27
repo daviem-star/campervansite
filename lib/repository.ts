@@ -10,17 +10,21 @@ export interface TripRepository {
   resetToSeedAlignedToToday(): Promise<AppDataV1>;
 }
 
-const isValidAppDataV1 = (value: unknown): value is AppDataV1 => {
+export const isValidAppDataV1 = (value: unknown): value is AppDataV1 => {
   if (!value || typeof value !== "object") {
     return false;
   }
 
   const candidate = value as Partial<AppDataV1>;
-  return (
+  if (
     candidate.schemaVersion === 1 &&
     typeof candidate.activeTripId === "string" &&
     Array.isArray(candidate.trips)
-  );
+  ) {
+    return candidate.trips.some((trip) => trip.id === candidate.activeTripId);
+  }
+
+  return false;
 };
 
 export class LocalStorageTripRepository implements TripRepository {

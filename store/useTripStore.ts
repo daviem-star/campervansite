@@ -4,7 +4,7 @@ import { create } from "zustand";
 
 import { nowIso } from "@/lib/date";
 import { ensureStopOrder } from "@/lib/tripDerived";
-import { LocalStorageTripRepository } from "@/lib/repository";
+import { isValidAppDataV1, LocalStorageTripRepository } from "@/lib/repository";
 import { AppDataV1, NewTripStop, Trip, TripStop } from "@/types/trip";
 
 const repository = new LocalStorageTripRepository();
@@ -22,8 +22,13 @@ type TripStoreState = {
   isLoading: boolean;
   error: string | null;
   loadData: () => Promise<void>;
+  setActiveTrip: (tripId: string) => Promise<void>;
+  createTrip: (name: string) => Promise<Trip | null>;
+  deleteTrip: (tripId: string) => Promise<void>;
   resetToSeed: () => Promise<void>;
   resetToSeedAlignedToToday: () => Promise<void>;
+  exportData: () => string | null;
+  importData: (jsonText: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   updateTrip: (nextTrip: Trip) => Promise<void>;
   addStop: (newStop: NewTripStop) => Promise<void>;
   updateStop: (stopId: string, updater: (stop: TripStop) => TripStop) => Promise<void>;
@@ -41,6 +46,23 @@ const saveData = async (
 ): Promise<void> => {
   await repository.save(data);
   set({ data, error: null });
+};
+
+const createBlankTrip = (name: string): Trip => {
+  const timestamp = nowIso();
+  const trimmedName = name.trim();
+  return {
+    id: generateId(),
+    name: trimmedName.length > 0 ? trimmedName : "Untitled trip",
+    timezone: "Europe/London",
+    home: {
+      label: "Set home location",
+      coordinates: { lat: 56.0423, lng: -4.3649 },
+    },
+    stops: [],
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
 };
 
 const updateActiveTripInData = (
@@ -78,6 +100,70 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
     }
   },
 
+  setActiveTrip: async (tripId) => {
+    const currentData = get().data;
+    if (!currentData) {
+      return;
+    }
+
+    const exists = currentData.trips.some((trip) => trip.id === tripId);
+    if (!exists) {
+      set({ error: "Trip not found." });
+      return;
+    }
+
+    const nextData: AppDataV1 = {
+      ...currentData,
+      activeTripId: tripId,
+    };
+
+    await saveData(set, nextData);
+  },
+
+  createTrip: async (name) => {
+    const currentData = get().data;
+    if (!currentData) {
+      return null;
+    }
+
+    const nextTrip = createBlankTrip(name);
+    const nextData: AppDataV1 = {
+      ...currentData,
+      activeTripId: nextTrip.id,
+      trips: [...currentData.trips, nextTrip],
+    };
+
+    await saveData(set, nextData);
+    return nextTrip;
+  },
+
+  deleteTrip: async (tripId) => {
+    const currentData = get().data;
+    if (!currentData) {
+      return;
+    }
+
+    if (currentData.trips.length <= 1) {
+      set({ error: "At least one trip must remain." });
+      return;
+    }
+
+    const remaining = currentData.trips.filter((trip) => trip.id !== tripId);
+    if (remaining.length === currentData.trips.length) {
+      return;
+    }
+
+    const nextActiveTripId =
+      currentData.activeTripId === tripId ? remaining[0]?.id ?? currentData.activeTripId : currentData.activeTripId;
+    const nextData: AppDataV1 = {
+      ...currentData,
+      activeTripId: nextActiveTripId,
+      trips: remaining,
+    };
+
+    await saveData(set, nextData);
+  },
+
   resetToSeed: async () => {
     const seed = await repository.resetToSeed();
     set({ data: seed, error: null });
@@ -86,6 +172,29 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
   resetToSeedAlignedToToday: async () => {
     const shifted = await repository.resetToSeedAlignedToToday();
     set({ data: shifted, error: null });
+  },
+
+  exportData: () => {
+    const currentData = get().data;
+    if (!currentData) {
+      return null;
+    }
+
+    return JSON.stringify(currentData, null, 2);
+  },
+
+  importData: async (jsonText) => {
+    try {
+      const parsed: unknown = JSON.parse(jsonText);
+      if (!isValidAppDataV1(parsed)) {
+        return { ok: false, error: "Invalid trip data format." };
+      }
+
+      await saveData(set, parsed);
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Could not parse JSON file." };
+    }
   },
 
   updateTrip: async (nextTrip) => {

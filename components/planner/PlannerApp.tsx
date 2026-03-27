@@ -39,6 +39,13 @@ type SidebarItem = {
   icon: ReactNode;
 };
 
+type PlannerAppProps = {
+  onBackToTrips: () => void;
+  onExportData: () => void;
+  onImportData: () => void;
+  onLoadAlignedSeed: () => void;
+};
+
 const defaultEditorState: EditorState = {
   isOpen: false,
   mode: "create",
@@ -53,7 +60,7 @@ const sidebarItems: SidebarItem[] = [
     hint: "Description, details and cost",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
-        <path d="M6 5h12M6 12h12M6 19h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M5 6h14M5 12h14M5 18h8" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -66,7 +73,7 @@ const sidebarItems: SidebarItem[] = [
         <path
           d="M7 4v3m10-3v3M5 9h14M6 20h12a1 1 0 001-1V8a1 1 0 00-1-1H6a1 1 0 00-1 1v11a1 1 0 001 1z"
           stroke="currentColor"
-          strokeWidth="1.8"
+          strokeWidth="1.75"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -82,11 +89,11 @@ const sidebarItems: SidebarItem[] = [
         <path
           d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2V6z"
           stroke="currentColor"
-          strokeWidth="1.8"
+          strokeWidth="1.75"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-        <path d="M9 4v14M15 6v14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M9 4v14M15 6v14" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -149,7 +156,12 @@ function SidebarNavItem({
   );
 }
 
-export default function PlannerApp() {
+export default function PlannerApp({
+  onBackToTrips,
+  onExportData,
+  onImportData,
+  onLoadAlignedSeed,
+}: PlannerAppProps) {
   const {
     data,
     isLoading,
@@ -265,13 +277,22 @@ export default function PlannerApp() {
         <div className="flex min-h-[360px] items-center justify-center px-4 py-10">
           <div className="rounded-2xl border border-ui-border bg-ui-raised p-6 text-center shadow-sm">
             <p className="text-sm text-slate-300">{error ?? "No trip loaded."}</p>
-            <button
-              type="button"
-              onClick={() => void loadData()}
-              className="mt-3 rounded-xl border border-ui-border-soft bg-ui-overlay px-4 py-2 text-sm font-semibold text-white transition hover:border-slate-300"
-            >
-              Reload
-            </button>
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={onBackToTrips}
+                className="rounded-xl border border-ui-border-soft bg-ui-overlay px-4 py-2 text-sm font-semibold text-white transition hover:border-slate-300"
+              >
+                Back to trips
+              </button>
+              <button
+                type="button"
+                onClick={() => void loadData()}
+                className="rounded-xl border border-ui-border-soft bg-ui-overlay px-4 py-2 text-sm font-semibold text-white transition hover:border-slate-300"
+              >
+                Reload
+              </button>
+            </div>
           </div>
         </div>
       </PlannerChrome>
@@ -304,7 +325,24 @@ export default function PlannerApp() {
           >
             <div className="mb-4 px-3">
               <div className="flex h-10 items-center">
-                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400 via-indigo-500 to-fuchsia-600" />
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-ui-border bg-ui-raised text-slate-200">
+                  <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+                    <path
+                      d="M4 13h13l2.2-3.2a1.1 1.1 0 00-.9-1.8H7.5a3.5 3.5 0 00-2.8 1.4L4 10.5V13z"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M4 13v2.8A1.2 1.2 0 005.2 17h1m12.8-4v2.8a1.2 1.2 0 01-1.2 1.2h-1M8 17a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm11 0a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
                 <span
                   className={`ml-3 overflow-hidden whitespace-nowrap text-lg font-semibold tracking-tight text-slate-100 transition-all duration-200 ${
                     desktopSidebarExpanded ? "max-w-[160px] opacity-100" : "max-w-0 opacity-0"
@@ -358,6 +396,13 @@ export default function PlannerApp() {
                   {sidebarItems.find((item) => item.id === activePanel)?.label}
                 </p>
               </div>
+              <button
+                type="button"
+                onClick={onBackToTrips}
+                className="ml-auto rounded-lg border border-ui-border bg-ui-overlay px-3 py-1.5 text-xs font-semibold text-slate-200 transition hover:border-slate-500"
+              >
+                Trips
+              </button>
             </div>
 
             <section className="flex-1 min-h-0 p-3 md:overflow-hidden md:p-4">
@@ -370,6 +415,12 @@ export default function PlannerApp() {
                       dateRangeLabel={formatTripDateRange(activeTrip)}
                       totalNights={costSummary.totalNights}
                       totalCost={costSummary.totalCost}
+                      stopCount={activeTrip.stops.length}
+                      updatedAt={activeTrip.updatedAt}
+                      onBackToTrips={onBackToTrips}
+                      onExportData={onExportData}
+                      onImportData={onImportData}
+                      onLoadAlignedSeed={onLoadAlignedSeed}
                     />
                     <div className="rounded-2xl border border-ui-border bg-ui-raised px-4 py-3 text-sm text-slate-300">
                       This panel centralizes trip description, details, and cost summary.
@@ -474,13 +525,25 @@ export default function PlannerApp() {
           >
             <div className="mb-3 flex items-center justify-between">
               <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-400">Navigation</p>
-              <button
-                type="button"
-                onClick={() => setMobileSidebarOpen(false)}
-                className="rounded-lg border border-ui-border px-2 py-1 text-xs text-slate-300 transition hover:border-slate-500"
-              >
-                Close
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileSidebarOpen(false);
+                    onBackToTrips();
+                  }}
+                  className="rounded-lg border border-ui-border px-2 py-1 text-xs text-slate-300 transition hover:border-slate-500"
+                >
+                  Trips
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileSidebarOpen(false)}
+                  className="rounded-lg border border-ui-border px-2 py-1 text-xs text-slate-300 transition hover:border-slate-500"
+                >
+                  Close
+                </button>
+              </div>
             </div>
 
             <nav className="space-y-1.5">
