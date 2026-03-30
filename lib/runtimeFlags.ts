@@ -7,3 +7,7 @@ export const shouldForceDemoMode = (): boolean => {
 
   return window.localStorage.getItem(FORCE_DEMO_MODE_STORAGE_KEY) === "1";
 };
+
+export const isOpenRouteServiceDebugEnabled = (): boolean => {
+  return process.env.NEXT_PUBLIC_OPENROUTESERVICE_DEBUG === "1";
+};

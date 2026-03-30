@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { toIsoFromLocalInput } from "@/lib/date";
 import {
+  buildTravelLegSignature,
   buildTravelEstimateRequests,
   getValidationWarnings,
 } from "@/lib/tripDerived";
@@ -91,6 +92,26 @@ describe("tripDerived", () => {
     });
   });
 
+  it("builds a stable travel-leg signature from ordered route requests", () => {
+    const trip = buildTrip();
+    const requests = buildTravelEstimateRequests(trip);
+    const updatedTrip: Trip = {
+      ...trip,
+      stops: trip.stops.map((stop) =>
+        stop.id === "stay-1"
+          ? {
+              ...stop,
+              notes: "Updated notes only",
+            }
+          : stop,
+      ),
+    };
+
+    expect(buildTravelLegSignature(requests)).toBe(
+      buildTravelLegSignature(buildTravelEstimateRequests(updatedTrip)),
+    );
+  });
+
   it("produces ferry check-in and drive-day validation warnings", () => {
     const trip = buildTrip();
     const estimates: TravelLegEstimate[] = [
@@ -149,5 +170,38 @@ describe("tripDerived", () => {
     expect(warnings.some((warning) => warning.kind === "ferry_check_in")).toBe(true);
     expect(warnings.some((warning) => warning.kind === "drive_day")).toBe(true);
     expect(warnings.some((warning) => warning.kind === "travel_feasibility")).toBe(true);
+    expect(warnings.some((warning) => warning.kind === "route_confidence")).toBe(true);
+  });
+
+  it("adds a low-severity route confidence warning for fallback-only days", () => {
+    const trip = buildTrip();
+    const estimates: TravelLegEstimate[] = [
+      {
+        id: "road-home-stay-1",
+        fromId: "home",
+        fromLabel: "Home",
+        toId: "stay-1",
+        toLabel: "Camp one",
+        kind: "road",
+        distanceKm: 40,
+        durationMinutes: 35,
+        bufferedDurationMinutes: 50,
+        provider: "fallback_haversine",
+        fetchedAt: new Date().toISOString(),
+        confidence: "fallback",
+        date: "2026-04-03",
+        relatedStopId: "stay-1",
+      },
+    ];
+
+    const warnings = getValidationWarnings(trip, estimates);
+    const routeConfidenceWarning = warnings.find(
+      (warning) => warning.kind === "route_confidence",
+    );
+
+    expect(routeConfidenceWarning).toMatchObject({
+      severity: "low",
+      date: "2026-04-03",
+    });
   });
 });
