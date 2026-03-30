@@ -1,5 +1,7 @@
 "use client";
 
+import PlannerBrandBadge from "@/components/planner/PlannerBrandBadge";
+
 type TripHeaderProps = {
   tripName: string;
   homeLabel: string;
@@ -25,6 +27,7 @@ export default function TripHeader({
     <header className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-2 flex items-start justify-between gap-4">
         <div>
+          <PlannerBrandBadge compact className="mb-3" />
           <h1 className="text-2xl font-semibold text-slate-900">{tripName}</h1>
           <p className="mt-1 text-sm text-slate-600">{dateRangeLabel}</p>
         </div>

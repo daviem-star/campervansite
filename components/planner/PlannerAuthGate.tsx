@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 
+import PlannerBrandBadge from "@/components/planner/PlannerBrandBadge";
 import { canUseLocalTestSignIn, isLocalTestSignInEnabled } from "@/lib/runtimeFlags";
 
 type PlannerAuthGateProps = {
@@ -40,10 +41,8 @@ export default function PlannerAuthGate({
       <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
           <div className="max-w-2xl">
-            <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-sky-700">
-              Campervan Trip Planner
-            </span>
-            <h1 className="mt-5 text-4xl font-semibold tracking-tight text-slate-950">
+            <PlannerBrandBadge className="mb-5" />
+            <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
               Sign in first, then plan from the full trip workspace.
             </h1>
             <p className="mt-4 text-base leading-7 text-slate-600">
