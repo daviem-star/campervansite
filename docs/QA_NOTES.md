@@ -23,21 +23,46 @@ For each issue, record:
 - Commit:
 - Build/Run mode: (`npm run dev` / `npm run start`)
 
+## Latest Hosted Smoke Pass
+
+- Date: 2026-03-30
+- Tester: Codex automation plus user-confirmed magic-link login
+- Branch: `codex/cloud-preview-activation`
+- Commit: `d6e1079`
+- Build/Run mode: protected Vercel preview
+- Preview URL: `campervansite-git-codex-cloud-prev-57af82-daviem-4121s-projects.vercel.app`
+- Deployment: `dpl_ZGnK6ce6tHCLFfDTiGZ8K4UCwtdp`
+- Result: passed
+- Coverage:
+  - Signed-out auth gate does not expose itinerary content
+  - Magic-link login confirmed by the user
+  - Fresh signed-in account auto-creates the starter cloud trip
+  - Trip save flow works and returns to saved cloud state
+  - Stay-place search works with explicit `Search` submission and saved result selection
+  - Live route estimates render on the overview panel
+  - Desktop panel switching works across `Itinerary`, `Overview`, and `Today`
+  - Same cloud trip loads in a second browser context
+  - Stale write conflict reloads the latest trip with recovery messaging
+  - Offline reopen shows the last synced trip as read-only with `Edit trip` disabled
+- Notes:
+  - Hosted smoke was exercised with `node scripts/preview-smoke.mjs <vercel-share-url>`.
+  - The failing hosted search path was repaired by removing nested form markup from `components/planner/StopSearchInput.tsx`.
+
 ## Manual QA Checklist
 
 ### Activation / Cloud Smoke
 
-- [ ] Signed-out state shows the auth gate and does not expose the example itinerary before login
-- [ ] Magic-link request shows a clear success banner with the target email
-- [ ] Signed-in empty account auto-creates the starter example trip when no legacy local data exists
+- [x] Signed-out state shows the auth gate and does not expose the example itinerary before login
+- [x] Magic-link request shows a clear success banner with the target email
+- [x] Signed-in empty account auto-creates the starter example trip when no legacy local data exists
 - [ ] Signed-in empty account with legacy local data shows the one-time import-or-example chooser
-- [ ] Cloud trip can be loaded on a second browser/device
-- [ ] Stop edit returns sync state to `Saved`
+- [x] Cloud trip can be loaded on a second browser/device
+- [x] Stop edit returns sync state to `Saved`
 - [ ] Legacy local import works once and then drops back into the main planner
-- [ ] Stale write conflict reloads the latest trip and shows recovery messaging
-- [ ] Last synced trip reopens offline in read-only mode with the global `Edit trip` control disabled
-- [ ] Stop editor place search returns submitted results after pressing `Search` and an edited place can be saved successfully
-- [ ] Route estimates succeed when OpenRouteService is configured and fall back gracefully when unavailable
+- [x] Stale write conflict reloads the latest trip and shows recovery messaging
+- [x] Last synced trip reopens offline in read-only mode with the global `Edit trip` control disabled
+- [x] Stop editor place search returns submitted results after pressing `Search` and an edited place can be saved successfully
+- [x] Route estimates succeed when OpenRouteService is configured and fall back gracefully when unavailable
 
 ### Mobile
 
@@ -59,7 +84,7 @@ For each issue, record:
 ### Desktop
 
 - [ ] Authenticated desktop defaults to the `Itinerary` panel with the map visible
-- [ ] Left rail switches cleanly between `Itinerary`, `Overview`, and `Today`
+- [x] Left rail switches cleanly between `Itinerary`, `Overview`, and `Today`
 - [ ] Lower itinerary sections remain reachable and their `Edit` actions stay clickable
 - [ ] Itinerary auto-scroll keeps the top toolbar and rail visible instead of shifting the whole planner upward
 - [ ] View mode hides mutation controls until `Edit trip` is enabled
