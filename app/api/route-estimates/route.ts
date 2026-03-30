@@ -392,6 +392,19 @@ export async function POST(request: NextRequest) {
     ...(estimate.geometry ? { geometry: estimate.geometry } : {}),
   } satisfies TravelLegEstimate));
 
+  console.info("[route-estimates]", {
+    legCount: estimateResults.length,
+    cacheHits: estimateResults.filter(({ debug }) => debug.cacheStatus === "hit").length,
+    cacheMisses: estimateResults.filter(({ debug }) => debug.cacheStatus === "miss").length,
+    cacheBypassed: estimateResults.filter(({ debug }) => debug.cacheStatus === "bypassed").length,
+    liveCount: estimateResults.filter(({ estimate }) => estimate.confidence === "live").length,
+    fallbackCount: estimateResults.filter(({ estimate }) => estimate.confidence === "fallback").length,
+    orsAttemptedCount: estimateResults.filter(({ debug }) => debug.orsAttempted).length,
+    apiKeyPresent: Boolean(process.env.OPENROUTESERVICE_API_KEY),
+    debugEnabled,
+    at: new Date().toISOString(),
+  });
+
   return NextResponse.json({
     estimates,
     ...(debugEnabled

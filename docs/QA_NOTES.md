@@ -36,7 +36,7 @@ For each issue, record:
 - [ ] Legacy local import works once and then drops back into the main planner
 - [ ] Stale write conflict reloads the latest trip and shows recovery messaging
 - [ ] Last synced trip reopens offline in read-only mode with the global `Edit trip` control disabled
-- [ ] Stop editor place search returns live results and an edited place can be saved successfully
+- [ ] Stop editor place search returns submitted results after pressing `Search` and an edited place can be saved successfully
 - [ ] Route estimates succeed when OpenRouteService is configured and fall back gracefully when unavailable
 
 ### Mobile
@@ -72,7 +72,8 @@ For each issue, record:
 
 ### Validation / Failure Handling
 
-- [ ] Geocode search: short query prompt (<2 chars)
+- [ ] Geocode search: short query prompt (<3 chars)
+- [ ] Geocode search: waits for explicit `Search` submission instead of querying on every keystroke
 - [ ] Geocode search: no matches state
 - [ ] Geocode search: service error state
 - [ ] Route-access fallback does not block stop save when snapped routing coordinates are unavailable

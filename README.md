@@ -24,7 +24,7 @@ The project is beyond the original local-only MVP. The main remaining gap is liv
 - Default to `View mode`, then explicitly unlock `Edit trip` before mutating the itinerary.
 - Visualize the itinerary on a map with road-following road legs when live routing is available, plus ferry port markers and ferry segments.
 - Show trip-day navigation, today actions, overview insights, gap warnings, route insights, and validation warnings.
-- Search for places in the stop editor and preserve separate routing coordinates when route access data is available.
+- Search for places in the stop editor with a deliberate submitted lookup and preserve separate routing coordinates when route access data is available.
 - Store campsite metadata such as booking status, hookups, hardstanding, amenities, phone, and website.
 - Store ferry metadata such as operator, booking reference, vehicle details, and check-in buffers.
 - Cache the last synced cloud trip so it can be reopened offline in read-only mode.
@@ -35,6 +35,7 @@ The project is beyond the original local-only MVP. The main remaining gap is liv
 - OpenRouteService: live route estimates and snapped route-access coordinates. The app falls back when this is not configured.
 - Vercel: intended preview and production hosting target.
 - Nominatim: live geocode lookup for place search. No extra key is currently required.
+- Map tiles: configurable via environment variable, falling back to OpenStreetMap raster tiles for private preview use.
 
 The app does not require MCP servers to run. Provider integrations may become useful later, but the normal path is still service dashboards plus environment variables.
 
@@ -53,6 +54,8 @@ Optional local-only and test flags are also documented in `.env.example`:
 - `E2E_AUTH_BYPASS`
 - `NEXT_PUBLIC_LOCAL_TEST_SIGN_IN`
 - `NEXT_PUBLIC_OPENROUTESERVICE_DEBUG`
+- `NEXT_PUBLIC_MAP_TILE_URL_TEMPLATE`
+- `NEXT_PUBLIC_MAP_TILE_ATTRIBUTION`
 
 Supabase schema setup lives in `supabase/migrations/20260328_trip_documents.sql`.
 
@@ -91,10 +94,10 @@ npm run test:e2e
 
 ## Activation Checklist
 
-1. Create the Supabase project, enable email magic-link auth, and apply the migration.
+1. Create or reuse the dedicated Supabase project, enable email magic-link auth, and apply the migration.
 2. Create an OpenRouteService API key.
-3. Add the required env vars locally and in Vercel Preview/Production.
-4. Deploy a preview build and run the smoke checklist in `docs/FOUNDATION_ACTIVATION.md`.
+3. Add the required env vars locally and in Vercel Preview, including any map tile overrides if you are not using the default OpenStreetMap raster tiles.
+4. Protect the preview deployment, keep the first wave to 1-3 testers, and run the smoke checklist in `docs/FOUNDATION_ACTIVATION.md`.
 5. Record device and smoke-pass results in `docs/QA_NOTES.md`.
 6. Treat the branch as release-ready only after auth-first entry, starter/import onboarding, save, conflict, offline, route-estimate, and place-search checks pass against live services.
 
@@ -117,8 +120,8 @@ The current codebase is late in phase 1. The next development work should contin
 ## Next Steps
 
 - Finish the hosted-service path on live infrastructure:
-  - Supabase auth and persistence
-  - Vercel preview and production wiring
+  - existing Supabase auth and persistence
+  - protected Vercel preview and then production wiring
   - OpenRouteService for live timings and route-access snapping
 - Validate the current auth-first planner shell on real devices:
   - starter/import onboarding

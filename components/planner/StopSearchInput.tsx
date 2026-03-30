@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { ensurePlaceRoutingCoordinates } from "@/lib/placeRoutingClient";
 import { GeocodeResult, PlaceRef } from "@/types/trip";
@@ -24,10 +24,12 @@ export default function StopSearchInput({
   const [isSelectingResult, setIsSelectingResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [lastSubmittedQuery, setLastSubmittedQuery] = useState("");
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setQuery(value?.label ?? "");
+    setLastSubmittedQuery(value?.label?.trim() ?? "");
   }, [value?.label]);
 
   useEffect(() => {
@@ -41,60 +43,44 @@ export default function StopSearchInput({
     return () => document.removeEventListener("mousedown", onDocumentClick);
   }, []);
 
-  useEffect(() => {
-    const normalized = query.trim();
+  const selectedLabel = useMemo(() => value?.label ?? "", [value?.label]);
+  const normalizedQuery = query.trim();
+  const hasSearchableQuery = normalizedQuery.length >= 3;
+  const showingSubmittedResults = lastSubmittedQuery === normalizedQuery;
 
-    if (normalized.length < 2) {
+  const onSearch = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsOpen(true);
+
+    if (!hasSearchableQuery) {
       setResults([]);
       setError(null);
+      setLastSubmittedQuery("");
       return;
     }
 
-    let cancelled = false;
-    const timeoutId = window.setTimeout(async () => {
-      setIsLoading(true);
-      setError(null);
+    setIsLoading(true);
+    setError(null);
+    setLastSubmittedQuery(normalizedQuery);
 
-      try {
-        const response = await fetch(`/api/geocode?q=${encodeURIComponent(normalized)}`);
-        if (cancelled) {
-          return;
-        }
-        if (!response.ok) {
-          const body = (await response.json()) as { error?: string };
-          if (cancelled) {
-            return;
-          }
-          setError(body.error ?? "Search failed.");
-          setResults([]);
-          return;
-        }
-
-        const json = (await response.json()) as GeocodeResult[];
-        if (cancelled) {
-          return;
-        }
-        setResults(json);
-      } catch {
-        if (cancelled) {
-          return;
-        }
-        setError("Location service is unavailable right now.");
+    try {
+      const response = await fetch(`/api/geocode?q=${encodeURIComponent(normalizedQuery)}`);
+      if (!response.ok) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
+        setError(body?.error ?? "Search failed.");
         setResults([]);
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        return;
       }
-    }, 350);
 
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeoutId);
-    };
-  }, [query]);
-
-  const selectedLabel = useMemo(() => value?.label ?? "", [value?.label]);
+      const json = (await response.json()) as GeocodeResult[];
+      setResults(json);
+    } catch {
+      setError("Location service is unavailable right now.");
+      setResults([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const onSelectResult = async (result: GeocodeResult) => {
     const selectionKey = `${result.osmType}-${result.osmId}-${result.lat}-${result.lng}`;
@@ -121,16 +107,27 @@ export default function StopSearchInput({
       <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
         {label}
       </label>
-      <input
-        value={query}
-        onChange={(event) => {
-          setQuery(event.target.value);
-          setIsOpen(true);
-        }}
-        onFocus={() => setIsOpen(true)}
-        placeholder={placeholder}
-        className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
-      />
+      <form onSubmit={onSearch} className="flex items-start gap-2">
+        <input
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setIsOpen(true);
+            setError(null);
+            setResults([]);
+          }}
+          onFocus={() => setIsOpen(true)}
+          placeholder={placeholder}
+          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+        />
+        <button
+          type="submit"
+          disabled={isLoading || Boolean(isSelectingResult)}
+          className="rounded-xl bg-slate-950 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          Search
+        </button>
+      </form>
 
       {selectedLabel && query === selectedLabel ? (
         <p className="mt-1 text-xs text-emerald-600">Selected</p>
@@ -150,15 +147,23 @@ export default function StopSearchInput({
             <p className="px-3 py-2 text-xs text-rose-500">{error}</p>
           ) : null}
 
-          {!isLoading && !error && query.trim().length < 2 ? (
-            <p className="px-3 py-2 text-xs text-slate-500">Type at least 2 characters.</p>
+          {!isLoading && !error && !hasSearchableQuery ? (
+            <p className="px-3 py-2 text-xs text-slate-500">
+              Type at least 3 characters, then press Search.
+            </p>
           ) : null}
 
-          {!isLoading && !error && query.trim().length >= 2 && results.length === 0 ? (
+          {!isLoading && !error && hasSearchableQuery && !showingSubmittedResults ? (
+            <p className="px-3 py-2 text-xs text-slate-500">
+              Press Search to look up this place.
+            </p>
+          ) : null}
+
+          {!isLoading && !error && showingSubmittedResults && results.length === 0 ? (
             <p className="px-3 py-2 text-xs text-slate-500">No matching locations found.</p>
           ) : null}
 
-          {!isLoading && !error
+          {!isLoading && !error && showingSubmittedResults
             ? results.map((result) => (
                 <button
                   key={`${result.osmType}-${result.osmId}-${result.lat}-${result.lng}`}

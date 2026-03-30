@@ -27,6 +27,12 @@ export async function POST(request: NextRequest) {
   const place = normalizePlaceRef(payload.place);
   const resolvedPlace = await resolvePlaceRouteAccess(place);
 
+  console.info("[route-access]", {
+    apiKeyPresent: Boolean(process.env.OPENROUTESERVICE_API_KEY),
+    resolvedRoutingCoordinates: Boolean(resolvedPlace.routingCoordinates),
+    at: new Date().toISOString(),
+  });
+
   return NextResponse.json({
     place: resolvedPlace,
   });

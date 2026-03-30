@@ -7,6 +7,7 @@ Use this runbook to take the current `main` branch from repo-complete beta found
 - Supabase auth and persistence
 - OpenRouteService route estimates and route-access snapping
 - Vercel preview and production env wiring
+- preview-only quota guardrails for search, tiles, and tester access
 - live smoke testing across devices
 - optional local-only bypass flags for deterministic testing
 
@@ -28,6 +29,9 @@ Use this runbook to take the current `main` branch from repo-complete beta found
   - `E2E_AUTH_BYPASS`
   - `NEXT_PUBLIC_LOCAL_TEST_SIGN_IN`
   - `NEXT_PUBLIC_OPENROUTESERVICE_DEBUG`
+- Optional hosted-preview tile configuration:
+  - `NEXT_PUBLIC_MAP_TILE_URL_TEMPLATE`
+  - `NEXT_PUBLIC_MAP_TILE_ATTRIBUTION`
 - Reference file:
   - `.env.example`
 
@@ -35,7 +39,7 @@ MCP servers are not required for this setup. Provider dashboards and environment
 
 ## 1. Supabase Setup
 
-1. Create a dedicated Supabase project for Campervan Trip Planner.
+1. Create or reuse the dedicated Supabase project for Campervan Trip Planner.
 2. Enable email authentication with magic links.
 3. Configure the site URL and redirect URLs for:
    - `http://localhost:3000`
@@ -74,6 +78,11 @@ Recommended for realistic routing:
 
 - `OPENROUTESERVICE_API_KEY`
 
+Optional hosted-preview tile overrides:
+
+- `NEXT_PUBLIC_MAP_TILE_URL_TEMPLATE`
+- `NEXT_PUBLIC_MAP_TILE_ATTRIBUTION`
+
 Optional local-only and test flags:
 
 - `NEXT_PUBLIC_E2E_AUTH_BYPASS`
@@ -91,10 +100,11 @@ Recommended local check after setting the live env vars:
 ## 4. Vercel Deployment
 
 1. Create or link the Vercel project for this repository.
-2. Add the environment variables to Preview and Production.
-3. Deploy a preview build.
-4. Verify the Supabase redirect URLs match the preview host before testing auth.
-5. Do not promote to production until the smoke checklist below and the wider `docs/QA_NOTES.md` device checks pass.
+2. Add the environment variables to Preview first, including any map tile overrides if you are not using the default OpenStreetMap raster tiles.
+3. Enable deployment protection for the preview and keep the first hosted wave to 1-3 testers.
+4. Deploy a preview build.
+5. Verify the Supabase redirect URLs match the preview host before testing auth.
+6. Do not promote to production until the smoke checklist below and the wider `docs/QA_NOTES.md` device checks pass.
 
 ## 5. Live-Service Smoke Checklist
 
@@ -107,7 +117,7 @@ Run this first on preview, then repeat on desktop plus at least one mobile/table
    - sees the one-time import-or-example chooser when legacy browser data exists
 4. Signed-in user can save a stop edit and the sync state returns to `Saved`.
 5. The same cloud trip opens on a second browser or device.
-6. Place search works in the stop editor and saving the edited place does not break the itinerary.
+6. Place search works in the stop editor after a deliberate submitted lookup, and saving the edited place does not break the itinerary.
 7. Route estimates show live OpenRouteService confidence when the key is valid, and fall back cleanly when the service is unavailable.
 8. If two devices edit the same trip, the stale device shows recovery messaging and reloads the latest version.
 9. If the device loses service after syncing, the app reopens the cached trip in read-only mode and disables `Edit trip`.
@@ -134,6 +144,7 @@ Activation is not the end of phase 1. After the live path works, we still need t
 
 - Record smoke and device-pass results in `docs/QA_NOTES.md`.
 - Decide whether the current console-backed `/api/analytics` endpoint is sufficient for first release or whether lightweight hosted observability is needed.
+- Review preview logs for `/api/geocode`, `/api/route-access`, and `/api/route-estimates` before expanding beyond the first 1-3 testers.
 - Confirm preview-to-production promotion criteria and env parity.
 - Only then shift primary roadmap energy into phase 2 planning-quality work.
 
@@ -142,3 +153,4 @@ Activation is not the end of phase 1. After the live path works, we still need t
 - Offline behavior is intentionally read-only for the last synced active trip in this milestone.
 - Forced demo mode and the local test-user helper are for development and automated testing, not the primary shipped experience.
 - Provider dashboards and environment variables are enough to activate the branch. MCP servers are not required.
+- The default hosted-preview tile fallback still uses OpenStreetMap raster tiles, so wider/public rollout should switch to a more durable tile provider before removing preview access limits.

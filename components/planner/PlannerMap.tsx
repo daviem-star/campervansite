@@ -8,18 +8,21 @@ import { formatDateOnly, formatDateTime } from "@/lib/date";
 import { findStopById } from "@/lib/tripDerived";
 import { MapMarker, MapSegment, SelectedEntity, StopType, Trip } from "@/types/trip";
 
+const DEFAULT_MAP_TILE_URL_TEMPLATE = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const DEFAULT_MAP_TILE_ATTRIBUTION = "&copy; OpenStreetMap contributors";
+const MAP_TILE_URL_TEMPLATE =
+  process.env.NEXT_PUBLIC_MAP_TILE_URL_TEMPLATE?.trim() || DEFAULT_MAP_TILE_URL_TEMPLATE;
+const MAP_TILE_ATTRIBUTION =
+  process.env.NEXT_PUBLIC_MAP_TILE_ATTRIBUTION?.trim() || DEFAULT_MAP_TILE_ATTRIBUTION;
+
 const MAP_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
     osm: {
       type: "raster",
-      tiles: [
-        "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      ],
+      tiles: [MAP_TILE_URL_TEMPLATE],
       tileSize: 256,
-      attribution: "&copy; OpenStreetMap contributors",
+      attribution: MAP_TILE_ATTRIBUTION,
     },
   },
   layers: [
@@ -28,7 +31,7 @@ const MAP_STYLE: maplibregl.StyleSpecification = {
       type: "raster",
       source: "osm",
       minzoom: 0,
-      maxzoom: 22,
+      maxzoom: 19,
     },
   ],
 };

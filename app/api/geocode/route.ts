@@ -7,7 +7,7 @@ type CacheEntry = {
   data: GeocodeResult[];
 };
 
-const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_TTL_MS = 30 * 60 * 1000;
 const cache = new Map<string, CacheEntry>();
 let lastNominatimCall = 0;
 
@@ -23,13 +23,19 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const q = normalizeQuery(searchParams.get("q") ?? "");
 
-  if (q.length < 2) {
-    return NextResponse.json({ error: "Query must be at least 2 characters." }, { status: 400 });
+  if (q.length < 3) {
+    return NextResponse.json({ error: "Query must be at least 3 characters." }, { status: 400 });
   }
 
   const cacheKey = q.toLowerCase();
   const cached = cache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
+    console.info("[geocode]", {
+      cacheStatus: "hit",
+      queryLength: q.length,
+      resultCount: cached.data.length,
+      at: new Date().toISOString(),
+    });
     return NextResponse.json(cached.data);
   }
 
@@ -53,10 +59,17 @@ export async function GET(request: NextRequest) {
         "User-Agent": "CampervanTripPlanner/1.0 (personal-project)",
         "Accept-Language": "en-GB",
       },
-      next: { revalidate: 300 },
+      next: { revalidate: 1800 },
     });
 
     if (!response.ok) {
+      console.warn("[geocode]", {
+        cacheStatus: "miss",
+        queryLength: q.length,
+        providerStatus: response.status,
+        resultCount: 0,
+        at: new Date().toISOString(),
+      });
       return NextResponse.json(
         { error: "Failed to search location at the moment." },
         { status: 502 },
@@ -86,8 +99,23 @@ export async function GET(request: NextRequest) {
       expiresAt: Date.now() + CACHE_TTL_MS,
     });
 
+    console.info("[geocode]", {
+      cacheStatus: "miss",
+      queryLength: q.length,
+      providerStatus: response.status,
+      resultCount: data.length,
+      at: new Date().toISOString(),
+    });
+
     return NextResponse.json(data);
   } catch {
+    console.warn("[geocode]", {
+      cacheStatus: "miss",
+      queryLength: q.length,
+      providerStatus: "network_error",
+      resultCount: 0,
+      at: new Date().toISOString(),
+    });
     return NextResponse.json(
       { error: "Unable to connect to geocoding service." },
       { status: 502 },
