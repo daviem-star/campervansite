@@ -94,8 +94,8 @@ const seedTrip: Trip = {
         routingCoordinates: { lat: 57.018002, lng: -7.439761 },
       },
       arrivalPort: {
-        label: "Eriskay Ferry Terminal",
-        coordinates: { lat: 57.0831, lng: -7.2146 },
+        label: "Eriskay Ferry Terminal, Eriskay, HS8 6JN, Scotland, United Kingdom",
+        coordinates: { lat: 57.0719, lng: -7.3088 },
       },
       departureAt: toIsoFromLocalInput("2026-08-08T15:45"),
       arrivalAt: toIsoFromLocalInput("2026-08-08T16:25"),

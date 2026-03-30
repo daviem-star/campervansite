@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { isOpenRouteServiceDebugEnabled } from "@/lib/runtimeFlags";
-import { Coordinates, TravelLegEstimate, TravelLegRequest } from "@/types/trip";
+import { Coordinates, RouteLineString, TravelLegEstimate, TravelLegRequest } from "@/types/trip";
 
 type RouteEstimateRequest = {
   legs?: TravelLegRequest[];
@@ -12,6 +12,7 @@ type EstimateValue = {
   durationMinutes: number;
   provider: string;
   confidence: "live" | "fallback";
+  geometry?: RouteLineString;
 };
 
 type CacheEntry = {
@@ -86,6 +87,39 @@ const trimBodyExcerpt = (value: string): string => {
   return value.trim().slice(0, 400);
 };
 
+const parseRouteGeometry = (value: unknown): RouteLineString | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const coordinates = value.flatMap((entry) => {
+    if (!Array.isArray(entry) || entry.length < 2) {
+      return [];
+    }
+
+    const [lng, lat] = entry;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return [];
+    }
+
+    return [
+      {
+        lat,
+        lng,
+      },
+    ];
+  });
+
+  if (coordinates.length < 2) {
+    return undefined;
+  }
+
+  return {
+    type: "LineString",
+    coordinates,
+  };
+};
+
 const parseJsonSafely = <T>(value: string): T | null => {
   try {
     return JSON.parse(value) as T;
@@ -158,7 +192,7 @@ const fetchLiveEstimate = async (
   }
 
   try {
-    const response = await fetch("https://api.openrouteservice.org/v2/directions/driving-car", {
+    const response = await fetch("https://api.openrouteservice.org/v2/directions/driving-car/geojson", {
       method: "POST",
       headers: {
         Authorization: apiKey,
@@ -204,13 +238,10 @@ const fetchLiveEstimate = async (
 
     const data = (await response.json().catch(() => null)) as
       | {
-          routes?: Array<{
-            summary?: {
-              distance?: number;
-              duration?: number;
-            };
-          }>;
           features?: Array<{
+            geometry?: {
+              coordinates?: unknown;
+            };
             properties?: {
               summary?: {
                 distance?: number;
@@ -221,9 +252,10 @@ const fetchLiveEstimate = async (
         }
       | null;
 
-    const summary = data?.routes?.[0]?.summary ?? data?.features?.[0]?.properties?.summary;
+    const summary = data?.features?.[0]?.properties?.summary;
     const distanceKm = Number(summary?.distance ?? NaN) / 1000;
     const durationMinutes = Number(summary?.duration ?? NaN) / 60;
+    const geometry = parseRouteGeometry(data?.features?.[0]?.geometry?.coordinates);
 
     if (!Number.isFinite(distanceKm) || !Number.isFinite(durationMinutes)) {
       const responseBodyExcerpt = trimBodyExcerpt(JSON.stringify(data ?? {}));
@@ -249,6 +281,7 @@ const fetchLiveEstimate = async (
       durationMinutes: Math.max(1, Math.round(durationMinutes)),
       provider: "openrouteservice_driving_car",
       confidence: "live",
+      ...(geometry ? { geometry } : {}),
     };
     const debug = {
       ...baseDebug,
@@ -356,6 +389,7 @@ export async function POST(request: NextRequest) {
     confidence: estimate.confidence,
     date: leg.date,
     relatedStopId: leg.relatedStopId,
+    ...(estimate.geometry ? { geometry: estimate.geometry } : {}),
   } satisfies TravelLegEstimate));
 
   return NextResponse.json({

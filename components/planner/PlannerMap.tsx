@@ -93,6 +93,23 @@ const entityLabel = (kind: StopType): string => {
   return "POI";
 };
 
+const getSegmentGeometryCoordinates = (segment: MapSegment): Array<[number, number]> => {
+  if (segment.geometry && segment.geometry.coordinates.length >= 2) {
+    return segment.geometry.coordinates.map((coordinate) => [coordinate.lng, coordinate.lat]);
+  }
+
+  return [
+    [segment.from.lng, segment.from.lat],
+    [segment.to.lng, segment.to.lat],
+  ];
+};
+
+const getSegmentGeometrySignature = (segment: MapSegment): string => {
+  return getSegmentGeometryCoordinates(segment)
+    .map(([lng, lat]) => `${lat.toFixed(5)}:${lng.toFixed(5)}`)
+    .join(">");
+};
+
 const buildPopupHtml = (trip: Trip, selectedEntity: Exclude<SelectedEntity, null>): string => {
   const stop = findStopById(trip, selectedEntity.stopId);
   if (!stop) {
@@ -212,7 +229,7 @@ export default function PlannerMap({
       `${markers
         .map((marker) => `${marker.id}:${marker.coordinates.lat.toFixed(5)}:${marker.coordinates.lng.toFixed(5)}`)
         .join("|")}::${segments
-        .map((segment) => `${segment.id}:${segment.from.lat.toFixed(5)}:${segment.to.lat.toFixed(5)}`)
+        .map((segment) => `${segment.id}:${getSegmentGeometrySignature(segment)}`)
         .join("|")}`,
     [markers, segments],
   );
@@ -254,10 +271,7 @@ export default function PlannerMap({
         },
         geometry: {
           type: "LineString",
-          coordinates: [
-            [segment.from.lng, segment.from.lat],
-            [segment.to.lng, segment.to.lat],
-          ],
+          coordinates: getSegmentGeometryCoordinates(segment),
         },
       })),
     }),
