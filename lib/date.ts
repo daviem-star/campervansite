@@ -68,6 +68,26 @@ export const addMinutesIso = (isoValue: string, minutes: number): string => {
   return new Date(new Date(isoValue).getTime() + minutes * 60_000).toISOString();
 };
 
+export const minutesBetweenIso = (fromIso: string, toIso: string): number => {
+  return Math.round((new Date(toIso).getTime() - new Date(fromIso).getTime()) / 60_000);
+};
+
+export const formatDurationMinutes = (minutes: number): string => {
+  const safeMinutes = Math.max(0, Math.round(minutes));
+  const hours = Math.floor(safeMinutes / 60);
+  const remainingMinutes = safeMinutes % 60;
+
+  if (hours === 0) {
+    return `${remainingMinutes}m`;
+  }
+
+  if (remainingMinutes === 0) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${remainingMinutes}m`;
+};
+
 export const shiftIsoByDays = (isoValue: string, dayOffset: number): string => {
   const zoned = toZonedTime(isoValue, APP_TIMEZONE);
   const shiftedZoned = addDays(zoned, dayOffset);

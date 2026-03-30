@@ -21,6 +21,14 @@ A Next.js App Router trip planner for campervan travel. Build an itinerary with 
 - Gap warnings for days without a known base campsite.
 - Optional stay `costPerNight` with derived total stay cost.
 
+## Beta-Ready Foundation Additions
+- Demo mode plus Supabase-backed email magic-link auth when environment variables are configured.
+- Cloud trip persistence through server routes backed by a single canonical trip JSON document.
+- Offline read-only recovery for the last synced active trip.
+- Sync-status messaging and one-time legacy local import flow.
+- Route-estimate broker through `/api/route-estimates` with OpenRouteService support and fallback estimates.
+- Validation warnings for heavy drive days, tight ferry check-in windows, late campsite arrivals, and overnight coverage gaps.
+
 ## Tech Stack
 - Next.js 16 (App Router)
 - React 19 + TypeScript (strict mode)
@@ -64,8 +72,19 @@ A Next.js App Router trip planner for campervan travel. Build an itinerary with 
 Run before merging:
 
 ```bash
+npm test
+npm run test:e2e
 npm run lint && npm run build
 ```
+
+## Environment
+To enable cloud sync and live route estimates, copy `.env.example` to `.env.local` and fill in:
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `OPENROUTESERVICE_API_KEY`
+Supabase schema setup lives in `supabase/migrations/20260328_trip_documents.sql`.
+Operational activation and smoke-test steps live in `docs/FOUNDATION_ACTIVATION.md`.
 
 ## Data Model Notes
 - Root storage key: `campervan_trip_planner_v1`

@@ -1,0 +1,153 @@
+import { describe, expect, it } from "vitest";
+
+import { toIsoFromLocalInput } from "@/lib/date";
+import {
+  buildTravelEstimateRequests,
+  getValidationWarnings,
+} from "@/lib/tripDerived";
+import { TravelLegEstimate, Trip } from "@/types/trip";
+
+const buildTrip = (): Trip => ({
+  id: "trip-1",
+  name: "Validation trip",
+  timezone: "Europe/London",
+  ownerUserId: "user-1",
+  version: 2,
+  lastSyncedAt: toIsoFromLocalInput("2026-04-01T08:00"),
+  createdAt: toIsoFromLocalInput("2026-04-01T08:00"),
+  updatedAt: toIsoFromLocalInput("2026-04-01T08:00"),
+  home: {
+    label: "Home",
+    coordinates: { lat: 56, lng: -4 },
+  },
+  stops: [
+    {
+      id: "stay-1",
+      order: 0,
+      type: "stay",
+      title: "Camp one",
+      place: {
+        label: "Camp one",
+        coordinates: { lat: 56.2, lng: -4.1 },
+      },
+      checkInAt: toIsoFromLocalInput("2026-04-03T16:00"),
+      checkOutAt: toIsoFromLocalInput("2026-04-04T10:00"),
+      bookingStatus: "confirmed",
+      hookup: true,
+      hardstanding: false,
+      amenitiesSummary: "Showers",
+    },
+    {
+      id: "ferry-1",
+      order: 1,
+      type: "ferry",
+      title: "Morning ferry",
+      departurePort: {
+        label: "Departure port",
+        coordinates: { lat: 56.5, lng: -4.4 },
+      },
+      arrivalPort: {
+        label: "Arrival port",
+        coordinates: { lat: 56.8, lng: -4.6 },
+      },
+      departureAt: toIsoFromLocalInput("2026-04-04T11:30"),
+      arrivalAt: toIsoFromLocalInput("2026-04-04T13:00"),
+      checkInBy: toIsoFromLocalInput("2026-04-04T10:50"),
+      checkInBufferMinutes: 40,
+      vehicleDetails: {
+        vehicleType: "campervan",
+      },
+    },
+    {
+      id: "stay-2",
+      order: 2,
+      type: "stay",
+      title: "Camp two",
+      place: {
+        label: "Camp two",
+        coordinates: { lat: 56.95, lng: -4.7 },
+      },
+      checkInAt: toIsoFromLocalInput("2026-04-04T20:00"),
+      checkOutAt: toIsoFromLocalInput("2026-04-05T10:00"),
+      bookingStatus: "planned",
+      hookup: false,
+      hardstanding: true,
+    },
+  ],
+});
+
+describe("tripDerived", () => {
+  it("builds route-estimate requests from the ordered itinerary", () => {
+    const requests = buildTravelEstimateRequests(buildTrip());
+
+    expect(requests).toHaveLength(3);
+    expect(requests[0]).toMatchObject({
+      fromId: "home",
+      toId: "stay-1",
+    });
+    expect(requests[1]).toMatchObject({
+      fromId: "stay-1",
+      toId: "ferry-1",
+    });
+  });
+
+  it("produces ferry check-in and drive-day validation warnings", () => {
+    const trip = buildTrip();
+    const estimates: TravelLegEstimate[] = [
+      {
+        id: "road-home-stay-1",
+        fromId: "home",
+        fromLabel: "Home",
+        toId: "stay-1",
+        toLabel: "Camp one",
+        kind: "road",
+        distanceKm: 120,
+        durationMinutes: 190,
+        bufferedDurationMinutes: 230,
+        provider: "fallback_haversine",
+        fetchedAt: new Date().toISOString(),
+        confidence: "fallback",
+        date: "2026-04-03",
+        relatedStopId: "stay-1",
+      },
+      {
+        id: "road-stay-1-ferry-1",
+        fromId: "stay-1",
+        fromLabel: "Camp one",
+        toId: "ferry-1",
+        toLabel: "Morning ferry departure",
+        kind: "road",
+        distanceKm: 75,
+        durationMinutes: 70,
+        bufferedDurationMinutes: 95,
+        provider: "fallback_haversine",
+        fetchedAt: new Date().toISOString(),
+        confidence: "fallback",
+        date: "2026-04-04",
+        relatedStopId: "ferry-1",
+      },
+      {
+        id: "road-ferry-1-stay-2",
+        fromId: "ferry-1",
+        fromLabel: "Morning ferry",
+        toId: "stay-2",
+        toLabel: "Camp two",
+        kind: "road",
+        distanceKm: 150,
+        durationMinutes: 180,
+        bufferedDurationMinutes: 250,
+        provider: "fallback_haversine",
+        fetchedAt: new Date().toISOString(),
+        confidence: "fallback",
+        date: "2026-04-04",
+        relatedStopId: "stay-2",
+      },
+    ];
+
+    const warnings = getValidationWarnings(trip, estimates);
+
+    expect(warnings.some((warning) => warning.kind === "ferry_check_in")).toBe(true);
+    expect(warnings.some((warning) => warning.kind === "drive_day")).toBe(true);
+    expect(warnings.some((warning) => warning.kind === "travel_feasibility")).toBe(true);
+  });
+});

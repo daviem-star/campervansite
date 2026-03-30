@@ -5,7 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 
 import { todayDateInTimezone, toIsoFromLocalInput, toLocalInputFromIso } from "@/lib/date";
 import { applyDefaultCheckInBy } from "@/lib/tripDerived";
-import { NewTripStop, PlaceRef, StopType, TripStop } from "@/types/trip";
+import {
+  FerryVehicleType,
+  NewTripStop,
+  PlaceRef,
+  StayBookingStatus,
+  StopType,
+  TripStop,
+} from "@/types/trip";
 import StopSearchInput from "@/components/planner/StopSearchInput";
 
 type StopEditorModalProps = {
@@ -30,10 +37,14 @@ const buildDefaultStayTimes = () => {
 const buildDefaultFerryTimes = () => {
   const today = todayDateInTimezone();
   const departureAt = `${today}T13:30`;
+  const checkInBufferMinutes = 45;
   return {
     departureAt,
     arrivalAt: `${today}T15:00`,
-    checkInBy: toLocalInputFromIso(applyDefaultCheckInBy(toIsoFromLocalInput(departureAt))),
+    checkInBy: toLocalInputFromIso(
+      applyDefaultCheckInBy(toIsoFromLocalInput(departureAt), checkInBufferMinutes),
+    ),
+    checkInBufferMinutes,
   };
 };
 
@@ -54,15 +65,28 @@ export default function StopEditorModal({
   const [stayCheckInAt, setStayCheckInAt] = useState(buildDefaultStayTimes().checkInAt);
   const [stayCheckOutAt, setStayCheckOutAt] = useState(buildDefaultStayTimes().checkOutAt);
   const [stayCostPerNight, setStayCostPerNight] = useState("");
+  const [stayBookingStatus, setStayBookingStatus] = useState<StayBookingStatus>("planned");
+  const [stayHookup, setStayHookup] = useState(false);
+  const [stayHardstanding, setStayHardstanding] = useState(false);
+  const [stayAmenitiesSummary, setStayAmenitiesSummary] = useState("");
+  const [stayPhone, setStayPhone] = useState("");
+  const [stayWebsiteUrl, setStayWebsiteUrl] = useState("");
 
   const [ferryDeparturePort, setFerryDeparturePort] = useState<PlaceRef | null>(null);
   const [ferryArrivalPort, setFerryArrivalPort] = useState<PlaceRef | null>(null);
   const [ferryDepartureAt, setFerryDepartureAt] = useState(buildDefaultFerryTimes().departureAt);
   const [ferryArrivalAt, setFerryArrivalAt] = useState(buildDefaultFerryTimes().arrivalAt);
   const [ferryCheckInBy, setFerryCheckInBy] = useState(buildDefaultFerryTimes().checkInBy);
+  const [ferryCheckInBufferMinutes, setFerryCheckInBufferMinutes] = useState(
+    buildDefaultFerryTimes().checkInBufferMinutes,
+  );
   const [ferryCheckInManual, setFerryCheckInManual] = useState(false);
   const [ferryOperator, setFerryOperator] = useState("");
   const [ferryBookingRef, setFerryBookingRef] = useState("");
+  const [ferryVehicleType, setFerryVehicleType] = useState<FerryVehicleType>("campervan");
+  const [ferryVehicleRegistration, setFerryVehicleRegistration] = useState("");
+  const [ferryVehicleLengthMeters, setFerryVehicleLengthMeters] = useState("");
+  const [ferryVehicleNotes, setFerryVehicleNotes] = useState("");
 
   const [poiPlace, setPoiPlace] = useState<PlaceRef | null>(null);
   const [poiVisitDate, setPoiVisitDate] = useState(todayDateInTimezone());
@@ -105,6 +129,12 @@ export default function StopEditorModal({
         setStayCostPerNight(
           typeof initialStop.costPerNight === "number" ? String(initialStop.costPerNight) : "",
         );
+        setStayBookingStatus(initialStop.bookingStatus ?? "planned");
+        setStayHookup(initialStop.hookup ?? false);
+        setStayHardstanding(initialStop.hardstanding ?? false);
+        setStayAmenitiesSummary(initialStop.amenitiesSummary ?? "");
+        setStayPhone(initialStop.phone ?? "");
+        setStayWebsiteUrl(initialStop.websiteUrl ?? "");
       }
 
       if (initialStop.type === "ferry") {
@@ -113,8 +143,17 @@ export default function StopEditorModal({
         setFerryDepartureAt(toLocalInputFromIso(initialStop.departureAt));
         setFerryArrivalAt(toLocalInputFromIso(initialStop.arrivalAt));
         setFerryCheckInBy(toLocalInputFromIso(initialStop.checkInBy));
+        setFerryCheckInBufferMinutes(initialStop.checkInBufferMinutes ?? 45);
         setFerryOperator(initialStop.operator ?? "");
         setFerryBookingRef(initialStop.bookingRef ?? "");
+        setFerryVehicleType(initialStop.vehicleDetails?.vehicleType ?? "campervan");
+        setFerryVehicleRegistration(initialStop.vehicleDetails?.registration ?? "");
+        setFerryVehicleLengthMeters(
+          typeof initialStop.vehicleDetails?.lengthMeters === "number"
+            ? String(initialStop.vehicleDetails.lengthMeters)
+            : "",
+        );
+        setFerryVehicleNotes(initialStop.vehicleDetails?.notes ?? "");
         setFerryCheckInManual(true);
       }
 
@@ -136,15 +175,26 @@ export default function StopEditorModal({
     setStayCheckInAt(defaultStay.checkInAt);
     setStayCheckOutAt(defaultStay.checkOutAt);
     setStayCostPerNight("");
+    setStayBookingStatus("planned");
+    setStayHookup(false);
+    setStayHardstanding(false);
+    setStayAmenitiesSummary("");
+    setStayPhone("");
+    setStayWebsiteUrl("");
 
     setFerryDeparturePort(null);
     setFerryArrivalPort(null);
     setFerryDepartureAt(defaultFerry.departureAt);
     setFerryArrivalAt(defaultFerry.arrivalAt);
     setFerryCheckInBy(defaultFerry.checkInBy);
+    setFerryCheckInBufferMinutes(defaultFerry.checkInBufferMinutes);
     setFerryCheckInManual(false);
     setFerryOperator("");
     setFerryBookingRef("");
+    setFerryVehicleType("campervan");
+    setFerryVehicleRegistration("");
+    setFerryVehicleLengthMeters("");
+    setFerryVehicleNotes("");
 
     setPoiPlace(null);
     setPoiVisitDate(todayDateInTimezone());
@@ -157,11 +207,13 @@ export default function StopEditorModal({
 
     try {
       const departureIso = toIsoFromLocalInput(ferryDepartureAt);
-      setFerryCheckInBy(toLocalInputFromIso(applyDefaultCheckInBy(departureIso)));
+      setFerryCheckInBy(
+        toLocalInputFromIso(applyDefaultCheckInBy(departureIso, ferryCheckInBufferMinutes)),
+      );
     } catch {
       // Keep previous value while input is incomplete.
     }
-  }, [ferryCheckInManual, ferryDepartureAt, type]);
+  }, [ferryCheckInBufferMinutes, ferryCheckInManual, ferryDepartureAt, type]);
 
   if (!isOpen) {
     return null;
@@ -222,6 +274,12 @@ export default function StopEditorModal({
           checkInAt: checkInIso,
           checkOutAt: checkOutIso,
           costPerNight: parsedCost,
+          bookingStatus: stayBookingStatus,
+          hookup: stayHookup,
+          hardstanding: stayHardstanding,
+          amenitiesSummary: stayAmenitiesSummary.trim() || undefined,
+          phone: stayPhone.trim() || undefined,
+          websiteUrl: stayWebsiteUrl.trim() || undefined,
         };
 
         if (mode === "edit" && initialStop) {
@@ -251,6 +309,19 @@ export default function StopEditorModal({
           return;
         }
 
+        const parsedVehicleLength =
+          ferryVehicleLengthMeters.trim().length > 0
+            ? Number.parseFloat(ferryVehicleLengthMeters)
+            : undefined;
+
+        if (
+          typeof parsedVehicleLength === "number" &&
+          (!Number.isFinite(parsedVehicleLength) || parsedVehicleLength <= 0)
+        ) {
+          setError("Vehicle length must be a valid number greater than 0.");
+          return;
+        }
+
         const payload: NewTripStop = {
           type: "ferry",
           title: normalizedTitle,
@@ -262,6 +333,13 @@ export default function StopEditorModal({
           checkInBy: checkInByIso,
           operator: ferryOperator.trim() || undefined,
           bookingRef: ferryBookingRef.trim() || undefined,
+          checkInBufferMinutes: ferryCheckInBufferMinutes,
+          vehicleDetails: {
+            vehicleType: ferryVehicleType,
+            registration: ferryVehicleRegistration.trim() || undefined,
+            lengthMeters: parsedVehicleLength,
+            notes: ferryVehicleNotes.trim() || undefined,
+          },
         };
 
         if (mode === "edit" && initialStop) {
@@ -421,6 +499,79 @@ export default function StopEditorModal({
                   className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
                 />
               </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    Booking status
+                  </label>
+                  <select
+                    value={stayBookingStatus}
+                    onChange={(event) => setStayBookingStatus(event.target.value as StayBookingStatus)}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
+                  >
+                    <option value="planned">Planned</option>
+                    <option value="booked">Booked</option>
+                    <option value="confirmed">Confirmed</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    Contact phone (optional)
+                  </label>
+                  <input
+                    value={stayPhone}
+                    onChange={(event) => setStayPhone(event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  Website URL (optional)
+                </label>
+                <input
+                  value={stayWebsiteUrl}
+                  onChange={(event) => setStayWebsiteUrl(event.target.value)}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
+                  placeholder="https://..."
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  Amenities summary (optional)
+                </label>
+                <textarea
+                  value={stayAmenitiesSummary}
+                  onChange={(event) => setStayAmenitiesSummary(event.target.value)}
+                  rows={2}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={stayHookup}
+                    onChange={(event) => setStayHookup(event.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                  />
+                  Electric hookup
+                </label>
+                <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={stayHardstanding}
+                    onChange={(event) => setStayHardstanding(event.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                  />
+                  Hardstanding pitch
+                </label>
+              </div>
             </div>
           ) : null}
 
@@ -476,7 +627,10 @@ export default function StopEditorModal({
                     onClick={() => {
                       try {
                         const departureIso = toIsoFromLocalInput(ferryDepartureAt);
-                        const defaultCheckIn = applyDefaultCheckInBy(departureIso);
+                        const defaultCheckIn = applyDefaultCheckInBy(
+                          departureIso,
+                          ferryCheckInBufferMinutes,
+                        );
                         setFerryCheckInBy(toLocalInputFromIso(defaultCheckIn));
                         setFerryCheckInManual(false);
                       } catch {
@@ -494,6 +648,24 @@ export default function StopEditorModal({
                   onChange={(event) => {
                     setFerryCheckInBy(event.target.value);
                     setFerryCheckInManual(true);
+                  }}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  Check-in buffer (minutes)
+                </label>
+                <input
+                  type="number"
+                  min="5"
+                  step="5"
+                  value={ferryCheckInBufferMinutes}
+                  onChange={(event) => {
+                    const nextValue = Number.parseInt(event.target.value, 10);
+                    setFerryCheckInBufferMinutes(Number.isFinite(nextValue) ? nextValue : 45);
+                    setFerryCheckInManual(false);
                   }}
                   className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
                 />
@@ -520,6 +692,60 @@ export default function StopEditorModal({
                     className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
                   />
                 </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    Vehicle type
+                  </label>
+                  <select
+                    value={ferryVehicleType}
+                    onChange={(event) => setFerryVehicleType(event.target.value as FerryVehicleType)}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
+                  >
+                    <option value="campervan">Campervan</option>
+                    <option value="motorhome">Motorhome</option>
+                    <option value="van">Van</option>
+                    <option value="car">Car</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    Registration
+                  </label>
+                  <input
+                    value={ferryVehicleRegistration}
+                    onChange={(event) => setFerryVehicleRegistration(event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    Length (m)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={ferryVehicleLengthMeters}
+                    onChange={(event) => setFerryVehicleLengthMeters(event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  Vehicle notes (optional)
+                </label>
+                <textarea
+                  value={ferryVehicleNotes}
+                  onChange={(event) => setFerryVehicleNotes(event.target.value)}
+                  rows={2}
+                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
+                />
               </div>
             </div>
           ) : null}

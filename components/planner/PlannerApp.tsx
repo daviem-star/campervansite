@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 
+import AccountPanel from "@/components/planner/AccountPanel";
 import DayStrip from "@/components/planner/DayStrip";
 import GapWarnings from "@/components/planner/GapWarnings";
 import ItinerarySections from "@/components/planner/ItinerarySections";
 import PlannerMap from "@/components/planner/PlannerMap";
 import StopEditorModal from "@/components/planner/StopEditorModal";
 import TodayActionsPanel from "@/components/planner/TodayActionsPanel";
+import TravelInsightsPanel from "@/components/planner/TravelInsightsPanel";
 import TripHeader from "@/components/planner/TripHeader";
+import ValidationWarningsPanel from "@/components/planner/ValidationWarningsPanel";
 import { formatDateOnly, todayDateInTimezone } from "@/lib/date";
+import { fetchTravelLegEstimates } from "@/lib/routeEstimates";
 import {
   formatTripDateRange,
   getCostSummary,
@@ -19,9 +23,16 @@ import {
   getSelectedEntityPrimaryDate,
   getTodayActions,
   getTripDays,
+  getValidationWarnings,
 } from "@/lib/tripDerived";
 import { useTripStore } from "@/store/useTripStore";
-import { NewTripStop, SelectedEntity, StopType, TripStop } from "@/types/trip";
+import {
+  NewTripStop,
+  SelectedEntity,
+  StopType,
+  TravelLegEstimate,
+  TripStop,
+} from "@/types/trip";
 
 type EditorState = {
   isOpen: boolean;
@@ -45,7 +56,18 @@ export default function PlannerApp() {
     data,
     isLoading,
     error,
-    loadData,
+    statusMessage,
+    authStatus,
+    mode,
+    user,
+    syncStatus,
+    isOfflineReadOnly,
+    hasLegacyImport,
+    initialize,
+    signInWithMagicLink,
+    signOut,
+    importLegacyTrips,
+    createCloudTripFromCurrent,
     resetToSeed,
     resetToSeedAlignedToToday,
     addStop,
@@ -59,6 +81,9 @@ export default function PlannerApp() {
   const [editor, setEditor] = useState<EditorState>(defaultEditorState);
   const [mobileTab, setMobileTab] = useState<MobileTab>("today");
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
+  const [routeEstimates, setRouteEstimates] = useState<TravelLegEstimate[]>([]);
+  const [isEstimatingRoutes, setIsEstimatingRoutes] = useState(false);
+  const [routeError, setRouteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -74,10 +99,8 @@ export default function PlannerApp() {
   }, []);
 
   useEffect(() => {
-    if (!data && !isLoading) {
-      void loadData();
-    }
-  }, [data, isLoading, loadData]);
+    void initialize();
+  }, [initialize]);
 
   const activeTrip = useMemo(() => {
     if (!data) {
@@ -86,6 +109,50 @@ export default function PlannerApp() {
 
     return data.trips.find((trip) => trip.id === data.activeTripId) ?? null;
   }, [data]);
+
+  useEffect(() => {
+    if (!activeTrip) {
+      startTransition(() => {
+        setRouteEstimates([]);
+        setRouteError(null);
+      });
+      return;
+    }
+
+    let cancelled = false;
+    startTransition(() => {
+      setIsEstimatingRoutes(true);
+    });
+
+    void fetchTravelLegEstimates(activeTrip)
+      .then((estimates) => {
+        if (cancelled) {
+          return;
+        }
+
+        setRouteEstimates(estimates);
+        setRouteError(null);
+      })
+      .catch((caught) => {
+        if (cancelled) {
+          return;
+        }
+
+        setRouteEstimates([]);
+        setRouteError(
+          caught instanceof Error ? caught.message : "Unable to refresh route estimates.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsEstimatingRoutes(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTrip]);
 
   const tripDays = useMemo(() => (activeTrip ? getTripDays(activeTrip) : []), [activeTrip]);
   const effectiveSelectedDate = tripDays.includes(selectedDate)
@@ -107,6 +174,10 @@ export default function PlannerApp() {
   const costSummary = useMemo(
     () => (activeTrip ? getCostSummary(activeTrip) : { totalNights: 0, totalCost: 0 }),
     [activeTrip],
+  );
+  const validationWarnings = useMemo(
+    () => (activeTrip ? getValidationWarnings(activeTrip, routeEstimates) : []),
+    [activeTrip, routeEstimates],
   );
   const effectiveSelectedEntity = useMemo<SelectedEntity>(() => {
     if (!activeTrip || !selectedEntity) {
@@ -130,10 +201,7 @@ export default function PlannerApp() {
     setSelectedDate(date);
   };
 
-  const selectEntity = (
-    entity: Exclude<SelectedEntity, null>,
-    origin: SelectionOrigin,
-  ) => {
+  const selectEntity = (entity: Exclude<SelectedEntity, null>, origin: SelectionOrigin) => {
     setSelectionOrigin(origin);
     setSelectedEntity(entity);
 
@@ -168,7 +236,7 @@ export default function PlannerApp() {
           <p className="text-sm text-slate-700">{error ?? "No trip loaded."}</p>
           <button
             type="button"
-            onClick={() => void loadData()}
+            onClick={() => void initialize()}
             className="mt-3 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
           >
             Reload
@@ -197,12 +265,27 @@ export default function PlannerApp() {
         <div className="mx-auto flex w-full max-w-[1750px] flex-col gap-4 p-3 lg:h-screen lg:flex-row lg:items-stretch lg:p-4">
           <section className="rounded-3xl bg-white/30 p-1 lg:h-full lg:w-[46%] lg:overflow-hidden">
             <div className="rounded-3xl p-2 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:gap-4">
+              <AccountPanel
+                authStatus={authStatus}
+                mode={mode}
+                userEmail={user?.email ?? null}
+                syncStatus={syncStatus}
+                isOfflineReadOnly={isOfflineReadOnly}
+                hasLegacyImport={hasLegacyImport}
+                statusMessage={statusMessage}
+                onSignIn={signInWithMagicLink}
+                onSignOut={signOut}
+                onImportLegacy={importLegacyTrips}
+                onCreateCloudTripFromCurrent={createCloudTripFromCurrent}
+              />
+
               <TripHeader
                 tripName={activeTrip.name}
                 homeLabel={activeTrip.home.label}
                 dateRangeLabel={formatTripDateRange(activeTrip)}
                 totalNights={costSummary.totalNights}
                 totalCost={costSummary.totalCost}
+                showDemoControls={mode === "demo"}
                 onResetSeed={resetToSeed}
                 onResetSeedAlignedToToday={resetToSeedAlignedToToday}
               />
@@ -231,7 +314,24 @@ export default function PlannerApp() {
               </div>
 
               <div className={`${mobileTab === "today" ? "block" : "hidden"} mt-4 space-y-4 lg:mt-0 lg:block`}>
+                {error ? (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    {error}
+                  </div>
+                ) : null}
+                {routeError ? (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    {routeError}
+                  </div>
+                ) : null}
+                {isEstimatingRoutes ? (
+                  <div className="rounded-2xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-700">
+                    Refreshing route estimates and travel buffers...
+                  </div>
+                ) : null}
                 <TodayActionsPanel actions={todayActions} />
+                <TravelInsightsPanel estimates={routeEstimates} />
+                <ValidationWarningsPanel warnings={validationWarnings} />
                 <GapWarnings warnings={gapWarnings} />
               </div>
 
@@ -261,48 +361,32 @@ export default function PlannerApp() {
                   </div>
 
                   <div className="mb-4 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditor({
-                          isOpen: true,
-                          mode: "create",
-                          type: "stay",
-                          initialStop: null,
-                        })
-                      }
-                      className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700"
-                    >
-                      + Stay
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditor({
-                          isOpen: true,
-                          mode: "create",
-                          type: "ferry",
-                          initialStop: null,
-                        })
-                      }
-                      className="rounded-full border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-700"
-                    >
-                      + Ferry
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditor({
-                          isOpen: true,
-                          mode: "create",
-                          type: "point_of_interest",
-                          initialStop: null,
-                        })
-                      }
-                      className="rounded-full border border-orange-300 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700"
-                    >
-                      + POI
-                    </button>
+                    {([
+                      ["stay", "+ Stay", "border-emerald-300 bg-emerald-50 text-emerald-700"],
+                      ["ferry", "+ Ferry", "border-cyan-300 bg-cyan-50 text-cyan-700"],
+                      [
+                        "point_of_interest",
+                        "+ POI",
+                        "border-orange-300 bg-orange-50 text-orange-700",
+                      ],
+                    ] as const).map(([type, label, tone]) => (
+                      <button
+                        key={type}
+                        type="button"
+                        disabled={isOfflineReadOnly}
+                        onClick={() =>
+                          setEditor({
+                            isOpen: true,
+                            mode: "create",
+                            type,
+                            initialStop: null,
+                          })
+                        }
+                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${tone} disabled:cursor-not-allowed disabled:opacity-50`}
+                      >
+                        {label}
+                      </button>
+                    ))}
                   </div>
 
                   <div className="max-h-[52vh] overflow-y-auto pr-1 lg:max-h-none lg:min-h-0 lg:flex-1">
@@ -311,6 +395,7 @@ export default function PlannerApp() {
                       selectedDate={effectiveSelectedDate}
                       selectedEntity={effectiveSelectedEntity}
                       isVisible={isDesktopViewport || mobileTab === "itinerary"}
+                      isReadOnly={isOfflineReadOnly}
                       onSelectDate={onSelectDate}
                       onSelectEntity={onSelectEntityFromItinerary}
                       onEdit={(stop) =>
@@ -322,7 +407,7 @@ export default function PlannerApp() {
                         })
                       }
                       onDelete={(stop) => {
-                        const confirmed = window.confirm(`Delete \"${stop.title}\"?`);
+                        const confirmed = window.confirm(`Delete "${stop.title}"?`);
                         if (confirmed) {
                           void deleteStop(stop.id);
                         }
@@ -338,9 +423,7 @@ export default function PlannerApp() {
             </div>
           </section>
 
-          <aside className="hidden h-full lg:block lg:w-[54%]">
-            {renderPlannerMap(true)}
-          </aside>
+          <aside className="hidden h-full lg:block lg:w-[54%]">{renderPlannerMap(true)}</aside>
         </div>
       </div>
 

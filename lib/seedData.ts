@@ -6,12 +6,15 @@ import {
   toIsoFromLocalInput,
   todayDateInTimezone,
 } from "@/lib/date";
-import { AppDataV1, Trip } from "@/types/trip";
+import { AppData, Trip } from "@/types/trip";
 
 const seedTrip: Trip = {
   id: "trip_outer_hebrides_2026",
   name: "Outer Hebrides Family Trip",
   timezone: "Europe/London",
+  ownerUserId: null,
+  version: 1,
+  lastSyncedAt: null,
   home: {
     label: "Killearn, Scotland",
     coordinates: { lat: 56.0423, lng: -4.3649 },
@@ -35,9 +38,15 @@ const seedTrip: Trip = {
       departureAt: toIsoFromLocalInput("2026-08-05T13:30"),
       arrivalAt: toIsoFromLocalInput("2026-08-05T18:15"),
       checkInBy: toIsoFromLocalInput("2026-08-05T12:45"),
+      checkInBufferMinutes: 45,
       notes: "2 adults, 1 child, campervan booked.",
       operator: "CalMac",
       bookingRef: "HEB-OBN-001",
+      vehicleDetails: {
+        vehicleType: "campervan",
+        registration: "DEMO-VAN",
+        lengthMeters: 6.2,
+      },
     },
     {
       id: "stop_stay_1",
@@ -51,6 +60,12 @@ const seedTrip: Trip = {
       checkInAt: toIsoFromLocalInput("2026-08-05T19:00"),
       checkOutAt: toIsoFromLocalInput("2026-08-08T11:00"),
       costPerNight: 38,
+      bookingStatus: "confirmed",
+      hookup: false,
+      hardstanding: false,
+      amenitiesSummary: "Beach access, showers, chemical disposal point",
+      phone: "",
+      websiteUrl: "",
     },
     {
       id: "stop_poi_1",
@@ -80,9 +95,14 @@ const seedTrip: Trip = {
       departureAt: toIsoFromLocalInput("2026-08-08T15:45"),
       arrivalAt: toIsoFromLocalInput("2026-08-08T16:25"),
       checkInBy: toIsoFromLocalInput("2026-08-08T15:25"),
+      checkInBufferMinutes: 20,
       notes: "Keep snacks and ferry tickets ready.",
       operator: "CalMac",
       bookingRef: "HEB-ARD-002",
+      vehicleDetails: {
+        vehicleType: "campervan",
+        registration: "DEMO-VAN",
+      },
     },
     {
       id: "stop_stay_2",
@@ -96,6 +116,12 @@ const seedTrip: Trip = {
       checkInAt: toIsoFromLocalInput("2026-08-08T17:00"),
       checkOutAt: toIsoFromLocalInput("2026-08-11T08:00"),
       costPerNight: 36,
+      bookingStatus: "booked",
+      hookup: true,
+      hardstanding: false,
+      amenitiesSummary: "Electric hookup, showers, laundry",
+      phone: "",
+      websiteUrl: "",
     },
     {
       id: "stop_poi_2",
@@ -124,8 +150,13 @@ const seedTrip: Trip = {
       departureAt: toIsoFromLocalInput("2026-08-11T09:30"),
       arrivalAt: toIsoFromLocalInput("2026-08-11T10:30"),
       checkInBy: toIsoFromLocalInput("2026-08-11T09:10"),
+      checkInBufferMinutes: 20,
       operator: "CalMac",
       bookingRef: "HEB-BER-003",
+      vehicleDetails: {
+        vehicleType: "campervan",
+        registration: "DEMO-VAN",
+      },
     },
     {
       id: "stop_stay_3",
@@ -139,6 +170,12 @@ const seedTrip: Trip = {
       checkInAt: toIsoFromLocalInput("2026-08-11T12:00"),
       checkOutAt: toIsoFromLocalInput("2026-08-13T13:30"),
       costPerNight: 40,
+      bookingStatus: "booked",
+      hookup: false,
+      hardstanding: false,
+      amenitiesSummary: "Beachfront pitches and toilets",
+      phone: "",
+      websiteUrl: "",
     },
     {
       id: "stop_poi_3",
@@ -167,8 +204,13 @@ const seedTrip: Trip = {
       departureAt: toIsoFromLocalInput("2026-08-13T16:20"),
       arrivalAt: toIsoFromLocalInput("2026-08-13T18:00"),
       checkInBy: toIsoFromLocalInput("2026-08-13T15:35"),
+      checkInBufferMinutes: 45,
       operator: "CalMac",
       bookingRef: "HEB-TAR-004",
+      vehicleDetails: {
+        vehicleType: "campervan",
+        registration: "DEMO-VAN",
+      },
     },
     {
       id: "stop_stay_4",
@@ -182,6 +224,12 @@ const seedTrip: Trip = {
       checkInAt: toIsoFromLocalInput("2026-08-13T19:00"),
       checkOutAt: toIsoFromLocalInput("2026-08-15T08:30"),
       costPerNight: 42,
+      bookingStatus: "planned",
+      hookup: true,
+      hardstanding: true,
+      amenitiesSummary: "Hardstanding, hookup, showers",
+      phone: "",
+      websiteUrl: "",
     },
     {
       id: "stop_poi_4",
@@ -198,8 +246,8 @@ const seedTrip: Trip = {
   ],
 };
 
-const createAppData = (trip: Trip): AppDataV1 => ({
-  schemaVersion: 1,
+const createAppData = (trip: Trip): AppData => ({
+  schemaVersion: 2,
   activeTripId: trip.id,
   trips: [
     {
@@ -238,11 +286,11 @@ const shiftSeedTripByDays = (dayOffset: number): Trip => ({
   }),
 });
 
-export const getSeedData = (): AppDataV1 => createAppData(seedTrip);
+export const getSeedData = (): AppData => createAppData(seedTrip);
 
 export const getSeedDataShiftedToTodayAlignedTo = (
   seedAnchorDate: "2026-08-08" = "2026-08-08",
-): AppDataV1 => {
+): AppData => {
   const today = todayDateInTimezone();
   const dayOffset = differenceInCalendarDays(parseISO(today), parseISO(seedAnchorDate));
   return createAppData(shiftSeedTripByDays(dayOffset));

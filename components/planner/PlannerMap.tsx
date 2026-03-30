@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import maplibregl, { GeoJSONSource, LngLatBounds } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -190,6 +190,7 @@ export default function PlannerMap({
   const segmentsRef = useRef(segments);
   const selectedEntityRef = useRef(selectedEntity);
   const selectionOriginRef = useRef(selectionOrigin);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   useEffect(() => {
     onSelectEntityRef.current = onSelectEntity;
@@ -458,17 +459,48 @@ export default function PlannerMap({
   };
 
   useEffect(() => {
-    if (!mapCanvasRef.current || mapRef.current) {
+    if (!mapCanvasRef.current || mapRef.current || mapError) {
       return;
     }
 
-    const map = new maplibregl.Map({
-      container: mapCanvasRef.current,
-      style: MAP_STYLE,
-      center: [-6.0, 57.2],
-      zoom: 6,
-      cooperativeGestures: true,
-    });
+    let scheduledMapErrorFrame: number | null = null;
+    const webglProbe = document.createElement("canvas");
+    const webglContext =
+      webglProbe.getContext("webgl2") ??
+      webglProbe.getContext("webgl") ??
+      webglProbe.getContext("experimental-webgl");
+
+    if (!webglContext) {
+      scheduledMapErrorFrame = window.requestAnimationFrame(() => {
+        setMapError("Map preview is unavailable because WebGL could not start in this browser.");
+      });
+      return () => {
+        if (scheduledMapErrorFrame !== null) {
+          window.cancelAnimationFrame(scheduledMapErrorFrame);
+        }
+      };
+    }
+
+    let map: maplibregl.Map;
+
+    try {
+      map = new maplibregl.Map({
+        container: mapCanvasRef.current,
+        style: MAP_STYLE,
+        center: [-6.0, 57.2],
+        zoom: 6,
+        cooperativeGestures: true,
+      });
+    } catch {
+      scheduledMapErrorFrame = window.requestAnimationFrame(() => {
+        setMapError("Map preview is unavailable because WebGL failed to initialize.");
+      });
+      return () => {
+        if (scheduledMapErrorFrame !== null) {
+          window.cancelAnimationFrame(scheduledMapErrorFrame);
+        }
+      };
+    }
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
 
@@ -663,12 +695,15 @@ export default function PlannerMap({
     mapRef.current = map;
 
     return () => {
+      if (scheduledMapErrorFrame !== null) {
+        window.cancelAnimationFrame(scheduledMapErrorFrame);
+      }
       popupRef.current?.remove();
       popupRef.current = null;
       map.remove();
       mapRef.current = null;
     };
-  }, [fitOverview]);
+  }, [fitOverview, mapError]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -786,7 +821,16 @@ export default function PlannerMap({
 
   return (
     <div className={`relative overflow-hidden ${className ?? ""}`}>
-      <div ref={mapCanvasRef} className="h-full w-full" aria-label="Trip map" />
+      {mapError ? (
+        <div className="flex h-full w-full items-center justify-center bg-slate-100 p-6" aria-label="Trip map unavailable">
+          <div className="max-w-sm rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
+            <p className="text-sm font-semibold text-slate-900">Map unavailable</p>
+            <p className="mt-2 text-sm text-slate-600">{mapError}</p>
+          </div>
+        </div>
+      ) : (
+        <div ref={mapCanvasRef} className="h-full w-full" aria-label="Trip map" />
+      )}
 
       <div className="pointer-events-none absolute left-3 right-3 top-3 z-10 flex items-start justify-between gap-3">
         <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur">

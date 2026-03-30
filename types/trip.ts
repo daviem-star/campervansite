@@ -13,6 +13,17 @@ export type PlaceRef = {
   osmType?: string;
 };
 
+export type FerryVehicleType = "campervan" | "motorhome" | "car" | "van" | "other";
+
+export type FerryVehicleDetails = {
+  vehicleType: FerryVehicleType;
+  registration?: string;
+  lengthMeters?: number;
+  notes?: string;
+};
+
+export type StayBookingStatus = "planned" | "booked" | "confirmed";
+
 export type BaseStop = {
   id: string;
   type: StopType;
@@ -27,6 +38,12 @@ export type StayStop = BaseStop & {
   checkInAt: string;
   checkOutAt: string;
   costPerNight?: number;
+  bookingStatus?: StayBookingStatus;
+  hookup?: boolean;
+  hardstanding?: boolean;
+  amenitiesSummary?: string;
+  phone?: string;
+  websiteUrl?: string;
 };
 
 export type FerryStop = BaseStop & {
@@ -38,6 +55,8 @@ export type FerryStop = BaseStop & {
   checkInBy: string;
   operator?: string;
   bookingRef?: string;
+  vehicleDetails?: FerryVehicleDetails;
+  checkInBufferMinutes?: number;
 };
 
 export type PointOfInterestStop = BaseStop & {
@@ -58,14 +77,34 @@ export type Trip = {
   timezone: "Europe/London";
   home: PlaceRef;
   stops: TripStop[];
+  ownerUserId: string | null;
+  version: number;
   createdAt: string;
   updatedAt: string;
+  lastSyncedAt: string | null;
 };
 
-export type AppDataV1 = {
-  schemaVersion: 1;
+export type TripSummary = {
+  id: string;
+  name: string;
+  version: number;
+  updatedAt: string;
+  lastSyncedAt: string | null;
+};
+
+export type AppData = {
+  schemaVersion: 2;
   activeTripId: string;
   trips: Trip[];
+};
+
+export type LegacyTrip = Omit<Trip, "ownerUserId" | "version" | "lastSyncedAt"> &
+  Partial<Pick<Trip, "ownerUserId" | "version" | "lastSyncedAt">>;
+
+export type LegacyAppData = {
+  schemaVersion: 1;
+  activeTripId: string;
+  trips: LegacyTrip[];
 };
 
 export type GeocodeResult = {
@@ -93,6 +132,48 @@ export type GapWarning = {
   label: string;
 };
 
+export type ValidationWarningKind =
+  | "drive_day"
+  | "ferry_check_in"
+  | "arrival_window"
+  | "travel_feasibility"
+  | "coverage_gap";
+
+export type ValidationWarningSeverity = "high" | "medium" | "low";
+
+export type ValidationWarning = {
+  id: string;
+  kind: ValidationWarningKind;
+  severity: ValidationWarningSeverity;
+  label: string;
+  detail: string;
+  date?: string;
+  relatedStopId?: string;
+};
+
+export type TravelEstimateConfidence = "live" | "fallback";
+
+export type TravelLegKind = "road";
+
+export type TravelLegEstimate = {
+  id: string;
+  fromId: string;
+  fromLabel: string;
+  toId: string;
+  toLabel: string;
+  kind: TravelLegKind;
+  distanceKm: number;
+  durationMinutes: number;
+  bufferedDurationMinutes: number;
+  provider: string;
+  fetchedAt: string;
+  confidence: TravelEstimateConfidence;
+  date: string;
+  relatedStopId?: string;
+};
+
+export type SyncStatus = "idle" | "saving" | "saved" | "offline" | "error";
+
 export type MapMarkerRole = "home" | "stay" | "poi" | "ferry_port";
 
 export type MapMarker = {
@@ -116,10 +197,12 @@ export type MapSegment = {
   entityKind?: StopType;
 };
 
-export type SelectedEntity = {
-  kind: StopType;
-  stopId: string;
-} | null;
+export type SelectedEntity =
+  | {
+      kind: StopType;
+      stopId: string;
+    }
+  | null;
 
 type BaseItinerarySection = {
   id: string;
@@ -144,3 +227,8 @@ export type StandalonePoiSection = BaseItinerarySection & {
 };
 
 export type ItinerarySection = StayGroupSection | FerrySection | StandalonePoiSection;
+
+export type SessionUser = {
+  id: string;
+  email: string | null;
+};

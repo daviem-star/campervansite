@@ -7,6 +7,8 @@ import {
   formatDate,
   formatDateOnly,
   formatDateTime,
+  formatDurationMinutes,
+  minutesBetweenIso,
   todayDateInTimezone,
 } from "@/lib/date";
 import {
@@ -23,9 +25,32 @@ import {
   StayGroupSection,
   StayStop,
   TodayAction,
+  TravelLegEstimate,
   Trip,
   TripStop,
+  ValidationWarning,
 } from "@/types/trip";
+
+type TravelLegContext = {
+  id: string;
+  fromId: string;
+  fromLabel: string;
+  from: PlaceRef;
+  fromEventEndAt?: string;
+  toId: string;
+  toLabel: string;
+  to: PlaceRef;
+  date: string;
+  relatedStopId?: string;
+  targetArrivalBy?: string;
+  targetArrivalLabel?: string;
+};
+
+const DRIVE_DAY_WARNING_MINUTES = 240;
+const DRIVE_DAY_HIGH_MINUTES = 360;
+const LONG_LEG_WARNING_MINUTES = 180;
+const LATE_ARRIVAL_HOUR = 20;
+const LATE_ARRIVAL_MINUTE = 30;
 
 const toMillis = (isoValue: string): number => new Date(isoValue).getTime();
 
@@ -124,7 +149,11 @@ const sectionTypeRankForDay = (section: ItinerarySection): number => {
   return 2;
 };
 
-const getCurrentBaseForStandalonePoi = (poi: PointOfInterestStop, trip: Trip, stays: StayStop[]): PlaceRef => {
+const getCurrentBaseForStandalonePoi = (
+  poi: PointOfInterestStop,
+  trip: Trip,
+  stays: StayStop[],
+): PlaceRef => {
   const priorStays = sortStaysByCheckIn(stays).filter(
     (stay) => dateOnlyFromIso(stay.checkInAt) < poi.visitDate,
   );
@@ -447,18 +476,10 @@ const markerForPlace = (
   coordinates: place.coordinates,
 });
 
-export const getMapData = (trip: Trip): {
-  markers: MapMarker[];
-  segments: MapSegment[];
-} => {
-  const markers: MapMarker[] = [
-    markerForPlace("home", "home", trip.home, `Home: ${trip.home.label}`),
-  ];
-  const segments: MapSegment[] = [];
-
+const getOrderedStopsForTravel = (trip: Trip): TripStop[] => {
   const sections = getItinerarySections(trip);
-
   const orderedStops: TripStop[] = [];
+
   sections.forEach((section) => {
     if (section.kind === "ferry") {
       orderedStops.push(section.ferry);
@@ -473,6 +494,289 @@ export const getMapData = (trip: Trip): {
     orderedStops.push(section.stay, ...section.pois);
   });
 
+  return orderedStops;
+};
+
+const getStopTimingAnchor = (stop: TripStop): string | undefined => {
+  if (stop.type === "stay") {
+    return stop.checkOutAt;
+  }
+
+  if (stop.type === "ferry") {
+    return stop.arrivalAt;
+  }
+
+  return undefined;
+};
+
+const buildTravelLegContexts = (trip: Trip): TravelLegContext[] => {
+  const orderedStops = getOrderedStopsForTravel(trip);
+  const contexts: TravelLegContext[] = [];
+  let previousPlace = trip.home;
+  let previousId = "home";
+  let previousLabel = `Home: ${trip.home.label}`;
+  let previousEventEndAt: string | undefined;
+
+  orderedStops.forEach((stop) => {
+    if (stop.type === "stay") {
+      contexts.push({
+        id: `road-${previousId}-${stop.id}`,
+        fromId: previousId,
+        fromLabel: previousLabel,
+        from: previousPlace,
+        fromEventEndAt: previousEventEndAt,
+        toId: stop.id,
+        toLabel: stop.title,
+        to: stop.place,
+        date: dateOnlyFromIso(stop.checkInAt),
+        relatedStopId: stop.id,
+        targetArrivalBy: stop.checkInAt,
+        targetArrivalLabel: "planned campsite arrival",
+      });
+      previousPlace = stop.place;
+      previousId = stop.id;
+      previousLabel = stop.title;
+      previousEventEndAt = getStopTimingAnchor(stop);
+      return;
+    }
+
+    if (stop.type === "point_of_interest") {
+      contexts.push({
+        id: `road-${previousId}-${stop.id}`,
+        fromId: previousId,
+        fromLabel: previousLabel,
+        from: previousPlace,
+        fromEventEndAt: previousEventEndAt,
+        toId: stop.id,
+        toLabel: stop.title,
+        to: stop.place,
+        date: stop.visitDate,
+        relatedStopId: stop.id,
+      });
+      previousPlace = stop.place;
+      previousId = stop.id;
+      previousLabel = stop.title;
+      previousEventEndAt = getStopTimingAnchor(stop);
+      return;
+    }
+
+    contexts.push({
+      id: `road-${previousId}-${stop.id}`,
+      fromId: previousId,
+      fromLabel: previousLabel,
+      from: previousPlace,
+      fromEventEndAt: previousEventEndAt,
+      toId: stop.id,
+      toLabel: `${stop.title} departure`,
+      to: stop.departurePort,
+      date: dateOnlyFromIso(stop.departureAt),
+      relatedStopId: stop.id,
+      targetArrivalBy: stop.checkInBy,
+      targetArrivalLabel: "ferry check-in",
+    });
+    previousPlace = stop.arrivalPort;
+    previousId = stop.id;
+    previousLabel = stop.title;
+    previousEventEndAt = getStopTimingAnchor(stop);
+  });
+
+  return contexts;
+};
+
+export const buildTravelEstimateRequests = (
+  trip: Trip,
+): Array<{
+  id: string;
+  fromId: string;
+  fromLabel: string;
+  toId: string;
+  toLabel: string;
+  date: string;
+  relatedStopId?: string;
+  from: { lat: number; lng: number };
+  to: { lat: number; lng: number };
+}> => {
+  return buildTravelLegContexts(trip).map((context) => ({
+    id: context.id,
+    fromId: context.fromId,
+    fromLabel: context.fromLabel,
+    toId: context.toId,
+    toLabel: context.toLabel,
+    date: context.date,
+    relatedStopId: context.relatedStopId,
+    from: context.from.coordinates,
+    to: context.to.coordinates,
+  }));
+};
+
+export const getTravelSummary = (estimates: TravelLegEstimate[]): {
+  totalDistanceKm: number;
+  totalBufferedMinutes: number;
+} => {
+  return estimates.reduce(
+    (acc, estimate) => {
+      acc.totalDistanceKm += estimate.distanceKm;
+      acc.totalBufferedMinutes += estimate.bufferedDurationMinutes;
+      return acc;
+    },
+    { totalDistanceKm: 0, totalBufferedMinutes: 0 },
+  );
+};
+
+export const getValidationWarnings = (
+  trip: Trip,
+  estimates: TravelLegEstimate[],
+): ValidationWarning[] => {
+  const warnings: ValidationWarning[] = getGapWarnings(trip).map((warning) => ({
+    id: `coverage-${warning.date}`,
+    kind: "coverage_gap",
+    severity: "medium",
+    label: warning.label,
+    detail: "Add or adjust an overnight base to keep the on-road plan grounded.",
+    date: warning.date,
+  }));
+
+  const estimateById = new Map(estimates.map((estimate) => [estimate.id, estimate]));
+  const contexts = buildTravelLegContexts(trip);
+  const driveMinutesByDate = new Map<string, number>();
+
+  contexts.forEach((context) => {
+    const estimate = estimateById.get(context.id);
+    if (!estimate) {
+      return;
+    }
+
+    driveMinutesByDate.set(
+      estimate.date,
+      (driveMinutesByDate.get(estimate.date) ?? 0) + estimate.bufferedDurationMinutes,
+    );
+
+    if (estimate.bufferedDurationMinutes >= LONG_LEG_WARNING_MINUTES) {
+      warnings.push({
+        id: `travel-feasibility-${estimate.id}`,
+        kind: "travel_feasibility",
+        severity: estimate.bufferedDurationMinutes >= 240 ? "high" : "medium",
+        label: `${estimate.toLabel} is a long campervan drive`,
+        detail: `Buffered travel time is ${formatDurationMinutes(
+          estimate.bufferedDurationMinutes,
+        )}. Consider breaking the leg up or moving the stop.`,
+        date: estimate.date,
+        relatedStopId: estimate.relatedStopId,
+      });
+    }
+
+    if (context.fromEventEndAt && context.targetArrivalBy) {
+      const estimatedArrivalAt = addMinutesIso(
+        context.fromEventEndAt,
+        estimate.bufferedDurationMinutes,
+      );
+
+      if (estimatedArrivalAt > context.targetArrivalBy) {
+        warnings.push({
+          id: `timing-${estimate.id}`,
+          kind:
+            context.targetArrivalLabel === "ferry check-in" ? "ferry_check_in" : "arrival_window",
+          severity: "high",
+          label:
+            context.targetArrivalLabel === "ferry check-in"
+              ? `Risk of missing check-in for ${estimate.toLabel}`
+              : `Late arrival risk for ${estimate.toLabel}`,
+          detail: `Buffered arrival would be ${formatDateTime(
+            estimatedArrivalAt,
+          )}, later than ${context.targetArrivalLabel} at ${formatDateTime(context.targetArrivalBy)}.`,
+          date: estimate.date,
+          relatedStopId: estimate.relatedStopId,
+        });
+      } else if (
+        context.targetArrivalLabel === "ferry check-in" &&
+        minutesBetweenIso(estimatedArrivalAt, context.targetArrivalBy) <= 20
+      ) {
+        warnings.push({
+          id: `timing-tight-${estimate.id}`,
+          kind: "ferry_check_in",
+          severity: "medium",
+          label: `${estimate.toLabel} has a tight ferry check-in window`,
+          detail: `Buffered arrival only leaves ${formatDurationMinutes(
+            minutesBetweenIso(estimatedArrivalAt, context.targetArrivalBy),
+          )} before check-in.`,
+          date: estimate.date,
+          relatedStopId: estimate.relatedStopId,
+        });
+      }
+    }
+
+    const relatedStop = context.relatedStopId ? findStopById(trip, context.relatedStopId) : null;
+    if (
+      relatedStop?.type === "stay" &&
+      context.fromEventEndAt &&
+      estimate.bufferedDurationMinutes >= 90
+    ) {
+      const estimatedArrivalAt = addMinutesIso(
+        context.fromEventEndAt,
+        estimate.bufferedDurationMinutes,
+      );
+      const arrivalHourMinutes =
+        Number.parseInt(estimatedArrivalAt.slice(11, 13), 10) * 60 +
+        Number.parseInt(estimatedArrivalAt.slice(14, 16), 10);
+
+      if (arrivalHourMinutes >= LATE_ARRIVAL_HOUR * 60 + LATE_ARRIVAL_MINUTE) {
+        warnings.push({
+          id: `late-arrival-${estimate.id}`,
+          kind: "arrival_window",
+          severity: "medium",
+          label: `Late campsite arrival risk for ${relatedStop.title}`,
+          detail: `Buffered arrival lands around ${formatDateTime(
+            estimatedArrivalAt,
+          )}. Consider easing the day or choosing a closer overnight stop.`,
+          date: estimate.date,
+          relatedStopId: relatedStop.id,
+        });
+      }
+    }
+  });
+
+  Array.from(driveMinutesByDate.entries()).forEach(([date, bufferedMinutes]) => {
+    if (bufferedMinutes < DRIVE_DAY_WARNING_MINUTES) {
+      return;
+    }
+
+    warnings.push({
+      id: `drive-day-${date}`,
+      kind: "drive_day",
+      severity: bufferedMinutes >= DRIVE_DAY_HIGH_MINUTES ? "high" : "medium",
+      label: `Heavy drive day on ${formatDateOnly(date)}`,
+      detail: `Buffered road travel totals ${formatDurationMinutes(
+        bufferedMinutes,
+      )} for this day.`,
+      date,
+    });
+  });
+
+  return warnings.sort((a, b) => {
+    const severityRank = { high: 0, medium: 1, low: 2 } as const;
+    const leftDate = a.date ?? "";
+    const rightDate = b.date ?? "";
+
+    if (severityRank[a.severity] !== severityRank[b.severity]) {
+      return severityRank[a.severity] - severityRank[b.severity];
+    }
+
+    if (leftDate !== rightDate) {
+      return leftDate.localeCompare(rightDate);
+    }
+
+    return a.label.localeCompare(b.label);
+  });
+};
+
+export const getMapData = (trip: Trip): {
+  markers: MapMarker[];
+  segments: MapSegment[];
+} => {
+  const markers: MapMarker[] = [markerForPlace("home", "home", trip.home, `Home: ${trip.home.label}`)];
+  const segments: MapSegment[] = [];
+
+  const orderedStops = getOrderedStopsForTravel(trip);
   let previous = trip.home;
 
   orderedStops.forEach((stop) => {
@@ -551,8 +855,11 @@ export const getMapData = (trip: Trip): {
   return { markers, segments };
 };
 
-export const applyDefaultCheckInBy = (departureIso: string): string => {
-  return addMinutesIso(departureIso, -45);
+export const applyDefaultCheckInBy = (
+  departureIso: string,
+  checkInBufferMinutes: number = 45,
+): string => {
+  return addMinutesIso(departureIso, -checkInBufferMinutes);
 };
 
 export const ensureStopOrder = (stops: TripStop[]): TripStop[] => {

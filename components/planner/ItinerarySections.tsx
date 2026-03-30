@@ -17,6 +17,7 @@ type ItinerarySectionsProps = {
   selectedDate: string;
   selectedEntity: SelectedEntity;
   isVisible: boolean;
+  isReadOnly?: boolean;
   onSelectDate: (date: string) => void;
   onSelectEntity: (entity: Exclude<SelectedEntity, null>) => void;
   onEdit: (stop: TripStop) => void;
@@ -57,7 +58,23 @@ function DateChip({
   );
 }
 
-function ItemActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+function ItemActions({
+  isReadOnly = false,
+  onEdit,
+  onDelete,
+}: {
+  isReadOnly?: boolean;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  if (isReadOnly) {
+    return (
+      <span className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+        Offline read-only
+      </span>
+    );
+  }
+
   return (
     <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
       <button
@@ -87,6 +104,7 @@ function PoiRows({
   onEdit,
   onDelete,
   registerItemRef,
+  isReadOnly = false,
 }: {
   pois: PointOfInterestStop[];
   selectedDate: string;
@@ -96,6 +114,7 @@ function PoiRows({
   onEdit: (stop: TripStop) => void;
   onDelete: (stop: TripStop) => void;
   registerItemRef: (key: string) => (element: HTMLElement | null) => void;
+  isReadOnly?: boolean;
 }) {
   const groupedByDate = useMemo(() => {
     const groups = new Map<string, PointOfInterestStop[]>();
@@ -153,7 +172,11 @@ function PoiRows({
                       {poi.notes ? <p className="mt-1 text-xs text-slate-500">{poi.notes}</p> : null}
                     </div>
 
-                    <ItemActions onEdit={() => onEdit(poi)} onDelete={() => onDelete(poi)} />
+                    <ItemActions
+                      isReadOnly={isReadOnly}
+                      onEdit={() => onEdit(poi)}
+                      onDelete={() => onDelete(poi)}
+                    />
                   </div>
                 </div>
               );
@@ -174,6 +197,7 @@ export default function ItinerarySections({
   onSelectEntity,
   onEdit,
   onDelete,
+  isReadOnly = false,
 }: ItinerarySectionsProps) {
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const itemRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -258,12 +282,34 @@ export default function ItinerarySections({
                       {formatDateOnly(dateOnlyFromIso(section.stay.checkInAt))} -{" "}
                       {formatDateOnly(dateOnlyFromIso(section.stay.checkOutAt))}
                     </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                        {section.stay.bookingStatus ?? "planned"}
+                      </span>
+                      {section.stay.hookup ? (
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                          Hookup
+                        </span>
+                      ) : null}
+                      {section.stay.hardstanding ? (
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                          Hardstanding
+                        </span>
+                      ) : null}
+                    </div>
+                    {section.stay.amenitiesSummary ? (
+                      <p className="mt-1 text-xs text-slate-500">{section.stay.amenitiesSummary}</p>
+                    ) : null}
                     {section.stay.notes ? (
                       <p className="mt-1 text-xs text-slate-500">{section.stay.notes}</p>
                     ) : null}
                   </div>
 
-                  <ItemActions onEdit={() => onEdit(section.stay)} onDelete={() => onDelete(section.stay)} />
+                  <ItemActions
+                    isReadOnly={isReadOnly}
+                    onEdit={() => onEdit(section.stay)}
+                    onDelete={() => onDelete(section.stay)}
+                  />
                 </div>
               </div>
 
@@ -282,6 +328,7 @@ export default function ItinerarySections({
                 onEdit={onEdit}
                 onDelete={onDelete}
                 registerItemRef={registerItemRef}
+                isReadOnly={isReadOnly}
               />
             </section>
           );
@@ -323,6 +370,23 @@ export default function ItinerarySections({
                     <p className="mt-1 text-xs text-slate-500">
                       Check-in by {formatDateTime(section.ferry.checkInBy)}
                     </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {section.ferry.operator ? (
+                        <span className="rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[11px] font-semibold text-cyan-700">
+                          {section.ferry.operator}
+                        </span>
+                      ) : null}
+                      {section.ferry.bookingRef ? (
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                          Ref {section.ferry.bookingRef}
+                        </span>
+                      ) : null}
+                      {section.ferry.vehicleDetails?.vehicleType ? (
+                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                          {section.ferry.vehicleDetails.vehicleType}
+                        </span>
+                      ) : null}
+                    </div>
                     {section.ferry.notes ? (
                       <p className="mt-1 text-xs text-slate-500">{section.ferry.notes}</p>
                     ) : null}
@@ -335,6 +399,7 @@ export default function ItinerarySections({
                       onClick={onSelectDate}
                     />
                     <ItemActions
+                      isReadOnly={isReadOnly}
                       onEdit={() => onEdit(section.ferry)}
                       onDelete={() => onDelete(section.ferry)}
                     />
@@ -383,7 +448,11 @@ export default function ItinerarySections({
 
                 <div className="flex flex-col items-end gap-2">
                   <DateChip date={section.poi.visitDate} active={selectedDate === section.poi.visitDate} onClick={onSelectDate} />
-                  <ItemActions onEdit={() => onEdit(section.poi)} onDelete={() => onDelete(section.poi)} />
+                  <ItemActions
+                    isReadOnly={isReadOnly}
+                    onEdit={() => onEdit(section.poi)}
+                    onDelete={() => onDelete(section.poi)}
+                  />
                 </div>
               </div>
             </div>

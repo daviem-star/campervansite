@@ -6,6 +6,7 @@ type TripHeaderProps = {
   dateRangeLabel: string;
   totalNights: number;
   totalCost: number;
+  showDemoControls: boolean;
   onResetSeed: () => Promise<void>;
   onResetSeedAlignedToToday: () => Promise<void>;
 };
@@ -16,6 +17,7 @@ export default function TripHeader({
   dateRangeLabel,
   totalNights,
   totalCost,
+  showDemoControls,
   onResetSeed,
   onResetSeedAlignedToToday,
 }: TripHeaderProps) {
@@ -27,22 +29,24 @@ export default function TripHeader({
           <p className="mt-1 text-sm text-slate-600">{dateRangeLabel}</p>
         </div>
 
-        <div className="flex flex-col items-end gap-2">
-          <button
-            type="button"
-            onClick={onResetSeed}
-            className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
-          >
-            Reset seed data
-          </button>
-          <button
-            type="button"
-            onClick={onResetSeedAlignedToToday}
-            className="rounded-xl border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100"
-          >
-            Make trip happen now
-          </button>
-        </div>
+        {showDemoControls ? (
+          <div className="flex flex-col items-end gap-2">
+            <button
+              type="button"
+              onClick={onResetSeed}
+              className="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+            >
+              Reset seed data
+            </button>
+            <button
+              type="button"
+              onClick={onResetSeedAlignedToToday}
+              className="rounded-xl border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100"
+            >
+              Make trip happen now
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-2 text-sm sm:grid-cols-3">
