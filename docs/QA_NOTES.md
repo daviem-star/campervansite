@@ -2,6 +2,8 @@
 
 Manual QA tracking for the Campervan Trip Planner.
 
+This checklist is currently weighted toward the architect brief's first phase, "foundation and trust", because that is the stage the `main` branch is still completing.
+
 ## How To Use
 
 For each issue, record:

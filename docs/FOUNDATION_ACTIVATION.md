@@ -1,6 +1,8 @@
 # Foundation Activation Guide
 
-Use this runbook to turn the current branch from an auth-first local preview into a live cloud-backed preview.
+Use this runbook to turn the current `main` branch from an auth-first local preview into a live cloud-backed preview.
+
+This document covers the remaining operational work inside the architect brief's first phase: foundation and trust. It is intentionally focused on activation, sync confidence, and cross-device continuity before broader feature expansion.
 
 ## What You Need
 
@@ -89,3 +91,4 @@ The Playwright suite uses an internal E2E auth/backend bypass for deterministic 
 - Offline behavior is intentionally read-only for the last synced active trip in this milestone.
 - Cloud activation is the current priority; new feature work should wait until the hosted path is verified.
 - Provider integrations can be added later for convenience, but they should not block setup or deployment.
+- Once this guide is complete, the next roadmap step is not "more UI ideas" in general. It is the architect brief's planning-quality phase: route realism, ferry deepening, campsite intelligence, and stronger planning trust.

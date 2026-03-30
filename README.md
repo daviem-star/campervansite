@@ -1,6 +1,6 @@
 # Campervan Trip Planner
 
-A Next.js App Router trip planner for campervan travel. The current working branch is the auth-first beta foundation: signed-out users land on a private access screen, then the full planner opens after magic-link sign-in.
+A Next.js App Router trip planner for campervan travel. The current `main` branch is the auth-first beta foundation: signed-out users land on a private access screen, then the full planner opens after magic-link sign-in.
 
 ## Current Status
 
@@ -12,7 +12,7 @@ A Next.js App Router trip planner for campervan travel. The current working bran
 - Route realism includes road-leg estimates, buffered drive times, and validation warnings for difficult travel days.
 - Automated coverage includes Vitest for logic and Playwright for core trust flows.
 
-This branch is beyond the original local-only MVP. The main remaining gap is live service activation and hosted validation, not the core app architecture.
+The project is beyond the original local-only MVP. The main remaining gap is live service activation and hosted validation, not the core app architecture.
 
 ## What The App Does Today
 
@@ -93,9 +93,26 @@ npm run test:e2e
 - `docs/PRODUCT_PLAN.md`: current product status and next milestone order
 - `docs/QA_NOTES.md`: manual QA checklist and issue log
 
+## Roadmap Source
+
+The forward plan in this repository now follows the architecture brief in `campervan_architect_brief.docx`, which framed the product in three phases:
+
+1. Foundation and trust: shared trip data, sync, offline confidence, and a reliable trip core
+2. Planning quality: route realism, ferry depth, campsite intelligence, and stronger validation
+3. On-road readiness: concise travel-day support, sharing/export, and mobile/tablet practicality
+
+The current codebase is partway through phase 1. The next development work should continue to respect that sequence rather than jumping ahead to convenience features too early.
+
 ## Next Steps
 
-- Validate the new auth-first planner shell against live Supabase and preview deployments.
-- Confirm the starter/import onboarding flow, desktop rail layout, edit locking, and map framing on real devices.
-- Activate OpenRouteService after the current UI shell feels stable and usable.
-- Keep README and planning docs aligned with actual shipped behavior on this branch.
+- Finish the hosted-service path on live infrastructure:
+  - Supabase auth and persistence
+  - Vercel preview and production wiring
+  - OpenRouteService once the current UI shell feels stable
+- Validate the current auth-first planner shell on real devices:
+  - starter/import onboarding
+  - desktop rail layout
+  - edit locking
+  - map framing
+- After activation, move into the architect brief's next phase: planning quality and realism.
+- Keep README and planning docs aligned with actual shipped behavior on `main`.
