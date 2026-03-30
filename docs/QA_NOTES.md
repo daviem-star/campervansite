@@ -25,20 +25,21 @@ For each issue, record:
 
 ### Cloud / Sync Smoke
 
-- [ ] Signed-out state shows demo itinerary plus magic-link request UI when Supabase env vars are configured
+- [ ] Signed-out state shows the auth gate and does not expose the example itinerary before login
 - [ ] Magic-link request shows a clear success banner with the target email
-- [ ] Signed-in empty account offers create/import path instead of failing silently
+- [ ] Signed-in empty account auto-creates the starter example trip when no legacy local data exists
+- [ ] Signed-in empty account with legacy local data shows the one-time import-or-example chooser
 - [ ] Cloud trip can be loaded on a second browser/device
 - [ ] Stop edit returns sync state to `Saved`
-- [ ] Legacy local import works once and removes the import prompt afterwards
+- [ ] Legacy local import works once and then drops back into the main planner
 - [ ] Stale write conflict reloads the latest trip and shows recovery messaging
-- [ ] Last synced trip reopens offline in read-only mode with edit controls disabled
+- [ ] Last synced trip reopens offline in read-only mode with the global `Edit trip` control disabled
 - [ ] Route estimates succeed when OpenRouteService is configured and fall back gracefully when unavailable
 
 ### Mobile
 
 - [ ] Default tab is `Today`
-- [ ] Tab switching preserves selection/highlights (`Today` / `Itinerary` / `Map`)
+- [ ] Tab switching preserves selection/highlights (`Today` / `Itinerary` / `Overview` / `Map`)
 - [ ] Itinerary tab has fixed controls and scrollable itinerary list only
 - [ ] Day chip selection scrolls to the correct itinerary section
 - [ ] Map interactions select and highlight itinerary items
@@ -54,11 +55,17 @@ For each issue, record:
 
 ### Desktop
 
-- [ ] Left pane fixed sections remain visible while itinerary list scrolls
+- [ ] Authenticated desktop defaults to the `Itinerary` panel with the map visible
+- [ ] Left rail switches cleanly between `Itinerary`, `Overview`, and `Today`
+- [ ] Lower itinerary sections remain reachable and their `Edit` actions stay clickable
+- [ ] Itinerary auto-scroll keeps the top toolbar and rail visible instead of shifting the whole planner upward
+- [ ] View mode hides mutation controls until `Edit trip` is enabled
+- [ ] Offline read-only state keeps `Edit trip` disabled and the itinerary non-mutable
 - [ ] First itinerary selection focuses map
 - [ ] Subsequent itinerary selections pan only (zoom preserved)
 - [ ] Map click selects itinerary item without auto-zoom jump
 - [ ] Ferry segment and ferry ports select the ferry itinerary item
+- [ ] Initial map overview shows the full trip rather than starting tightly zoomed
 
 ### Validation / Failure Handling
 

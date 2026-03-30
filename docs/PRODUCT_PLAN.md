@@ -10,47 +10,49 @@ This branch represents the beta foundation for the planner. The app already has 
   - stays
   - ferries
   - points of interest
+- Auth-first access model with a signed-out welcome screen.
+- Signed-in starter flow that either:
+  - auto-creates the example trip in the cloud, or
+  - offers a one-time local-import-or-example choice when legacy browser data exists
 - Desktop-first planning layout plus mobile/tablet travel review.
-- Demo mode with seeded local data and browser persistence.
 - Cloud-capable mode with:
   - Supabase email magic-link auth
   - cloud trip save/load/import server routes
   - sync status messaging
   - stale-write conflict recovery
   - offline read-only reopening of the last synced trip
+- Planner shell now defaults to:
+  - `Itinerary` as the main desktop panel
+  - `View mode` until the user explicitly unlocks `Edit trip`
+  - overview and today content moved into switchable panels instead of a permanently stacked left column
 - Route realism support with:
   - live or fallback road-leg estimates
   - buffered drive times
   - validation warnings for travel feasibility
 - Automated coverage with unit tests, lint/build checks, and Playwright trust-flow tests.
 
-## Immediate Milestone: Foundation Activation
+## Immediate Milestone: UI Stability And Service Activation
 
-The next milestone is operational, not feature-led.
+The next milestone is to make the new planner shell feel reliable before moving deeper into provider integrations.
 
-- Stand up the hosted stack:
-  - Supabase
-  - OpenRouteService
-  - Vercel
-- Configure the runtime contract:
-  - `NEXT_PUBLIC_SUPABASE_URL`
-  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-  - `SUPABASE_SERVICE_ROLE_KEY`
-  - `OPENROUTESERVICE_API_KEY`
-- Apply the `trip_documents` migration and confirm the planner leaves demo-only mode when env vars are present.
-- Validate the live cloud path on preview:
+- Validate the auth-first UI and live cloud path on preview:
   - magic-link sign-in
-  - cloud trip creation/import
+  - starter example trip creation
+  - local import choice flow
   - save and reload
   - stale-write conflict recovery
   - offline read-only reopen
-  - route-estimate success and fallback behavior
-- Keep branch docs aligned with real shipped behavior while activation work lands.
+  - route-estimate success and fallback behavior once OpenRouteService is wired
+- Keep the new desktop rail layout, edit locking, and full-trip map framing stable on real devices.
+- Stand up the remaining hosted stack pieces cleanly:
+  - Supabase
+  - OpenRouteService
+  - Vercel
 
 ### Definition Of Done
 
-- Preview deployment is wired to real Supabase and OpenRouteService credentials.
-- The smoke checklist in `docs/FOUNDATION_ACTIVATION.md` passes on desktop and mobile/tablet.
+- Preview deployment is wired to real Supabase credentials, and OpenRouteService can be added without destabilizing the planner shell.
+- The smoke checklist in `docs/FOUNDATION_ACTIVATION.md` passes on desktop and mobile/tablet for auth-first entry, onboarding, edit locking, and offline read-only behavior.
 - `README.md`, `docs/PRODUCT_PLAN.md`, and `docs/QA_NOTES.md` accurately describe the branch.
 
 ## Next Milestone After Activation: Beta Hardening

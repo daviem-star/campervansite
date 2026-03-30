@@ -5,6 +5,7 @@ import { AppData, SessionUser, Trip, TripSummary } from "@/types/trip";
 
 const LEGACY_STORAGE_KEY = "campervan_trip_planner_v1";
 const ACTIVE_TRIP_PREFERENCE_PREFIX = "campervan_trip_planner_active_trip";
+const FIRST_TRIP_SETUP_PREFIX = "campervan_trip_planner_first_trip_setup";
 
 export interface TripRepository {
   listTrips(): Promise<TripSummary[]>;
@@ -27,6 +28,9 @@ export class TripConflictError extends Error {
 const resolveActiveTripPreferenceKey = (userId: string): string =>
   `${ACTIVE_TRIP_PREFERENCE_PREFIX}:${userId}`;
 
+const resolveFirstTripSetupKey = (userId: string): string =>
+  `${FIRST_TRIP_SETUP_PREFIX}:${userId}`;
+
 export const getPreferredActiveTripId = (userId: string): string | null => {
   if (typeof window === "undefined") {
     return null;
@@ -41,6 +45,22 @@ export const setPreferredActiveTripId = (userId: string, tripId: string): void =
   }
 
   window.localStorage.setItem(resolveActiveTripPreferenceKey(userId), tripId);
+};
+
+export const hasResolvedFirstTripSetup = (userId: string): boolean => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return window.localStorage.getItem(resolveFirstTripSetupKey(userId)) === "1";
+};
+
+export const markFirstTripSetupResolved = (userId: string): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(resolveFirstTripSetupKey(userId), "1");
 };
 
 export class LegacyLocalStorageTripRepository {

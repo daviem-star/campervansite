@@ -1,6 +1,6 @@
 # Foundation Activation Guide
 
-Use this runbook to turn the current branch from a demo-capable planner into a live cloud-backed preview.
+Use this runbook to turn the current branch from an auth-first local preview into a live cloud-backed preview.
 
 ## What You Need
 
@@ -45,7 +45,7 @@ Recommended local check after setting them:
 
 1. Run `npm run dev`.
 2. Open the app.
-3. Confirm the account panel shows magic-link sign-in instead of the demo-only "not configured" message.
+3. Confirm the signed-out auth gate shows magic-link sign-in instead of the setup-only "not configured" message.
 
 ## 4. Vercel Deployment
 
@@ -59,14 +59,16 @@ Recommended local check after setting them:
 
 Run this on desktop and mobile/tablet:
 
-1. Signed-out user sees demo itinerary plus magic-link sign-in UI.
+1. Signed-out user sees the auth gate and cannot browse the example itinerary before login.
 2. Requesting a magic link shows a success banner with the target email.
-3. Signed-in user can create or import a cloud trip if the account is empty.
+3. Signed-in user with an empty cloud account either:
+   - auto-gets the starter example trip when no legacy browser data exists, or
+   - sees the one-time import-or-example chooser when legacy browser data exists
 4. Signed-in user can load the same cloud trip on a second device or browser.
-5. Editing a stop saves successfully and the sync badge returns to `Saved`.
-6. Importing local demo data creates a cloud-backed trip and removes the import prompt afterward.
+5. `Edit trip` unlocks itinerary mutation controls, and finishing an edit returns the sync badge to `Saved`.
+6. Importing local browser data creates a cloud-backed trip and returns the user to the main planner.
 7. If two devices edit the same trip, the stale device shows the conflict recovery message and reloads the latest version.
-8. If the device loses service after syncing, the app reopens the cached trip in read-only mode and disables editing controls.
+8. If the device loses service after syncing, the app reopens the cached trip in read-only mode and disables `Edit trip`.
 9. Route estimates use OpenRouteService when the key is valid and fall back gracefully when the service is unavailable.
 
 ## 6. Automated Validation

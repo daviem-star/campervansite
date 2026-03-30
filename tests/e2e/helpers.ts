@@ -100,3 +100,16 @@ export const primeForcedDemoMode = async (
     },
   );
 };
+
+export const seedCloudTrips = async (
+  page: Page,
+  user: SessionUser,
+  data: AppData | null,
+) => {
+  await page.request.post("/api/e2e/trips/seed", {
+    data: {
+      user,
+      data,
+    },
+  });
+};

@@ -17,7 +17,8 @@ type ItinerarySectionsProps = {
   selectedDate: string;
   selectedEntity: SelectedEntity;
   isVisible: boolean;
-  isReadOnly?: boolean;
+  canMutate?: boolean;
+  isOfflineReadOnly?: boolean;
   onSelectDate: (date: string) => void;
   onSelectEntity: (entity: Exclude<SelectedEntity, null>) => void;
   onEdit: (stop: TripStop) => void;
@@ -28,6 +29,32 @@ const dayChipClass =
   "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition";
 
 const stopRowSelectedClass = "ring-2 ring-sky-300 border-sky-300 bg-sky-50/70";
+
+const scrollItemWithinContainer = (element: HTMLElement | null) => {
+  if (!element) {
+    return;
+  }
+
+  const container = element.closest("[data-itinerary-scroll-container='true']");
+
+  if (!(container instanceof HTMLElement)) {
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+
+  const containerRect = container.getBoundingClientRect();
+  const elementRect = element.getBoundingClientRect();
+  const targetTop =
+    container.scrollTop +
+    (elementRect.top - containerRect.top) -
+    container.clientHeight / 2 +
+    elementRect.height / 2;
+
+  container.scrollTo({
+    top: Math.max(0, targetTop),
+    behavior: "smooth",
+  });
+};
 
 function DateChip({
   date,
@@ -59,20 +86,26 @@ function DateChip({
 }
 
 function ItemActions({
-  isReadOnly = false,
+  canMutate = false,
+  isOfflineReadOnly = false,
   onEdit,
   onDelete,
 }: {
-  isReadOnly?: boolean;
+  canMutate?: boolean;
+  isOfflineReadOnly?: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  if (isReadOnly) {
+  if (isOfflineReadOnly) {
     return (
       <span className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
         Offline read-only
       </span>
     );
+  }
+
+  if (!canMutate) {
+    return null;
   }
 
   return (
@@ -104,7 +137,8 @@ function PoiRows({
   onEdit,
   onDelete,
   registerItemRef,
-  isReadOnly = false,
+  canMutate = false,
+  isOfflineReadOnly = false,
 }: {
   pois: PointOfInterestStop[];
   selectedDate: string;
@@ -114,7 +148,8 @@ function PoiRows({
   onEdit: (stop: TripStop) => void;
   onDelete: (stop: TripStop) => void;
   registerItemRef: (key: string) => (element: HTMLElement | null) => void;
-  isReadOnly?: boolean;
+  canMutate?: boolean;
+  isOfflineReadOnly?: boolean;
 }) {
   const groupedByDate = useMemo(() => {
     const groups = new Map<string, PointOfInterestStop[]>();
@@ -173,7 +208,8 @@ function PoiRows({
                     </div>
 
                     <ItemActions
-                      isReadOnly={isReadOnly}
+                      canMutate={canMutate}
+                      isOfflineReadOnly={isOfflineReadOnly}
                       onEdit={() => onEdit(poi)}
                       onDelete={() => onDelete(poi)}
                     />
@@ -197,7 +233,8 @@ export default function ItinerarySections({
   onSelectEntity,
   onEdit,
   onDelete,
-  isReadOnly = false,
+  canMutate = false,
+  isOfflineReadOnly = false,
 }: ItinerarySectionsProps) {
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
   const itemRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -221,7 +258,7 @@ export default function ItinerarySections({
     }
 
     const element = sectionRefs.current[targetSection.id];
-    element?.scrollIntoView({ behavior: "smooth", block: "center" });
+    scrollItemWithinContainer(element);
   }, [isVisible, selectedDate, sections]);
 
   useEffect(() => {
@@ -230,7 +267,7 @@ export default function ItinerarySections({
     }
 
     const itemElement = itemRefs.current[selectedEntity.stopId];
-    itemElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+    scrollItemWithinContainer(itemElement);
   }, [isVisible, selectedEntity]);
 
   if (sections.length === 0) {
@@ -305,11 +342,12 @@ export default function ItinerarySections({
                     ) : null}
                   </div>
 
-                  <ItemActions
-                    isReadOnly={isReadOnly}
-                    onEdit={() => onEdit(section.stay)}
-                    onDelete={() => onDelete(section.stay)}
-                  />
+                    <ItemActions
+                      canMutate={canMutate}
+                      isOfflineReadOnly={isOfflineReadOnly}
+                      onEdit={() => onEdit(section.stay)}
+                      onDelete={() => onDelete(section.stay)}
+                    />
                 </div>
               </div>
 
@@ -325,11 +363,12 @@ export default function ItinerarySections({
                 selectedEntity={selectedEntity}
                 onSelectDate={onSelectDate}
                 onSelectEntity={onSelectEntity}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                registerItemRef={registerItemRef}
-                isReadOnly={isReadOnly}
-              />
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  registerItemRef={registerItemRef}
+                  canMutate={canMutate}
+                  isOfflineReadOnly={isOfflineReadOnly}
+                />
             </section>
           );
         }
@@ -399,7 +438,8 @@ export default function ItinerarySections({
                       onClick={onSelectDate}
                     />
                     <ItemActions
-                      isReadOnly={isReadOnly}
+                      canMutate={canMutate}
+                      isOfflineReadOnly={isOfflineReadOnly}
                       onEdit={() => onEdit(section.ferry)}
                       onDelete={() => onDelete(section.ferry)}
                     />
@@ -448,11 +488,12 @@ export default function ItinerarySections({
 
                 <div className="flex flex-col items-end gap-2">
                   <DateChip date={section.poi.visitDate} active={selectedDate === section.poi.visitDate} onClick={onSelectDate} />
-                  <ItemActions
-                    isReadOnly={isReadOnly}
-                    onEdit={() => onEdit(section.poi)}
-                    onDelete={() => onDelete(section.poi)}
-                  />
+                    <ItemActions
+                      canMutate={canMutate}
+                      isOfflineReadOnly={isOfflineReadOnly}
+                      onEdit={() => onEdit(section.poi)}
+                      onDelete={() => onDelete(section.poi)}
+                    />
                 </div>
               </div>
             </div>

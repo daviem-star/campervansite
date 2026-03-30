@@ -33,7 +33,6 @@ const MAP_STYLE: maplibregl.StyleSpecification = {
   ],
 };
 
-const OVERVIEW_MIN_ZOOM = 8;
 const DETAIL_ZOOM = 10.5;
 const MAP_ZOOM_STEP = 0.8;
 const OVERVIEW_DURATION_MS = 680;
@@ -318,15 +317,9 @@ export default function PlannerMap({
     }
 
     map.fitBounds(bounds, {
-      padding: 60,
-      maxZoom: 10,
+      padding: { top: 80, right: 80, bottom: 80, left: 80 },
+      maxZoom: 8.2,
       duration: OVERVIEW_DURATION_MS,
-    });
-
-    map.once("moveend", () => {
-      if (map.getZoom() < OVERVIEW_MIN_ZOOM) {
-        map.easeTo({ zoom: OVERVIEW_MIN_ZOOM, duration: 260 });
-      }
     });
 
     hasFocusedFromOverviewRef.current = false;

@@ -8,19 +8,22 @@ import {
   CloudTripRepository,
   createDemoAppDataFromTrip,
   hasLegacyLocalTripData,
+  hasResolvedFirstTripSetup,
   LegacyLocalStorageTripRepository,
+  markFirstTripSetupResolved,
   pickInitialCloudTripId,
   readLegacyLocalTrips,
   setPreferredActiveTripId,
   TripConflictError,
 } from "@/lib/repository";
+import { getSeedData } from "@/lib/seedData";
 import {
   BrowserAuthUser,
   getBrowserSupabaseClient,
   isSupabaseConfigured,
 } from "@/lib/supabase";
-import { ensureStopOrder } from "@/lib/tripDerived";
 import { shouldForceDemoMode } from "@/lib/runtimeFlags";
+import { ensureStopOrder } from "@/lib/tripDerived";
 import { AppData, NewTripStop, SessionUser, SyncStatus, Trip, TripStop } from "@/types/trip";
 
 const localRepository = new LegacyLocalStorageTripRepository();
@@ -67,6 +70,8 @@ const replaceActiveTrip = (data: AppData | null, nextTrip: Trip): AppData => {
 
 type AuthStatus = "disabled" | "checking" | "signed_out" | "signed_in";
 type PlannerMode = "demo" | "cloud";
+type FirstTripSetup = "none" | "choose_source";
+type PlannerInteractionMode = "view" | "edit";
 
 type TripStoreState = {
   data: AppData | null;
@@ -79,15 +84,19 @@ type TripStoreState = {
   syncStatus: SyncStatus;
   isOfflineReadOnly: boolean;
   hasLegacyImport: boolean;
+  firstTripSetup: FirstTripSetup;
+  plannerInteractionMode: PlannerInteractionMode;
   initialize: () => Promise<void>;
   loadData: () => Promise<void>;
   signInWithMagicLink: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   importLegacyTrips: () => Promise<void>;
   createCloudTripFromCurrent: () => Promise<void>;
+  startWithExampleTrip: () => Promise<void>;
   loadCloudTrip: (tripId: string) => Promise<void>;
   resetToSeed: () => Promise<void>;
   resetToSeedAlignedToToday: () => Promise<void>;
+  setPlannerInteractionMode: (mode: PlannerInteractionMode) => void;
   updateTrip: (nextTrip: Trip) => Promise<void>;
   addStop: (newStop: NewTripStop) => Promise<void>;
   updateStop: (stopId: string, updater: (stop: TripStop) => TripStop) => Promise<void>;
@@ -159,97 +168,46 @@ const loadDemoMode = async (
     syncStatus: "idle",
     isOfflineReadOnly: false,
     hasLegacyImport: hasLegacyLocalTripData(),
+    firstTripSetup: "none",
+    plannerInteractionMode: "view",
   });
 };
 
-const loadSignedInMode = async (
+const loadAuthGateState = (
   set: (partial: Partial<TripStoreState>) => void,
-  user: SessionUser,
+  authStatus: AuthStatus,
+  statusMessage: string | null,
+  error: string | null = null,
 ) => {
-  const cloudRepository = getCloudRepository();
-  const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+  set({
+    data: null,
+    isLoading: false,
+    error,
+    statusMessage,
+    authStatus,
+    user: null,
+    mode: "cloud",
+    syncStatus: "idle",
+    isOfflineReadOnly: false,
+    hasLegacyImport: false,
+    firstTripSetup: "none",
+    plannerInteractionMode: "view",
+  });
+};
 
-  if (isOffline) {
-    const cachedTrip = await cloudRepository.getCachedActiveTrip();
-    if (cachedTrip) {
-      setPreferredActiveTripId(user.id, cachedTrip.id);
-      set({
-        data: createDemoAppDataFromTrip(cachedTrip),
-        isLoading: false,
-        error: "Showing the last synced trip while offline.",
-        statusMessage: "Reconnect to resume editing and sync the latest changes.",
-        authStatus: "signed_in",
-        user,
-        mode: "cloud",
-        syncStatus: "offline",
-        isOfflineReadOnly: true,
-        hasLegacyImport: hasLegacyLocalTripData(),
-      });
-      await trackEvent("offline_open", { tripId: cachedTrip.id });
-      return;
-    }
-  }
+const buildStarterCloudTrip = (user: SessionUser): Trip => {
+  const template = structuredClone(getSeedData().trips[0]);
+  const createdAt = nowIso();
 
-  try {
-    const summaries = await cloudRepository.listTrips();
-    const initialTripId = pickInitialCloudTripId(summaries, user);
-
-    if (!initialTripId) {
-      await loadDemoMode(
-        set,
-        "signed_in",
-        user,
-        "You are signed in, but do not have a cloud trip yet. Create one from the demo itinerary or import local trips.",
-      );
-      return;
-    }
-
-    const trip = await cloudRepository.loadTrip(initialTripId);
-    setPreferredActiveTripId(user.id, trip.id);
-    set({
-      data: createDemoAppDataFromTrip(trip),
-      isLoading: false,
-      error: null,
-      statusMessage: "Cloud trip loaded. Changes will sync across devices while you are online.",
-      authStatus: "signed_in",
-      user,
-      mode: "cloud",
-      syncStatus: "saved",
-      isOfflineReadOnly: false,
-      hasLegacyImport: hasLegacyLocalTripData(),
-    });
-    await trackEvent("trip_loaded", { source: "cloud", tripId: trip.id });
-  } catch (error) {
-    const cachedTrip = await cloudRepository.getCachedActiveTrip();
-    if (cachedTrip) {
-      set({
-        data: createDemoAppDataFromTrip(cachedTrip),
-        isLoading: false,
-        error: "Unable to reach cloud sync. Showing the last synced trip instead.",
-        statusMessage: "This trip is read-only until the connection returns.",
-        authStatus: "signed_in",
-        user,
-        mode: "cloud",
-        syncStatus: "offline",
-        isOfflineReadOnly: true,
-        hasLegacyImport: hasLegacyLocalTripData(),
-      });
-      return;
-    }
-
-    set({
-      isLoading: false,
-      error: error instanceof Error ? error.message : "Unable to load cloud trip data.",
-      statusMessage: "Falling back to the demo itinerary until cloud sync is available again.",
-      authStatus: "signed_in",
-      user,
-      mode: "demo",
-      syncStatus: "error",
-      isOfflineReadOnly: false,
-      hasLegacyImport: hasLegacyLocalTripData(),
-    });
-    await loadDemoMode(set, "signed_in", user);
-  }
+  return {
+    ...template,
+    id: `trip_example_${crypto.randomUUID()}`,
+    ownerUserId: user.id,
+    version: 1,
+    createdAt,
+    updatedAt: createdAt,
+    lastSyncedAt: null,
+  };
 };
 
 const persistActiveTrip = async (
@@ -259,9 +217,6 @@ const persistActiveTrip = async (
   analyticsEvent: string,
 ) => {
   const state = get();
-  if (!state.data) {
-    return;
-  }
 
   if (state.isOfflineReadOnly) {
     set({
@@ -285,6 +240,7 @@ const persistActiveTrip = async (
       setPreferredActiveTripId(state.user.id, savedTrip.id);
       set({
         data: replaceActiveTrip(state.data, savedTrip),
+        isLoading: false,
         syncStatus: "saved",
         mode: "cloud",
         error: null,
@@ -334,6 +290,15 @@ const persistActiveTrip = async (
     }
   }
 
+  if (!state.data) {
+    set({
+      syncStatus: "error",
+      error: "No trip is currently loaded.",
+      statusMessage: "Reload the planner and try again.",
+    });
+    return;
+  }
+
   const nextData = replaceActiveTrip(state.data, {
     ...nextTrip,
     ownerUserId: null,
@@ -350,6 +315,174 @@ const persistActiveTrip = async (
   await trackEvent(analyticsEvent, { source: "demo", tripId: nextTrip.id });
 };
 
+const loadSignedInMode = async (
+  set: (partial: Partial<TripStoreState>) => void,
+  get: () => TripStoreState,
+  user: SessionUser,
+) => {
+  const cloudRepository = getCloudRepository();
+  const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+
+  if (isOffline) {
+    const cachedTrip = await cloudRepository.getCachedActiveTrip();
+    if (cachedTrip) {
+      setPreferredActiveTripId(user.id, cachedTrip.id);
+      markFirstTripSetupResolved(user.id);
+      set({
+        data: createDemoAppDataFromTrip(cachedTrip),
+        isLoading: false,
+        error: "Showing the last synced trip while offline.",
+        statusMessage: "Reconnect to resume editing and sync the latest changes.",
+        authStatus: "signed_in",
+        user,
+        mode: "cloud",
+        syncStatus: "offline",
+        isOfflineReadOnly: true,
+        hasLegacyImport: false,
+        firstTripSetup: "none",
+        plannerInteractionMode: "view",
+      });
+      await trackEvent("offline_open", { tripId: cachedTrip.id });
+      return;
+    }
+  }
+
+  try {
+    const summaries = await cloudRepository.listTrips();
+    const initialTripId = pickInitialCloudTripId(summaries, user);
+
+    if (!initialTripId) {
+      const shouldOfferChoice =
+        hasLegacyLocalTripData() && !hasResolvedFirstTripSetup(user.id);
+
+      if (shouldOfferChoice) {
+        set({
+          data: null,
+          isLoading: false,
+          error: null,
+          statusMessage:
+            "Choose whether to import your local trip or start with the example itinerary.",
+          authStatus: "signed_in",
+          user,
+          mode: "cloud",
+          syncStatus: "idle",
+          isOfflineReadOnly: false,
+          hasLegacyImport: true,
+          firstTripSetup: "choose_source",
+          plannerInteractionMode: "view",
+        });
+        return;
+      }
+
+      set({
+        data: null,
+        isLoading: true,
+        error: null,
+        statusMessage: "Creating your starter trip from the example itinerary...",
+        authStatus: "signed_in",
+        user,
+        mode: "cloud",
+        syncStatus: "saving",
+        isOfflineReadOnly: false,
+        hasLegacyImport: false,
+        firstTripSetup: "none",
+        plannerInteractionMode: "view",
+      });
+
+      const starterTrip = buildStarterCloudTrip(user);
+      await persistActiveTrip(set, get, starterTrip, "cloud_trip_created");
+
+      if (!get().error) {
+        markFirstTripSetupResolved(user.id);
+        set({
+          isLoading: false,
+          hasLegacyImport: false,
+          firstTripSetup: "none",
+          plannerInteractionMode: "view",
+          statusMessage:
+            "Example trip ready. Open Edit trip when you want to change stops or dates.",
+        });
+      } else {
+        set({
+          isLoading: false,
+        });
+      }
+
+      return;
+    }
+
+    const trip = await cloudRepository.loadTrip(initialTripId);
+    setPreferredActiveTripId(user.id, trip.id);
+    markFirstTripSetupResolved(user.id);
+    set({
+      data: createDemoAppDataFromTrip(trip),
+      isLoading: false,
+      error: null,
+      statusMessage: "Cloud trip loaded. Changes will sync across devices while you are online.",
+      authStatus: "signed_in",
+      user,
+      mode: "cloud",
+      syncStatus: "saved",
+      isOfflineReadOnly: false,
+      hasLegacyImport: false,
+      firstTripSetup: "none",
+      plannerInteractionMode: "view",
+    });
+    await trackEvent("trip_loaded", { source: "cloud", tripId: trip.id });
+  } catch (error) {
+    const cachedTrip = await cloudRepository.getCachedActiveTrip();
+    if (cachedTrip) {
+      markFirstTripSetupResolved(user.id);
+      set({
+        data: createDemoAppDataFromTrip(cachedTrip),
+        isLoading: false,
+        error: "Unable to reach cloud sync. Showing the last synced trip instead.",
+        statusMessage: "This trip is read-only until the connection returns.",
+        authStatus: "signed_in",
+        user,
+        mode: "cloud",
+        syncStatus: "offline",
+        isOfflineReadOnly: true,
+        hasLegacyImport: false,
+        firstTripSetup: "none",
+        plannerInteractionMode: "view",
+      });
+      return;
+    }
+
+    set({
+      data: null,
+      isLoading: false,
+      error: error instanceof Error ? error.message : "Unable to load cloud trip data.",
+      statusMessage: "Reconnect or reload to continue setting up your trip.",
+      authStatus: "signed_in",
+      user,
+      mode: "cloud",
+      syncStatus: "error",
+      isOfflineReadOnly: false,
+      hasLegacyImport: false,
+      firstTripSetup: "none",
+      plannerInteractionMode: "view",
+    });
+  }
+};
+
+const enforceEditMode = (
+  set: (partial: Partial<TripStoreState>) => void,
+  state: TripStoreState,
+  actionLabel: string,
+): boolean => {
+  if (state.plannerInteractionMode === "edit") {
+    return false;
+  }
+
+  set({
+    error: `Switch to Edit trip before ${actionLabel}.`,
+    statusMessage: "View mode keeps the itinerary locked until you explicitly edit it.",
+  });
+  return true;
+};
+
 export const useTripStore = create<TripStoreState>((set, get) => ({
   data: null,
   isLoading: false,
@@ -361,6 +494,8 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
   syncStatus: "idle",
   isOfflineReadOnly: false,
   hasLegacyImport: false,
+  firstTripSetup: "none",
+  plannerInteractionMode: "view",
 
   initialize: async () => {
     set({
@@ -368,6 +503,8 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
       error: null,
       statusMessage: null,
       authStatus: isSupabaseConfigured() ? "checking" : "disabled",
+      firstTripSetup: "none",
+      plannerInteractionMode: "view",
     });
 
     bindConnectivityListeners(set, get);
@@ -381,7 +518,11 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
 
     const client = getSupabaseClient();
     if (!client) {
-      await loadDemoMode(set, "disabled", null);
+      loadAuthGateState(
+        set,
+        "disabled",
+        "Configure Supabase for this environment, then sign in to open the planner.",
+      );
       return;
     }
 
@@ -389,11 +530,15 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
     const sessionUser = data.session?.user ? mapUser(data.session.user) : null;
 
     if (!sessionUser) {
-      await loadDemoMode(set, "signed_out", null);
+      loadAuthGateState(
+        set,
+        "signed_out",
+        "Sign in with a magic link to open your trip and sync it across devices.",
+      );
       return;
     }
 
-    await loadSignedInMode(set, sessionUser);
+    await loadSignedInMode(set, get, sessionUser);
   },
 
   loadData: async () => {
@@ -435,13 +580,17 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
   signOut: async () => {
     const client = getSupabaseClient();
     if (!client) {
-      await loadDemoMode(set, "disabled", null, "Signed out. The planner is back in demo mode.");
+      loadAuthGateState(
+        set,
+        "disabled",
+        "Supabase is not configured in this environment yet.",
+      );
       return;
     }
 
     await client.auth.signOut();
     await trackEvent("signed_out");
-    await loadDemoMode(set, "signed_out", null, "Signed out. You can continue exploring in demo mode.");
+    loadAuthGateState(set, "signed_out", "Signed out. Sign back in to reopen your trip.");
   },
 
   importLegacyTrips: async () => {
@@ -458,7 +607,13 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
     }
 
     const cloudRepository = getCloudRepository();
-    set({ syncStatus: "saving", error: null, statusMessage: null });
+    set({
+      syncStatus: "saving",
+      error: null,
+      statusMessage: null,
+      firstTripSetup: "none",
+      plannerInteractionMode: "view",
+    });
 
     try {
       const summaries = await cloudRepository.importLocalTrips(candidate);
@@ -475,12 +630,15 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
 
       const trip = await cloudRepository.loadTrip(firstTripId);
       setPreferredActiveTripId(state.user.id, firstTripId);
+      markFirstTripSetupResolved(state.user.id);
       set({
         data: createDemoAppDataFromTrip(trip),
         mode: "cloud",
         syncStatus: "saved",
         isOfflineReadOnly: false,
         hasLegacyImport: false,
+        firstTripSetup: "none",
+        plannerInteractionMode: "view",
         error: null,
         statusMessage: `Imported ${summaries.length} local ${summaries.length === 1 ? "trip" : "trips"} into cloud sync.`,
       });
@@ -489,7 +647,7 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
       set({
         syncStatus: "error",
         error: error instanceof Error ? error.message : "Unable to import local trips.",
-        statusMessage: "Your local data is still available in demo mode.",
+        statusMessage: "Your local data is still available if you want to try again later.",
       });
     }
   },
@@ -519,6 +677,51 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
       },
       "cloud_trip_created",
     );
+
+    if (!get().error) {
+      markFirstTripSetupResolved(state.user.id);
+      set({
+        hasLegacyImport: false,
+        firstTripSetup: "none",
+        plannerInteractionMode: "view",
+      });
+    }
+  },
+
+  startWithExampleTrip: async () => {
+    const state = get();
+
+    if (state.authStatus !== "signed_in" || !state.user) {
+      set({ error: "Sign in before starting with the example trip.", statusMessage: null });
+      return;
+    }
+
+    set({
+      isLoading: true,
+      syncStatus: "saving",
+      error: null,
+      statusMessage: "Creating your starter trip from the example itinerary...",
+      firstTripSetup: "none",
+      hasLegacyImport: false,
+      plannerInteractionMode: "view",
+    });
+
+    const starterTrip = buildStarterCloudTrip(state.user);
+    await persistActiveTrip(set, get, starterTrip, "cloud_trip_created");
+
+    if (!get().error) {
+      markFirstTripSetupResolved(state.user.id);
+      set({
+        isLoading: false,
+        hasLegacyImport: false,
+        firstTripSetup: "none",
+        plannerInteractionMode: "view",
+        statusMessage:
+          "Example trip ready. Open Edit trip when you want to change stops or dates.",
+      });
+    } else {
+      set({ isLoading: false });
+    }
   },
 
   loadCloudTrip: async (tripId: string) => {
@@ -534,12 +737,16 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
     try {
       const trip = await cloudRepository.loadTrip(tripId);
       setPreferredActiveTripId(state.user.id, tripId);
+      markFirstTripSetupResolved(state.user.id);
       set({
         data: createDemoAppDataFromTrip(trip),
         isLoading: false,
         syncStatus: "saved",
         mode: "cloud",
         isOfflineReadOnly: false,
+        hasLegacyImport: false,
+        firstTripSetup: "none",
+        plannerInteractionMode: "view",
         statusMessage: "Cloud trip loaded successfully.",
       });
     } catch (error) {
@@ -567,6 +774,8 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
       mode: "demo",
       syncStatus: "idle",
       isOfflineReadOnly: false,
+      firstTripSetup: "none",
+      plannerInteractionMode: "view",
     });
   },
 
@@ -585,6 +794,37 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
       mode: "demo",
       syncStatus: "idle",
       isOfflineReadOnly: false,
+      firstTripSetup: "none",
+      plannerInteractionMode: "view",
+    });
+  },
+
+  setPlannerInteractionMode: (mode) => {
+    const state = get();
+
+    if (mode === "edit") {
+      if (state.isOfflineReadOnly) {
+        set({
+          plannerInteractionMode: "view",
+          error: "Reconnect to the internet before editing this trip.",
+          statusMessage: "The last synced version is still available to review.",
+        });
+        return;
+      }
+
+      if (!state.data || !getActiveTrip(state.data)) {
+        set({
+          plannerInteractionMode: "view",
+          error: "Load a trip before entering edit mode.",
+          statusMessage: null,
+        });
+        return;
+      }
+    }
+
+    set({
+      plannerInteractionMode: mode,
+      error: null,
     });
   },
 
@@ -599,7 +839,12 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
   },
 
   addStop: async (newStop) => {
-    const currentData = get().data;
+    const state = get();
+    if (enforceEditMode(set, state, "adding itinerary stops")) {
+      return;
+    }
+
+    const currentData = state.data;
     if (!currentData) {
       return;
     }
@@ -628,7 +873,12 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
   },
 
   updateStop: async (stopId, updater) => {
-    const currentData = get().data;
+    const state = get();
+    if (enforceEditMode(set, state, "changing itinerary stops")) {
+      return;
+    }
+
+    const currentData = state.data;
     if (!currentData) {
       return;
     }
@@ -651,7 +901,12 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
   },
 
   deleteStop: async (stopId) => {
-    const currentData = get().data;
+    const state = get();
+    if (enforceEditMode(set, state, "deleting itinerary stops")) {
+      return;
+    }
+
+    const currentData = state.data;
     if (!currentData) {
       return;
     }
@@ -674,7 +929,12 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
   },
 
   reorderStops: async (activeId, overId) => {
-    const currentData = get().data;
+    const state = get();
+    if (enforceEditMode(set, state, "reordering itinerary stops")) {
+      return;
+    }
+
+    const currentData = state.data;
     if (!currentData || activeId === overId) {
       return;
     }

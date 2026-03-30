@@ -152,3 +152,21 @@ export const seedE2ETrips = (user: SessionUser, data: AppData): TripSummary[] =>
 
   return Array.from(rows.values()).map(rowToTripSummary);
 };
+
+export const replaceE2ETrips = (user: SessionUser, data: AppData | null): TripSummary[] => {
+  const store = getStore();
+  const rows = new Map<string, TripDocumentRow>();
+
+  if (data) {
+    const normalized = normalizeAppData(data, user.id);
+    if (normalized) {
+      normalized.trips.forEach((trip) => {
+        const row = toTripDocumentRow(trip, user.id, trip.version || 1);
+        rows.set(row.trip_id, row);
+      });
+    }
+  }
+
+  store.set(user.id, rows);
+  return Array.from(rows.values()).map(rowToTripSummary);
+};
