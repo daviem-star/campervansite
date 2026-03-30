@@ -4,6 +4,7 @@ import { toIsoFromLocalInput } from "@/lib/date";
 import {
   buildTravelLegSignature,
   buildTravelEstimateRequests,
+  getMapData,
   getValidationWarnings,
 } from "@/lib/tripDerived";
 import { TravelLegEstimate, Trip } from "@/types/trip";
@@ -92,6 +93,34 @@ describe("tripDerived", () => {
     });
   });
 
+  it("uses routing coordinates for route requests while keeping map geometry on display coordinates", () => {
+    const trip = buildTrip();
+    trip.stops = trip.stops.map((stop) =>
+      stop.id === "stay-1"
+        ? {
+            ...stop,
+            place: {
+              ...stop.place,
+              routingCoordinates: { lat: 56.24, lng: -4.06 },
+            },
+          }
+        : stop,
+    );
+
+    const requests = buildTravelEstimateRequests(trip);
+    const mapData = getMapData(trip);
+
+    expect(requests[0]?.to).toEqual({ lat: 56.24, lng: -4.06 });
+    expect(mapData.markers.find((marker) => marker.id === "stay-1")?.coordinates).toEqual({
+      lat: 56.2,
+      lng: -4.1,
+    });
+    expect(mapData.segments.find((segment) => segment.id === "road-stay-1")?.to).toEqual({
+      lat: 56.2,
+      lng: -4.1,
+    });
+  });
+
   it("builds a stable travel-leg signature from ordered route requests", () => {
     const trip = buildTrip();
     const requests = buildTravelEstimateRequests(trip);
@@ -108,6 +137,29 @@ describe("tripDerived", () => {
     };
 
     expect(buildTravelLegSignature(requests)).toBe(
+      buildTravelLegSignature(buildTravelEstimateRequests(updatedTrip)),
+    );
+  });
+
+  it("changes the travel-leg signature when routing coordinates change", () => {
+    const trip = buildTrip();
+    const requests = buildTravelEstimateRequests(trip);
+    const updatedTrip: Trip = {
+      ...trip,
+      stops: trip.stops.map((stop) =>
+        stop.id === "stay-1"
+          ? {
+              ...stop,
+              place: {
+                ...stop.place,
+                routingCoordinates: { lat: 56.24, lng: -4.06 },
+              },
+            }
+          : stop,
+      ),
+    };
+
+    expect(buildTravelLegSignature(requests)).not.toBe(
       buildTravelLegSignature(buildTravelEstimateRequests(updatedTrip)),
     );
   });

@@ -4,6 +4,7 @@ import { create } from "zustand";
 
 import { trackEvent } from "@/lib/analytics";
 import { nowIso } from "@/lib/date";
+import { createLocalTestBypassSession } from "@/lib/e2eAuth";
 import {
   CloudTripRepository,
   createDemoAppDataFromTrip,
@@ -21,8 +22,9 @@ import {
   BrowserAuthUser,
   getBrowserSupabaseClient,
   isSupabaseConfigured,
+  emitBrowserE2ESignIn,
 } from "@/lib/supabase";
-import { shouldForceDemoMode } from "@/lib/runtimeFlags";
+import { canUseLocalTestSignIn, shouldForceDemoMode } from "@/lib/runtimeFlags";
 import { ensureStopOrder } from "@/lib/tripDerived";
 import { AppData, NewTripStop, SessionUser, SyncStatus, Trip, TripStop } from "@/types/trip";
 
@@ -89,6 +91,7 @@ type TripStoreState = {
   initialize: () => Promise<void>;
   loadData: () => Promise<void>;
   signInWithMagicLink: (email: string) => Promise<void>;
+  signInAsTestUser: () => Promise<void>;
   signOut: () => Promise<void>;
   importLegacyTrips: () => Promise<void>;
   createCloudTripFromCurrent: () => Promise<void>;
@@ -575,6 +578,26 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
       statusMessage: `Magic link sent to ${normalizedEmail}. Open it on this device to connect cloud sync.`,
     });
     await trackEvent("magic_link_requested", { emailDomain: normalizedEmail.split("@")[1] ?? "" });
+  },
+
+  signInAsTestUser: async () => {
+    if (!canUseLocalTestSignIn()) {
+      set({
+        error:
+          "Local test sign-in needs NEXT_PUBLIC_LOCAL_TEST_SIGN_IN=1, NEXT_PUBLIC_E2E_AUTH_BYPASS=1, and E2E_AUTH_BYPASS=1.",
+        statusMessage: null,
+      });
+      return;
+    }
+
+    const session = createLocalTestBypassSession();
+    set({
+      error: null,
+      statusMessage: "Signing in locally as the test user...",
+    });
+
+    emitBrowserE2ESignIn(session.user, session.access_token);
+    await trackEvent("local_test_sign_in", { userId: session.user.id });
   },
 
   signOut: async () => {

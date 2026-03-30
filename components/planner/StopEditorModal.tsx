@@ -4,6 +4,7 @@ import { addDays, format, parseISO } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
 
 import { todayDateInTimezone, toIsoFromLocalInput, toLocalInputFromIso } from "@/lib/date";
+import { ensurePlaceRoutingCoordinates } from "@/lib/placeRoutingClient";
 import { applyDefaultCheckInBy } from "@/lib/tripDerived";
 import {
   FerryVehicleType,
@@ -250,6 +251,8 @@ export default function StopEditorModal({
           return;
         }
 
+        const resolvedStayPlace = await ensurePlaceRoutingCoordinates(stayPlace);
+
         const checkInIso = parseLocalDateTimeInput(stayCheckInAt, "Check-in");
         const checkOutIso = parseLocalDateTimeInput(stayCheckOutAt, "Check-out");
 
@@ -270,7 +273,7 @@ export default function StopEditorModal({
           type: "stay",
           title: normalizedTitle,
           notes: notes.trim() || undefined,
-          place: stayPlace,
+          place: resolvedStayPlace,
           checkInAt: checkInIso,
           checkOutAt: checkOutIso,
           costPerNight: parsedCost,
@@ -294,6 +297,9 @@ export default function StopEditorModal({
           setError("Both departure and arrival ports are required.");
           return;
         }
+
+        const resolvedDeparturePort = await ensurePlaceRoutingCoordinates(ferryDeparturePort);
+        const resolvedArrivalPort = await ensurePlaceRoutingCoordinates(ferryArrivalPort);
 
         const departureIso = parseLocalDateTimeInput(ferryDepartureAt, "Departure");
         const arrivalIso = parseLocalDateTimeInput(ferryArrivalAt, "Arrival");
@@ -326,8 +332,8 @@ export default function StopEditorModal({
           type: "ferry",
           title: normalizedTitle,
           notes: notes.trim() || undefined,
-          departurePort: ferryDeparturePort,
-          arrivalPort: ferryArrivalPort,
+          departurePort: resolvedDeparturePort,
+          arrivalPort: resolvedArrivalPort,
           departureAt: departureIso,
           arrivalAt: arrivalIso,
           checkInBy: checkInByIso,
@@ -355,6 +361,8 @@ export default function StopEditorModal({
           return;
         }
 
+        const resolvedPoiPlace = await ensurePlaceRoutingCoordinates(poiPlace);
+
         if (!/^\d{4}-\d{2}-\d{2}$/.test(poiVisitDate)) {
           setError("Visit date is required.");
           return;
@@ -364,7 +372,7 @@ export default function StopEditorModal({
           type: "point_of_interest",
           title: normalizedTitle,
           notes: notes.trim() || undefined,
-          place: poiPlace,
+          place: resolvedPoiPlace,
           visitDate: poiVisitDate,
         };
 

@@ -9,6 +9,7 @@ export type Coordinates = {
 export type PlaceRef = {
   label: string;
   coordinates: Coordinates;
+  routingCoordinates?: Coordinates;
   osmId?: string;
   osmType?: string;
 };

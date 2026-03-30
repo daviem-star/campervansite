@@ -30,10 +30,12 @@ const seedTrip: Trip = {
       departurePort: {
         label: "Oban Ferry Terminal",
         coordinates: { lat: 56.412, lng: -5.4723 },
+        routingCoordinates: { lat: 56.411939, lng: -5.472331 },
       },
       arrivalPort: {
         label: "Castlebay Ferry Terminal",
         coordinates: { lat: 56.9567, lng: -7.4873 },
+        routingCoordinates: { lat: 56.955538, lng: -7.487147 },
       },
       departureAt: toIsoFromLocalInput("2026-08-05T13:30"),
       arrivalAt: toIsoFromLocalInput("2026-08-05T18:15"),
@@ -56,6 +58,7 @@ const seedTrip: Trip = {
       place: {
         label: "Barra Sands Campsite",
         coordinates: { lat: 57.04, lng: -7.458 },
+        routingCoordinates: { lat: 57.046998, lng: -7.449663 },
       },
       checkInAt: toIsoFromLocalInput("2026-08-05T19:00"),
       checkOutAt: toIsoFromLocalInput("2026-08-08T11:00"),
@@ -75,6 +78,7 @@ const seedTrip: Trip = {
       place: {
         label: "Vatersay Beach, Barra",
         coordinates: { lat: 56.9247, lng: -7.5464 },
+        routingCoordinates: { lat: 56.92413, lng: -7.538863 },
       },
       visitDate: "2026-08-06",
       notes: "Afternoon walk and sunset.",
@@ -87,6 +91,7 @@ const seedTrip: Trip = {
       departurePort: {
         label: "Ardmhor Ferry Terminal",
         coordinates: { lat: 57.0136, lng: -7.4437 },
+        routingCoordinates: { lat: 57.018002, lng: -7.439761 },
       },
       arrivalPort: {
         label: "Eriskay Ferry Terminal",
@@ -112,6 +117,7 @@ const seedTrip: Trip = {
       place: {
         label: "Kilbride Campsite, South Uist",
         coordinates: { lat: 57.2237, lng: -7.3621 },
+        routingCoordinates: { lat: 57.225587, lng: -7.351131 },
       },
       checkInAt: toIsoFromLocalInput("2026-08-08T17:00"),
       checkOutAt: toIsoFromLocalInput("2026-08-11T08:00"),
@@ -131,6 +137,7 @@ const seedTrip: Trip = {
       place: {
         label: "Howmore, South Uist",
         coordinates: { lat: 57.2834, lng: -7.3552 },
+        routingCoordinates: { lat: 57.281262, lng: -7.361418 },
       },
       visitDate: "2026-08-09",
     },
@@ -142,10 +149,12 @@ const seedTrip: Trip = {
       departurePort: {
         label: "Berneray Ferry Terminal",
         coordinates: { lat: 57.7179, lng: -7.17 },
+        routingCoordinates: { lat: 57.719548, lng: -7.171434 },
       },
       arrivalPort: {
         label: "Leverburgh Ferry Terminal",
         coordinates: { lat: 57.7662, lng: -7.0228 },
+        routingCoordinates: { lat: 57.766193, lng: -7.022884 },
       },
       departureAt: toIsoFromLocalInput("2026-08-11T09:30"),
       arrivalAt: toIsoFromLocalInput("2026-08-11T10:30"),
@@ -166,6 +175,7 @@ const seedTrip: Trip = {
       place: {
         label: "Horgabost Campsite, Harris",
         coordinates: { lat: 57.8725, lng: -6.9346 },
+        routingCoordinates: { lat: 57.869262, lng: -6.936564 },
       },
       checkInAt: toIsoFromLocalInput("2026-08-11T12:00"),
       checkOutAt: toIsoFromLocalInput("2026-08-13T13:30"),
@@ -185,6 +195,7 @@ const seedTrip: Trip = {
       place: {
         label: "Luskentyre Beach, Harris",
         coordinates: { lat: 57.8622, lng: -6.9593 },
+        routingCoordinates: { lat: 57.864936, lng: -6.953137 },
       },
       visitDate: "2026-08-12",
     },
@@ -196,10 +207,12 @@ const seedTrip: Trip = {
       departurePort: {
         label: "Tarbert Ferry Terminal",
         coordinates: { lat: 57.8967, lng: -6.8016 },
+        routingCoordinates: { lat: 57.896718, lng: -6.802558 },
       },
       arrivalPort: {
         label: "Uig Ferry Terminal",
         coordinates: { lat: 57.585, lng: -6.3475 },
+        routingCoordinates: { lat: 57.585786, lng: -6.347433 },
       },
       departureAt: toIsoFromLocalInput("2026-08-13T16:20"),
       arrivalAt: toIsoFromLocalInput("2026-08-13T18:00"),
@@ -220,6 +233,7 @@ const seedTrip: Trip = {
       place: {
         label: "Kinloch Campsite, Skye",
         coordinates: { lat: 57.1718, lng: -5.8975 },
+        routingCoordinates: { lat: 57.179742, lng: -5.893406 },
       },
       checkInAt: toIsoFromLocalInput("2026-08-13T19:00"),
       checkOutAt: toIsoFromLocalInput("2026-08-15T08:30"),
@@ -239,6 +253,7 @@ const seedTrip: Trip = {
       place: {
         label: "Old Man of Storr, Skye",
         coordinates: { lat: 57.5066, lng: -6.1814 },
+        routingCoordinates: { lat: 57.500022, lng: -6.157762 },
       },
       visitDate: "2026-08-14",
       notes: "Early morning hike before checkout day.",

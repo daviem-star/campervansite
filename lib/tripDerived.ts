@@ -11,6 +11,7 @@ import {
   minutesBetweenIso,
   todayDateInTimezone,
 } from "@/lib/date";
+import { getPlaceRoutingCoordinates } from "@/lib/placeRouting";
 import {
   FerrySection,
   FerryStop,
@@ -595,8 +596,8 @@ export const buildTravelEstimateRequests = (
     toLabel: context.toLabel,
     date: context.date,
     relatedStopId: context.relatedStopId,
-    from: context.from.coordinates,
-    to: context.to.coordinates,
+    from: getPlaceRoutingCoordinates(context.from),
+    to: getPlaceRoutingCoordinates(context.to),
   }));
 };
 

@@ -29,6 +29,7 @@ export default defineConfig({
     stdout: "pipe",
     stderr: "pipe",
     env: {
+      NEXT_PUBLIC_LOCAL_TEST_SIGN_IN: "1",
       NEXT_PUBLIC_E2E_AUTH_BYPASS: "1",
       E2E_AUTH_BYPASS: "1",
       NEXT_PUBLIC_SUPABASE_URL: "https://e2e.supabase.co",
