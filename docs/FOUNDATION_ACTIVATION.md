@@ -103,9 +103,10 @@ Recommended local check after setting the live env vars:
 1. Create or link the Vercel project for this repository.
 2. Add the environment variables to Preview first, including any map tile overrides if you are not using the default OpenStreetMap raster tiles.
 3. Enable deployment protection for the preview and keep the first hosted wave to 1-3 testers.
-4. Deploy a preview build.
-5. Verify the Supabase redirect URLs match the preview host before testing auth.
-6. Do not promote to production until the smoke checklist below and the wider `docs/QA_NOTES.md` device checks pass.
+4. The repo pins the Vercel framework preset in `vercel.json`; if the dashboard still shows `Other`, redeploy after pulling the latest branch so the override takes effect.
+5. Deploy a preview build.
+6. Verify the Supabase redirect URLs match the preview host before testing auth.
+7. Do not promote to production until the smoke checklist below and the wider `docs/QA_NOTES.md` device checks pass.
 
 ## 5. Live-Service Smoke Checklist
 
