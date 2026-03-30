@@ -1,0 +1,31 @@
+name: Docs Breadcrumbs
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  docs-breadcrumbs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify generated documentation
+        run: node scripts/docs/generate-project-status.mjs --check
+
+      - name: Publish quick summary
+        run: |
+          echo '## Docs Breadcrumbs' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Generated docs are current.' >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          sed -n '1,80p' docs/PROJECT_STATUS.md >> "$GITHUB_STEP_SUMMARY"

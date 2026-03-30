@@ -64,6 +64,8 @@ Supabase schema setup lives in `supabase/migrations/20260328_trip_documents.sql`
    npm install
    ```
 
+   This also configures the repository git hooks so generated documentation stays current on commit and push.
+
 2. Start the development server:
 
    ```bash
@@ -83,6 +85,7 @@ With Supabase env vars populated, the auth gate should expose magic-link sign-in
 Run the full local validation set before merging:
 
 ```bash
+npm run docs:check
 npm test
 npm run lint
 npm run build
@@ -100,9 +103,12 @@ npm run test:e2e
 
 ## Repo Docs
 
+- `docs/PROJECT_STATUS.md`: generated current-state snapshot for quick re-orientation
+- `docs/RECENT_WORK.md`: generated git-history breadcrumb trail
 - `docs/FOUNDATION_ACTIVATION.md`: hosted service setup and smoke-test runbook
 - `docs/PRODUCT_PLAN.md`: current product status and next milestone order
 - `docs/QA_NOTES.md`: manual QA checklist and issue log
+- `docs/DOCS_AUTOMATION.md`: how generated docs, hooks, PR breadcrumbs, and GitHub checks fit together
 
 ## Roadmap Source
 
@@ -127,3 +133,4 @@ The current codebase is late in phase 1. The next development work should contin
   - map framing
 - After activation, move into the architect brief's next phase: planning quality and realism.
 - Keep README and planning docs aligned with actual shipped behavior on `main`.
+- Use the generated status docs and PR breadcrumbs to leave the next development session a clear starting point.

@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+
+node scripts/docs/generate-project-status.mjs
+git add docs/PROJECT_STATUS.md docs/RECENT_WORK.md
