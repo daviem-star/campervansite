@@ -41,3 +41,23 @@ Git history currently starts with a single `Initial commit`, so use clear, imper
 - Keep commits focused and atomic.
 - PRs should include: purpose, key changes, validation steps run, and screenshots for UI updates.
 - Link related issues/tasks when applicable.
+
+## Documentation Expectations
+- When a change affects setup, configuration, public APIs, CLI commands, environment variables, deployment steps, or user-visible behavior, update the relevant documentation in the same branch.
+- Check whether these files need changes:
+  - `README.md`
+  - `docs/`
+  - `examples/`
+  - `.env.example`
+  - architecture decision records or runbooks
+- Do not rewrite `README.md` for purely internal refactors unless the explanation is now inaccurate.
+- Keep documentation changes minimal and specific to the code change.
+- When behavior changes, update examples and code snippets so they still run.
+- Before finishing, summarize any documentation updates made and any intentionally skipped docs with reasons.
+- Documentation review automation is enforced in GitHub pull requests, not via local commit or push hooks.
+
+## Review Guidelines
+- Flag missing `README` or docs updates as a high-priority issue when the PR changes setup, API surface, config, auth flows, or operational behavior.
+- Flag stale examples, stale environment variable lists, and mismatches between code and docs.
+- Treat broken onboarding or setup instructions as a P1 issue.
+- Treat docs typos as low priority unless they change meaning.
