@@ -104,6 +104,7 @@ npm run test:e2e
 ## Repo Docs
 
 - `docs/FOUNDATION_ACTIVATION.md`: hosted service setup and smoke-test runbook
+- `docs/HOSTED_SMOKE_TEST_2026-03-30.md`: detailed record of the first hosted smoke pass, including access, failures, fixes, and rerun procedure
 - `docs/PRODUCT_PLAN.md`: current product status and next milestone order
 - `docs/QA_NOTES.md`: manual QA checklist and issue log
 
