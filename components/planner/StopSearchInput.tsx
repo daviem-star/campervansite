@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { ensurePlaceRoutingCoordinates } from "@/lib/placeRoutingClient";
 import { GeocodeResult, PlaceRef } from "@/types/trip";
@@ -48,8 +48,7 @@ export default function StopSearchInput({
   const hasSearchableQuery = normalizedQuery.length >= 3;
   const showingSubmittedResults = lastSubmittedQuery === normalizedQuery;
 
-  const onSearch = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const onSearch = async () => {
     setIsOpen(true);
 
     if (!hasSearchableQuery) {
@@ -107,7 +106,7 @@ export default function StopSearchInput({
       <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
         {label}
       </label>
-      <form onSubmit={onSearch} className="flex items-start gap-2">
+      <div className="flex items-start gap-2">
         <input
           value={query}
           onChange={(event) => {
@@ -117,17 +116,26 @@ export default function StopSearchInput({
             setResults([]);
           }}
           onFocus={() => setIsOpen(true)}
+          onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              void onSearch();
+            }
+          }}
           placeholder={placeholder}
           className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
         />
         <button
-          type="submit"
+          type="button"
+          onClick={() => {
+            void onSearch();
+          }}
           disabled={isLoading || Boolean(isSelectingResult)}
           className="rounded-xl bg-slate-950 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
         >
           Search
         </button>
-      </form>
+      </div>
 
       {selectedLabel && query === selectedLabel ? (
         <p className="mt-1 text-xs text-emerald-600">Selected</p>
