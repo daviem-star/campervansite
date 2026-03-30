@@ -23,6 +23,18 @@ For each issue, record:
 
 ## Manual QA Checklist
 
+### Cloud / Sync Smoke
+
+- [ ] Signed-out state shows demo itinerary plus magic-link request UI when Supabase env vars are configured
+- [ ] Magic-link request shows a clear success banner with the target email
+- [ ] Signed-in empty account offers create/import path instead of failing silently
+- [ ] Cloud trip can be loaded on a second browser/device
+- [ ] Stop edit returns sync state to `Saved`
+- [ ] Legacy local import works once and removes the import prompt afterwards
+- [ ] Stale write conflict reloads the latest trip and shows recovery messaging
+- [ ] Last synced trip reopens offline in read-only mode with edit controls disabled
+- [ ] Route estimates succeed when OpenRouteService is configured and fall back gracefully when unavailable
+
 ### Mobile
 
 - [ ] Default tab is `Today`
@@ -53,6 +65,8 @@ For each issue, record:
 - [ ] Geocode search: short query prompt (<2 chars)
 - [ ] Geocode search: no matches state
 - [ ] Geocode search: service error state
+- [ ] Auth/session failure state explains what the user should do next
+- [ ] Cloud service error state falls back cleanly without breaking the planner
 - [ ] Stop editor invalid date/time shows clear error
 - [ ] Stop editor invalid cost shows clear error
 

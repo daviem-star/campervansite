@@ -1,95 +1,79 @@
-# Campervan Trip Planner MVP Plan
+# Campervan Trip Planner Product Plan
 
-## Product Goal
-Create a practical web planner + trip companion for campervan travel where users can build an itinerary of stays, ferries, and points of interest, then visualize the journey on a map.
+## Product Position
 
-## MVP Scope
-- Single user, no authentication.
-- One active trip with local browser persistence.
-- Stop CRUD + drag-and-drop reorder.
-- Stop types:
-  - `stay`
-  - `ferry`
-  - `point_of_interest`
-- Home treated as a dedicated pinned location.
-- OSM/Nominatim location search.
-- Desktop/tablet split layout: itinerary left, map right.
-- Mobile layout: itinerary-first with map toggle panel.
-- Ferry-specific visuals (marker styling + dashed segment).
-- Today-only action dashboard for time-critical tasks.
-- Gap warning for days without known base campsite.
-- Optional stay cost per night with derived totals.
+This branch represents the beta foundation for the planner. The app already has the core trip-planning UX and the cloud-sync architecture in code. The immediate job is to make that foundation real with hosted services, real credentials, and preview validation.
 
-## Locked Business Rules
-- Timezone: `Europe/London`.
-- Default stay check-in: `15:00`.
-- Default stay checkout: `11:00`.
-- Ferry `checkInBy` defaults to departure minus 45 minutes and can be edited.
-- Gap warnings are non-blocking.
-- Today dashboard is read-only reminders (no completion checkbox state).
+## Current Product Status
 
-## Data Contracts
-Implemented in `types/trip.ts`:
+- One active trip planning experience with:
+  - stays
+  - ferries
+  - points of interest
+- Desktop-first planning layout plus mobile/tablet travel review.
+- Demo mode with seeded local data and browser persistence.
+- Cloud-capable mode with:
+  - Supabase email magic-link auth
+  - cloud trip save/load/import server routes
+  - sync status messaging
+  - stale-write conflict recovery
+  - offline read-only reopening of the last synced trip
+- Route realism support with:
+  - live or fallback road-leg estimates
+  - buffered drive times
+  - validation warnings for travel feasibility
+- Automated coverage with unit tests, lint/build checks, and Playwright trust-flow tests.
 
-- `StopType = "stay" | "ferry" | "point_of_interest"`
-- `PlaceRef`, `TripStop`, `Trip`, `AppDataV1`
-- `TripRepository` contract implemented by local storage repository
+## Immediate Milestone: Foundation Activation
 
-Storage shape:
+The next milestone is operational, not feature-led.
 
-```ts
-{
-  schemaVersion: 1,
-  activeTripId: string,
-  trips: Trip[]
-}
-```
+- Stand up the hosted stack:
+  - Supabase
+  - OpenRouteService
+  - Vercel
+- Configure the runtime contract:
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  - `SUPABASE_SERVICE_ROLE_KEY`
+  - `OPENROUTESERVICE_API_KEY`
+- Apply the `trip_documents` migration and confirm the planner leaves demo-only mode when env vars are present.
+- Validate the live cloud path on preview:
+  - magic-link sign-in
+  - cloud trip creation/import
+  - save and reload
+  - stale-write conflict recovery
+  - offline read-only reopen
+  - route-estimate success and fallback behavior
+- Keep branch docs aligned with real shipped behavior while activation work lands.
 
-## Architecture
-- Next.js App Router frontend.
-- Local persistence through `LocalStorageTripRepository`.
-- Zustand store for app state and trip mutations.
-- Derived logic in `lib/tripDerived.ts` for:
-  - cost totals
-  - gap detection
-  - today actions
-  - map markers/segments
-- Geocode proxy at `app/api/geocode/route.ts`:
-  - UK-only query defaults
-  - request throttling
-  - in-memory short cache
+### Definition Of Done
 
-## Map Rendering
-- MapLibre GL with OpenStreetMap raster tiles.
-- Marker roles:
-  - `home`
-  - `stay`
-  - `poi`
-  - `ferry_port`
-- Segment styles:
-  - solid line for non-ferry legs
-  - dashed line for ferry legs
+- Preview deployment is wired to real Supabase and OpenRouteService credentials.
+- The smoke checklist in `docs/FOUNDATION_ACTIVATION.md` passes on desktop and mobile/tablet.
+- `README.md`, `docs/PRODUCT_PLAN.md`, and `docs/QA_NOTES.md` accurately describe the branch.
 
-## Seed Data
-Seed itinerary includes:
-- Home: Killearn, Scotland
-- Stay stops in Barra, South Uist, Harris, and Skye
-- Four ferry sailings from provided August 2026 data
-- One POI stop per island region
+## Next Milestone After Activation: Beta Hardening
 
-## QA Checklist
-1. Create/edit/delete each stop type.
-2. Verify drag reorder updates itinerary and map.
-3. Verify ferry check-in defaults to departure -45 min.
-4. Verify today dashboard actions render correctly.
-5. Verify gap warnings appear when base overnight coverage is broken.
-6. Verify stay totals (nights + cost) update as stops change.
-7. Verify desktop split layout and mobile map toggle behavior.
-8. Run `npm run lint` and `npm run build`.
+Once the services are live, the next priority is real-world hardening rather than broad feature expansion.
 
-## Post-MVP Extensions
-- JSON export/import UI
-- Multi-trip support and history
-- Auth + cloud sync
-- Real driving route geometry
-- PWA install/offline map caching
+- Fix issues discovered from live preview and closed-beta use.
+- Tighten auth/session/service failure states using real provider behavior.
+- Improve any cloud-trip management surfaces that testers immediately need.
+- Keep documentation and smoke coverage aligned as real usage reveals gaps.
+
+## Following Milestone: Planning Trust Improvements
+
+After the hosted foundation is stable, invest in deeper planning confidence.
+
+- Improve route estimate quality and presentation.
+- Expand campsite and ferry metadata where it improves planning decisions.
+- Refine warnings and travel-feasibility guidance using live user feedback.
+
+## Explicit Non-Goals For Now
+
+- Collaboration or trip sharing between users.
+- Offline editing or merge resolution.
+- Making MCP or provider integrations a prerequisite for development.
+
+Those can be revisited later, but they should not block activation or the first beta rollout.

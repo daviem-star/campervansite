@@ -1,62 +1,57 @@
 # Campervan Trip Planner
 
-A Next.js App Router trip planner for campervan travel. Build an itinerary with **stays**, **ferries**, and **points of interest**, then view the route on a map with ferry legs highlighted.
+A Next.js App Router trip planner for campervan travel. The current working branch is the beta-ready foundation: the planner works immediately in demo mode and becomes cloud-backed once Supabase and OpenRouteService are configured.
 
-## MVP Capabilities
-- Single-user planner with local browser persistence.
-- One active trip with a special `Home` pin.
-- Stop types:
+## Current Status
+
+- Single active trip planning experience with desktop, tablet, and mobile layouts.
+- Demo mode uses seeded trip data plus browser persistence.
+- Cloud mode adds email magic-link auth, cloud trip save/load, legacy local import, sync messaging, conflict recovery, and offline read-only reopening of the last synced trip.
+- Route realism includes road-leg estimates, buffered drive times, and validation warnings for difficult travel days.
+- Automated coverage includes Vitest for logic and Playwright for core trust flows.
+
+This branch is beyond the original local-only MVP. The main remaining gap is live service activation and hosted validation, not the core app architecture.
+
+## What The App Does Today
+
+- Build and edit itinerary stops for:
   - `stay`
   - `ferry`
   - `point_of_interest`
-- Add, edit, delete, and drag-reorder itinerary stops.
-- OSM/Nominatim-powered location search through `/api/geocode`.
-- Map view with:
-  - distinct ferry port markers
-  - dashed ferry segments
-  - solid overland segments (MVP approximation)
-- Today dashboard for:
-  - ferry check-in reminders
-  - campsite checkout reminders
-- Gap warnings for days without a known base campsite.
-- Optional stay `costPerNight` with derived total stay cost.
+- Visualize the itinerary on a map with ferry port markers and ferry segments.
+- Show trip-day navigation, today actions, gap warnings, route insights, and validation warnings.
+- Store campsite metadata such as booking status, hookups, hardstanding, amenities, phone, and website.
+- Store ferry metadata such as operator, booking reference, vehicle details, and check-in buffers.
+- Cache the last synced cloud trip so it can be reopened offline in read-only mode.
 
-## Beta-Ready Foundation Additions
-- Demo mode plus Supabase-backed email magic-link auth when environment variables are configured.
-- Cloud trip persistence through server routes backed by a single canonical trip JSON document.
-- Offline read-only recovery for the last synced active trip.
-- Sync-status messaging and one-time legacy local import flow.
-- Route-estimate broker through `/api/route-estimates` with OpenRouteService support and fallback estimates.
-- Validation warnings for heavy drive days, tight ferry check-in windows, late campsite arrivals, and overnight coverage gaps.
+## Services Required For Full Mode
 
-## Tech Stack
-- Next.js 16 (App Router)
-- React 19 + TypeScript (strict mode)
-- Tailwind CSS
-- Zustand (client state)
-- dnd-kit (drag/drop reorder)
-- MapLibre GL + OpenStreetMap tiles
-- date-fns + date-fns-tz
+- Supabase: email magic-link auth, session verification, and cloud trip persistence.
+- OpenRouteService: live route estimates. The app falls back to internal estimates if this is not configured.
+- Vercel: intended preview and production hosting target.
 
-## Project Structure
-- `app/`
-  - `page.tsx`: planner entry
-  - `layout.tsx`: app metadata and shell
-  - `api/geocode/route.ts`: Nominatim proxy + throttling + cache
-- `components/planner/`: planner UI components
-- `types/trip.ts`: core domain contracts
-- `lib/`: seed data, repository, date helpers, derived business logic
-- `store/useTripStore.ts`: Zustand store and persistence wiring
-- `docs/PRODUCT_PLAN.md`: full product/implementation plan
+The app does not require MCP servers to run. Provider integrations may become useful later, but the normal path is still service dashboards plus environment variables.
 
-## Getting Started
+## Environment Variables
+
+Copy `.env.example` to `.env.local` and fill in:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `OPENROUTESERVICE_API_KEY`
+
+Supabase schema setup lives in `supabase/migrations/20260328_trip_documents.sql`.
+
+## Local Development
+
 1. Install dependencies:
 
    ```bash
    npm install
    ```
 
-2. Start development server:
+2. Start the development server:
 
    ```bash
    npm run dev
@@ -68,40 +63,36 @@ A Next.js App Router trip planner for campervan travel. Build an itinerary with 
    http://localhost:3000
    ```
 
+Without Supabase env vars, the planner will run in demo mode. With the env vars populated, the account panel should expose magic-link sign-in and cloud sync flows.
+
 ## Validation
-Run before merging:
+
+Run the full local validation set before merging:
 
 ```bash
 npm test
+npm run lint
+npm run build
 npm run test:e2e
-npm run lint && npm run build
 ```
 
-## Environment
-To enable cloud sync and live route estimates, copy `.env.example` to `.env.local` and fill in:
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `OPENROUTESERVICE_API_KEY`
-Supabase schema setup lives in `supabase/migrations/20260328_trip_documents.sql`.
-Operational activation and smoke-test steps live in `docs/FOUNDATION_ACTIVATION.md`.
+## Activation Checklist
 
-## Data Model Notes
-- Root storage key: `campervan_trip_planner_v1`
-- Root schema:
-  - `schemaVersion`
-  - `activeTripId`
-  - `trips[]`
-- Default timezone is fixed to `Europe/London` for MVP.
-- Seed data includes an Outer Hebrides trip for August 2026.
+1. Create the Supabase project, enable email magic-link auth, and apply the migration.
+2. Create an OpenRouteService API key.
+3. Add the required env vars locally and in Vercel Preview/Production.
+4. Deploy a preview build and run the smoke checklist in `docs/FOUNDATION_ACTIVATION.md`.
+5. Treat the branch as release-ready only after save, import, conflict, offline, and route-estimate checks pass against live services.
 
-## Roadmap (Post-MVP)
-- JSON export/import UI
-- Multi-trip management
-- Optional account-based sync
-- Real driving route geometry
-- PWA install and stronger offline map behavior
+## Repo Docs
 
-## Important Usage Notes
-- Nominatim has fair-use requirements. The app proxies geocode requests and applies throttling/caching, but you should still keep usage low-volume.
-- Basic offline support means local itinerary data persists in browser storage. Live geocoding and map tile fetches require connectivity.
+- `docs/FOUNDATION_ACTIVATION.md`: hosted service setup and smoke-test runbook
+- `docs/PRODUCT_PLAN.md`: current product status and next milestone order
+- `docs/QA_NOTES.md`: manual QA checklist and issue log
+
+## Next Steps
+
+- Activate Supabase, OpenRouteService, and Vercel for real preview/prod validation.
+- Run the live-service smoke checklist on desktop and mobile/tablet.
+- Keep README and planning docs aligned with actual shipped behavior on this branch.
+- After activation, prioritize beta hardening and the next planning improvements based on live feedback.
