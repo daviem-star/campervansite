@@ -13,11 +13,13 @@ import {
 } from "@/lib/date";
 import { getPlaceRoutingCoordinates } from "@/lib/placeRouting";
 import {
+  Coordinates,
   FerrySection,
   FerryStop,
   GapWarning,
   ItinerarySection,
   MapMarker,
+  RouteLineString,
   MapSegment,
   PlaceRef,
   PointOfInterestStop,
@@ -478,6 +480,30 @@ const markerForPlace = (
   coordinates: place.coordinates,
 });
 
+const cloneCoordinates = (coordinates: Coordinates): Coordinates => ({
+  lat: coordinates.lat,
+  lng: coordinates.lng,
+});
+
+const anchorRouteGeometry = (
+  geometry: RouteLineString | undefined,
+  from: Coordinates,
+  to: Coordinates,
+): RouteLineString | undefined => {
+  if (!geometry || geometry.coordinates.length < 2) {
+    return undefined;
+  }
+
+  const coordinates = geometry.coordinates.map(cloneCoordinates);
+  coordinates[0] = cloneCoordinates(from);
+  coordinates[coordinates.length - 1] = cloneCoordinates(to);
+
+  return {
+    type: "LineString",
+    coordinates,
+  };
+};
+
 const getOrderedStopsForTravel = (trip: Trip): TripStop[] => {
   const sections = getItinerarySections(trip);
   const orderedStops: TripStop[] = [];
@@ -822,12 +848,29 @@ export const getValidationWarnings = (
   });
 };
 
-export const getMapData = (trip: Trip): {
+export const getMapData = (
+  trip: Trip,
+  estimates: TravelLegEstimate[] = [],
+): {
   markers: MapMarker[];
   segments: MapSegment[];
 } => {
   const markers: MapMarker[] = [markerForPlace("home", "home", trip.home, `Home: ${trip.home.label}`)];
   const segments: MapSegment[] = [];
+  const roadGeometryByStopId = new Map(
+    estimates.flatMap((estimate) => {
+      if (
+        estimate.kind !== "road" ||
+        !estimate.relatedStopId ||
+        !estimate.geometry ||
+        estimate.geometry.coordinates.length < 2
+      ) {
+        return [];
+      }
+
+      return [[estimate.relatedStopId, estimate.geometry] as const];
+    }),
+  );
 
   const orderedStops = getOrderedStopsForTravel(trip);
   let previous = trip.home;
@@ -846,6 +889,11 @@ export const getMapData = (trip: Trip): {
         to: stop.place.coordinates,
         stopId: stop.id,
         entityKind: "stay",
+        geometry: anchorRouteGeometry(
+          roadGeometryByStopId.get(stop.id),
+          previous.coordinates,
+          stop.place.coordinates,
+        ),
       });
       previous = stop.place;
       return;
@@ -864,6 +912,11 @@ export const getMapData = (trip: Trip): {
         to: stop.place.coordinates,
         stopId: stop.id,
         entityKind: "point_of_interest",
+        geometry: anchorRouteGeometry(
+          roadGeometryByStopId.get(stop.id),
+          previous.coordinates,
+          stop.place.coordinates,
+        ),
       });
       previous = stop.place;
       return;
@@ -891,6 +944,11 @@ export const getMapData = (trip: Trip): {
       to: stop.departurePort.coordinates,
       stopId: stop.id,
       entityKind: "ferry",
+      geometry: anchorRouteGeometry(
+        roadGeometryByStopId.get(stop.id),
+        previous.coordinates,
+        stop.departurePort.coordinates,
+      ),
     });
 
     segments.push({

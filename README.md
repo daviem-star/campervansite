@@ -22,7 +22,7 @@ The project is beyond the original local-only MVP. The main remaining gap is liv
   - `ferry`
   - `point_of_interest`
 - Default to `View mode`, then explicitly unlock `Edit trip` before mutating the itinerary.
-- Visualize the itinerary on a map with ferry port markers and ferry segments.
+- Visualize the itinerary on a map with road-following road legs when live routing is available, plus ferry port markers and ferry segments.
 - Show trip-day navigation, today actions, overview insights, gap warnings, route insights, and validation warnings.
 - Search for places in the stop editor and preserve separate routing coordinates when route access data is available.
 - Store campsite metadata such as booking status, hookups, hardstanding, amenities, phone, and website.

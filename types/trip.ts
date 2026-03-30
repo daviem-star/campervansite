@@ -157,6 +157,11 @@ export type TravelEstimateConfidence = "live" | "fallback";
 
 export type TravelLegKind = "road";
 
+export type RouteLineString = {
+  type: "LineString";
+  coordinates: Coordinates[];
+};
+
 export type TravelLegRequest = {
   id: string;
   fromId: string;
@@ -184,6 +189,7 @@ export type TravelLegEstimate = {
   confidence: TravelEstimateConfidence;
   date: string;
   relatedStopId?: string;
+  geometry?: RouteLineString;
 };
 
 export type SyncStatus = "idle" | "saving" | "saved" | "offline" | "error";
@@ -209,6 +215,7 @@ export type MapSegment = {
   to: Coordinates;
   stopId?: string;
   entityKind?: StopType;
+  geometry?: RouteLineString;
 };
 
 export type SelectedEntity =

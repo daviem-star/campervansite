@@ -46,11 +46,20 @@ describe("/api/route-estimates", () => {
       ok: true,
       status: 200,
       json: async () => ({
-        routes: [
+        features: [
           {
-            summary: {
-              distance: 12345,
-              duration: 3600,
+            geometry: {
+              coordinates: [
+                [-4, 56],
+                [-4.05, 56.1],
+                [-4.1, 56.2],
+              ],
+            },
+            properties: {
+              summary: {
+                distance: 12345,
+                duration: 3600,
+              },
             },
           },
         ],
@@ -63,12 +72,47 @@ describe("/api/route-estimates", () => {
     expect(response.status).toBe(200);
     expect(payload.estimates).toBeDefined();
     expect(payload.debug).toBeUndefined();
-    expect((payload.estimates as Array<{ provider: string; confidence: string }>)[0]).toMatchObject(
-      {
-        provider: "openrouteservice_driving_car",
-        confidence: "live",
+    expect(
+      (
+        payload.estimates as Array<{
+          provider: string;
+          confidence: string;
+          geometry?: { type: string; coordinates: Array<{ lat: number; lng: number }> };
+        }>
+      )[0],
+    ).toMatchObject({
+      provider: "openrouteservice_driving_car",
+      confidence: "live",
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          { lat: 56, lng: -4 },
+          { lat: 56.1, lng: -4.05 },
+          { lat: 56.2, lng: -4.1 },
+        ],
       },
-    );
+    });
+  });
+
+  it("returns fallback timings without geometry when the ors api key is missing", async () => {
+    delete process.env.OPENROUTESERVICE_API_KEY;
+    process.env.NEXT_PUBLIC_OPENROUTESERVICE_DEBUG = "1";
+
+    const fetchSpy = vi.fn();
+    global.fetch = fetchSpy as typeof fetch;
+
+    const response = await POST(buildRequest("1") as never);
+    const payload = (await response.json()) as {
+      estimates: Array<{ provider: string; confidence: string; geometry?: unknown }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.estimates[0]).toMatchObject({
+      provider: "fallback_haversine",
+      confidence: "fallback",
+    });
+    expect(payload.estimates[0]?.geometry).toBeUndefined();
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("includes debug details and maps non-ok ors responses to fallback reasons", async () => {
@@ -102,6 +146,7 @@ describe("/api/route-estimates", () => {
       provider: "fallback_haversine",
       confidence: "fallback",
     });
+    expect(payload.estimates[0]?.geometry).toBeUndefined();
     expect(payload.debug).toMatchObject({
       enabled: true,
       cacheStatus: "bypassed",

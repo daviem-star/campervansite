@@ -47,6 +47,14 @@ const buildEstimate = (): TravelLegEstimate => ({
   confidence: "fallback",
   date: "2026-04-03",
   relatedStopId: "stay-1",
+  geometry: {
+    type: "LineString",
+    coordinates: [
+      { lat: 56, lng: -4 },
+      { lat: 56.1, lng: -4.05 },
+      { lat: 56.2, lng: -4.1 },
+    ],
+  },
 });
 
 describe("routeEstimateCache", () => {
@@ -82,6 +90,13 @@ describe("routeEstimateCache", () => {
       entry: {
         signature: "sig-1",
         cachedAt,
+        estimates: [
+          {
+            geometry: {
+              type: "LineString",
+            },
+          },
+        ],
       },
     });
   });

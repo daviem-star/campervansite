@@ -347,8 +347,8 @@ export default function PlannerApp() {
   );
 
   const mapData = useMemo(
-    () => (activeTrip ? getMapData(activeTrip) : { markers: [], segments: [] }),
-    [activeTrip],
+    () => (activeTrip ? getMapData(activeTrip, routeEstimates) : { markers: [], segments: [] }),
+    [activeTrip, routeEstimates],
   );
 
   const gapWarnings = useMemo(() => (activeTrip ? getGapWarnings(activeTrip) : []), [activeTrip]);
