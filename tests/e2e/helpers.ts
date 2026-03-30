@@ -3,9 +3,11 @@ import { randomUUID } from "node:crypto";
 import { Page } from "@playwright/test";
 
 import { createE2EBypassSession, getE2EAuthStorageKey } from "../../lib/e2eAuth";
+import { ROUTE_ESTIMATE_CACHE_FALLBACK_STORAGE_KEY } from "../../lib/routeEstimateCache";
+import { buildTripTravelLegPayload } from "../../lib/routeEstimates";
 import { FORCE_DEMO_MODE_STORAGE_KEY } from "../../lib/runtimeFlags";
 import { getSeedData } from "../../lib/seedData";
-import { AppData, SessionUser } from "../../types/trip";
+import { AppData, SessionUser, TravelLegEstimate } from "../../types/trip";
 
 const LEGACY_STORAGE_KEY = "campervan_trip_planner_v1";
 
@@ -112,4 +114,47 @@ export const seedCloudTrips = async (
       data,
     },
   });
+};
+
+export const primeStaleRouteEstimateCache = async (page: Page) => {
+  const seedTrip = getSeedData().trips[0];
+  const { requests, signature } = buildTripTravelLegPayload(seedTrip);
+  const cachedAt = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString();
+  const estimates: TravelLegEstimate[] = requests.map((request, index) => ({
+    id: request.id,
+    fromId: request.fromId,
+    fromLabel: request.fromLabel,
+    toId: request.toId,
+    toLabel: request.toLabel,
+    kind: "road",
+    distanceKm: 40 + index * 8,
+    durationMinutes: 35 + index * 6,
+    bufferedDurationMinutes: 50 + index * 7,
+    provider: "fallback_haversine",
+    fetchedAt: cachedAt,
+    confidence: "fallback",
+    date: request.date,
+    relatedStopId: request.relatedStopId,
+  }));
+
+  await page.addInitScript(
+    ({ storageKey, cacheSignature, entry }) => {
+      const raw = window.localStorage.getItem(storageKey);
+      const parsed =
+        raw && raw.trim().length > 0
+          ? (JSON.parse(raw) as Record<string, typeof entry>)
+          : {};
+      parsed[cacheSignature] = entry;
+      window.localStorage.setItem(storageKey, JSON.stringify(parsed));
+    },
+    {
+      storageKey: ROUTE_ESTIMATE_CACHE_FALLBACK_STORAGE_KEY,
+      cacheSignature: signature,
+      entry: {
+        signature,
+        estimates,
+        cachedAt,
+      },
+    },
+  );
 };

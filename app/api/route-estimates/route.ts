@@ -1,34 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { TravelLegEstimate } from "@/types/trip";
-
-type Coordinates = {
-  lat: number;
-  lng: number;
-};
+import { isOpenRouteServiceDebugEnabled } from "@/lib/runtimeFlags";
+import { Coordinates, TravelLegEstimate, TravelLegRequest } from "@/types/trip";
 
 type RouteEstimateRequest = {
-  legs?: Array<{
-    id: string;
-    fromId: string;
-    fromLabel: string;
-    toId: string;
-    toLabel: string;
-    date: string;
-    relatedStopId?: string;
-    from: Coordinates;
-    to: Coordinates;
-  }>;
+  legs?: TravelLegRequest[];
+};
+
+type EstimateValue = {
+  distanceKm: number;
+  durationMinutes: number;
+  provider: string;
+  confidence: "live" | "fallback";
 };
 
 type CacheEntry = {
   expiresAt: number;
-  value: {
-    distanceKm: number;
-    durationMinutes: number;
-    provider: string;
-    confidence: "live" | "fallback";
-  };
+  value: EstimateValue;
+};
+
+type RouteDebugFallbackReason =
+  | "missing_api_key"
+  | "ors_non_ok"
+  | "ors_unroutable_point"
+  | "ors_invalid_payload"
+  | "ors_request_failed"
+  | "none";
+
+type RouteEstimateLegDebug = {
+  id: string;
+  cacheStatus: "hit" | "miss" | "bypassed";
+  orsAttempted: boolean;
+  orsStatus: number | null;
+  fallbackReason: RouteDebugFallbackReason;
+  providerReturned: string;
+  apiKeyPresent: boolean;
+  responseBodyExcerpt?: string;
+};
+
+type RouteEstimateResponseDebug = {
+  enabled: true;
+  cacheStatus: "bypassed";
+  legs: RouteEstimateLegDebug[];
+};
+
+type FetchLiveEstimateResult = {
+  estimate: EstimateValue;
+  debug: RouteEstimateLegDebug;
 };
 
 const CACHE_TTL_MS = 30 * 60 * 1000;
@@ -64,15 +82,22 @@ const buildBufferedDuration = (durationMinutes: number): number => {
   );
 };
 
+const trimBodyExcerpt = (value: string): string => {
+  return value.trim().slice(0, 400);
+};
+
+const parseJsonSafely = <T>(value: string): T | null => {
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return null;
+  }
+};
+
 const buildFallbackEstimate = (
   from: Coordinates,
   to: Coordinates,
-): {
-  distanceKm: number;
-  durationMinutes: number;
-  provider: string;
-  confidence: "live" | "fallback";
-} => {
+): EstimateValue => {
   const distanceKm = haversineDistanceKm(from, to);
   const durationMinutes = Math.max(8, Math.round((distanceKm / 55) * 60));
 
@@ -84,87 +109,215 @@ const buildFallbackEstimate = (
   };
 };
 
+const buildDebugLogPayload = (
+  legId: string,
+  debug: RouteEstimateLegDebug,
+  estimate: EstimateValue,
+) => ({
+  legId,
+  apiKeyPresent: debug.apiKeyPresent,
+  cacheStatus: debug.cacheStatus,
+  orsAttempted: debug.orsAttempted,
+  orsStatus: debug.orsStatus,
+  fallbackReason: debug.fallbackReason,
+  providerReturned: estimate.provider,
+  responseBodyExcerpt: debug.responseBodyExcerpt,
+  at: new Date().toISOString(),
+});
+
 const fetchLiveEstimate = async (
+  legId: string,
   from: Coordinates,
   to: Coordinates,
-): Promise<{
-  distanceKm: number;
-  durationMinutes: number;
-  provider: string;
-  confidence: "live" | "fallback";
-}> => {
+  debugEnabled: boolean,
+): Promise<FetchLiveEstimateResult> => {
   const apiKey = process.env.OPENROUTESERVICE_API_KEY;
+  const baseDebug: RouteEstimateLegDebug = {
+    id: legId,
+    cacheStatus: debugEnabled ? "bypassed" : "miss",
+    orsAttempted: false,
+    orsStatus: null,
+    fallbackReason: "none",
+    providerReturned: "openrouteservice_driving_car",
+    apiKeyPresent: Boolean(apiKey),
+  };
+
   if (!apiKey) {
-    return buildFallbackEstimate(from, to);
+    const estimate = buildFallbackEstimate(from, to);
+    const debug = {
+      ...baseDebug,
+      fallbackReason: "missing_api_key" as const,
+      providerReturned: estimate.provider,
+    };
+
+    if (debugEnabled) {
+      console.warn("[route-estimates:ors-debug]", buildDebugLogPayload(legId, debug, estimate));
+    }
+
+    return { estimate, debug };
   }
 
-  const response = await fetch("https://api.openrouteservice.org/v2/directions/driving-car", {
-    method: "POST",
-    headers: {
-      Authorization: apiKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      coordinates: [
-        [from.lng, from.lat],
-        [to.lng, to.lat],
-      ],
-    }),
-    next: { revalidate: 1800 },
-  });
+  try {
+    const response = await fetch("https://api.openrouteservice.org/v2/directions/driving-car", {
+      method: "POST",
+      headers: {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        coordinates: [
+          [from.lng, from.lat],
+          [to.lng, to.lat],
+        ],
+      }),
+      next: { revalidate: 1800 },
+    });
 
-  if (!response.ok) {
-    return buildFallbackEstimate(from, to);
-  }
-
-  const data = (await response.json()) as {
-    features?: Array<{
-      properties?: {
-        summary?: {
-          distance?: number;
-          duration?: number;
+    if (!response.ok) {
+      const responseText = await response.text().catch(() => "");
+      const responseBodyExcerpt = trimBodyExcerpt(responseText);
+      const parsedError = parseJsonSafely<{
+        error?: {
+          code?: number;
+          message?: string;
         };
+      }>(responseText);
+      const estimate = buildFallbackEstimate(from, to);
+      const debug = {
+        ...baseDebug,
+        orsAttempted: true,
+        orsStatus: response.status,
+        fallbackReason:
+          parsedError?.error?.code === 2010
+            ? ("ors_unroutable_point" as const)
+            : ("ors_non_ok" as const),
+        providerReturned: estimate.provider,
+        ...(responseBodyExcerpt ? { responseBodyExcerpt } : {}),
       };
-    }>;
-  };
 
-  const summary = data.features?.[0]?.properties?.summary;
-  const distanceKm = Number(summary?.distance ?? NaN) / 1000;
-  const durationMinutes = Number(summary?.duration ?? NaN) / 60;
+      if (debugEnabled) {
+        console.warn("[route-estimates:ors-debug]", buildDebugLogPayload(legId, debug, estimate));
+      }
 
-  if (!Number.isFinite(distanceKm) || !Number.isFinite(durationMinutes)) {
-    return buildFallbackEstimate(from, to);
+      return { estimate, debug };
+    }
+
+    const data = (await response.json().catch(() => null)) as
+      | {
+          routes?: Array<{
+            summary?: {
+              distance?: number;
+              duration?: number;
+            };
+          }>;
+          features?: Array<{
+            properties?: {
+              summary?: {
+                distance?: number;
+                duration?: number;
+              };
+            };
+          }>;
+        }
+      | null;
+
+    const summary = data?.routes?.[0]?.summary ?? data?.features?.[0]?.properties?.summary;
+    const distanceKm = Number(summary?.distance ?? NaN) / 1000;
+    const durationMinutes = Number(summary?.duration ?? NaN) / 60;
+
+    if (!Number.isFinite(distanceKm) || !Number.isFinite(durationMinutes)) {
+      const responseBodyExcerpt = trimBodyExcerpt(JSON.stringify(data ?? {}));
+      const estimate = buildFallbackEstimate(from, to);
+      const debug = {
+        ...baseDebug,
+        orsAttempted: true,
+        orsStatus: response.status,
+        fallbackReason: "ors_invalid_payload" as const,
+        providerReturned: estimate.provider,
+        ...(responseBodyExcerpt ? { responseBodyExcerpt } : {}),
+      };
+
+      if (debugEnabled) {
+        console.warn("[route-estimates:ors-debug]", buildDebugLogPayload(legId, debug, estimate));
+      }
+
+      return { estimate, debug };
+    }
+
+    const estimate: EstimateValue = {
+      distanceKm,
+      durationMinutes: Math.max(1, Math.round(durationMinutes)),
+      provider: "openrouteservice_driving_car",
+      confidence: "live",
+    };
+    const debug = {
+      ...baseDebug,
+      orsAttempted: true,
+      orsStatus: response.status,
+      providerReturned: estimate.provider,
+    };
+
+    if (debugEnabled) {
+      console.info("[route-estimates:ors-debug]", buildDebugLogPayload(legId, debug, estimate));
+    }
+
+    return { estimate, debug };
+  } catch (error) {
+    const estimate = buildFallbackEstimate(from, to);
+    const debug = {
+      ...baseDebug,
+      orsAttempted: true,
+      fallbackReason: "ors_request_failed" as const,
+      providerReturned: estimate.provider,
+      ...(error instanceof Error && error.message
+        ? { responseBodyExcerpt: trimBodyExcerpt(error.message) }
+        : {}),
+    };
+
+    if (debugEnabled) {
+      console.warn("[route-estimates:ors-debug]", buildDebugLogPayload(legId, debug, estimate));
+    }
+
+    return { estimate, debug };
   }
-
-  return {
-    distanceKm,
-    durationMinutes: Math.max(1, Math.round(durationMinutes)),
-    provider: "openrouteservice_driving_car",
-    confidence: "live",
-  };
 };
 
 const getEstimate = async (
+  legId: string,
   from: Coordinates,
   to: Coordinates,
-): Promise<{
-  distanceKm: number;
-  durationMinutes: number;
-  provider: string;
-  confidence: "live" | "fallback";
-}> => {
+  debugEnabled: boolean,
+): Promise<FetchLiveEstimateResult> => {
   const cacheKey = getCacheKey(from, to);
-  const cached = cache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.value;
+
+  if (!debugEnabled) {
+    const cached = cache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return {
+        estimate: cached.value,
+        debug: {
+          id: legId,
+          cacheStatus: "hit",
+          orsAttempted: false,
+          orsStatus: null,
+          fallbackReason: cached.value.confidence === "fallback" ? "none" : "none",
+          providerReturned: cached.value.provider,
+          apiKeyPresent: Boolean(process.env.OPENROUTESERVICE_API_KEY),
+        },
+      };
+    }
   }
 
-  const estimate = await fetchLiveEstimate(from, to);
-  cache.set(cacheKey, {
-    expiresAt: Date.now() + CACHE_TTL_MS,
-    value: estimate,
-  });
-  return estimate;
+  const result = await fetchLiveEstimate(legId, from, to, debugEnabled);
+
+  if (!debugEnabled) {
+    cache.set(cacheKey, {
+      expiresAt: Date.now() + CACHE_TTL_MS,
+      value: result.estimate,
+    });
+  }
+
+  return result;
 };
 
 export async function POST(request: NextRequest) {
@@ -174,28 +327,47 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "At least one route leg is required." }, { status: 400 });
   }
 
-  const estimates = await Promise.all(
+  const debugEnabled =
+    isOpenRouteServiceDebugEnabled() && request.headers.get("x-route-debug") === "1";
+
+  const estimateResults = await Promise.all(
     body.legs.map(async (leg) => {
-      const estimate = await getEstimate(leg.from, leg.to);
+      const result = await getEstimate(leg.id, leg.from, leg.to, debugEnabled);
 
       return {
-        id: leg.id,
-        fromId: leg.fromId,
-        fromLabel: leg.fromLabel,
-        toId: leg.toId,
-        toLabel: leg.toLabel,
-        kind: "road",
-        distanceKm: Number(estimate.distanceKm.toFixed(1)),
-        durationMinutes: estimate.durationMinutes,
-        bufferedDurationMinutes: buildBufferedDuration(estimate.durationMinutes),
-        provider: estimate.provider,
-        fetchedAt: new Date().toISOString(),
-        confidence: estimate.confidence,
-        date: leg.date,
-        relatedStopId: leg.relatedStopId,
-      } satisfies TravelLegEstimate;
+        leg,
+        ...result,
+      };
     }),
   );
 
-  return NextResponse.json({ estimates });
+  const estimates = estimateResults.map(({ leg, estimate }) => ({
+    id: leg.id,
+    fromId: leg.fromId,
+    fromLabel: leg.fromLabel,
+    toId: leg.toId,
+    toLabel: leg.toLabel,
+    kind: "road",
+    distanceKm: Number(estimate.distanceKm.toFixed(1)),
+    durationMinutes: estimate.durationMinutes,
+    bufferedDurationMinutes: buildBufferedDuration(estimate.durationMinutes),
+    provider: estimate.provider,
+    fetchedAt: new Date().toISOString(),
+    confidence: estimate.confidence,
+    date: leg.date,
+    relatedStopId: leg.relatedStopId,
+  } satisfies TravelLegEstimate));
+
+  return NextResponse.json({
+    estimates,
+    ...(debugEnabled
+      ? ({
+          debug: {
+            enabled: true,
+            cacheStatus: "bypassed",
+            legs: estimateResults.map(({ debug }) => debug),
+          } satisfies RouteEstimateResponseDebug,
+        } as const)
+      : {}),
+  });
 }

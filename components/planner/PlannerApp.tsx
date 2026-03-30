@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 
 import AccountPanel from "@/components/planner/AccountPanel";
 import DayStrip from "@/components/planner/DayStrip";
@@ -15,7 +15,12 @@ import TravelInsightsPanel from "@/components/planner/TravelInsightsPanel";
 import TripHeader from "@/components/planner/TripHeader";
 import ValidationWarningsPanel from "@/components/planner/ValidationWarningsPanel";
 import { formatDateOnly, todayDateInTimezone } from "@/lib/date";
-import { fetchTravelLegEstimates } from "@/lib/routeEstimates";
+import { readCachedRouteEstimateSet, writeCachedRouteEstimateSet } from "@/lib/routeEstimateCache";
+import {
+  buildTripTravelLegPayload,
+  fetchTravelLegEstimates,
+  mergeTravelEstimateMetadata,
+} from "@/lib/routeEstimates";
 import {
   formatTripDateRange,
   getCostSummary,
@@ -46,6 +51,7 @@ type EditorState = {
 type MobileTab = "today" | "itinerary" | "overview" | "map";
 type DesktopPanel = "itinerary" | "overview" | "today";
 type SelectionOrigin = "itinerary" | "map" | "system";
+type RouteInsightsState = "fresh" | "stale" | "unavailable";
 
 const defaultEditorState: EditorState = {
   isOpen: false,
@@ -182,7 +188,9 @@ export default function PlannerApp() {
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
   const [routeEstimates, setRouteEstimates] = useState<TravelLegEstimate[]>([]);
   const [isEstimatingRoutes, setIsEstimatingRoutes] = useState(false);
-  const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeInsightsState, setRouteInsightsState] = useState<RouteInsightsState>("fresh");
+  const [routeStatusMessage, setRouteStatusMessage] = useState<string | null>(null);
+  const routeRefreshCounterRef = useRef(0);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -209,49 +217,123 @@ export default function PlannerApp() {
     return data.trips.find((trip) => trip.id === data.activeTripId) ?? null;
   }, [data]);
 
-  useEffect(() => {
+  const routePayload = useMemo(() => {
     if (!activeTrip) {
+      return {
+        requests: [],
+        signature: "",
+      };
+    }
+
+    return buildTripTravelLegPayload(activeTrip);
+  }, [activeTrip]);
+
+  const routeRequests = routePayload.requests;
+  const routeSignature = routePayload.signature;
+  const routeRequestsRef = useRef(routeRequests);
+  const activeTripRef = useRef(activeTrip);
+
+  useEffect(() => {
+    routeRequestsRef.current = routeRequests;
+    activeTripRef.current = activeTrip;
+  }, [activeTrip, routeRequests]);
+
+  useEffect(() => {
+    const currentTrip = activeTripRef.current;
+    const currentRequests = routeRequestsRef.current;
+
+    if (!currentTrip || currentRequests.length === 0) {
       startTransition(() => {
         setRouteEstimates([]);
-        setRouteError(null);
+        setRouteInsightsState("fresh");
+        setRouteStatusMessage(null);
+        setIsEstimatingRoutes(false);
       });
       return;
     }
 
     let cancelled = false;
-    startTransition(() => {
-      setIsEstimatingRoutes(true);
-    });
+    const refreshId = routeRefreshCounterRef.current + 1;
+    routeRefreshCounterRef.current = refreshId;
 
-    void fetchTravelLegEstimates(activeTrip)
-      .then((estimates) => {
-        if (cancelled) {
-          return;
-        }
+    const loadRouteEstimates = async () => {
+      const cached = await readCachedRouteEstimateSet(routeSignature);
+      if (cancelled || routeRefreshCounterRef.current !== refreshId) {
+        return;
+      }
 
-        setRouteEstimates(estimates);
-        setRouteError(null);
-      })
-      .catch((caught) => {
-        if (cancelled) {
-          return;
-        }
+      if (cached.state === "fresh" && cached.entry) {
+        setRouteEstimates(mergeTravelEstimateMetadata(cached.entry.estimates, currentRequests));
+        setRouteInsightsState("fresh");
+        setRouteStatusMessage(null);
+        setIsEstimatingRoutes(false);
+        return;
+      }
 
+      if (cached.entry) {
+        setRouteEstimates(mergeTravelEstimateMetadata(cached.entry.estimates, currentRequests));
+        setRouteInsightsState("stale");
+        setRouteStatusMessage("Showing the last successful route timings while a refresh runs.");
+      } else {
         setRouteEstimates([]);
-        setRouteError(
-          caught instanceof Error ? caught.message : "Unable to refresh route estimates.",
-        );
-      })
-      .finally(() => {
-        if (!cancelled) {
+        setRouteInsightsState("fresh");
+        setRouteStatusMessage(null);
+      }
+
+      setIsEstimatingRoutes(true);
+
+      try {
+        const estimates = await fetchTravelLegEstimates(currentRequests);
+        if (cancelled || routeRefreshCounterRef.current !== refreshId) {
+          return;
+        }
+
+        const mergedEstimates = mergeTravelEstimateMetadata(estimates, currentRequests);
+        setRouteEstimates(mergedEstimates);
+        setRouteInsightsState("fresh");
+        setRouteStatusMessage(null);
+        await writeCachedRouteEstimateSet(routeSignature, mergedEstimates);
+      } catch (caught) {
+        if (cancelled || routeRefreshCounterRef.current !== refreshId) {
+          return;
+        }
+
+        if (cached.entry) {
+          setRouteInsightsState("stale");
+          setRouteStatusMessage(
+            caught instanceof Error
+              ? `${caught.message} Showing the last successful route timings instead.`
+              : "Unable to refresh route estimates. Showing the last successful timings instead.",
+          );
+        } else {
+          setRouteInsightsState("unavailable");
+          setRouteStatusMessage(
+            caught instanceof Error ? caught.message : "Unable to refresh route estimates.",
+          );
+        }
+      } finally {
+        if (!cancelled && routeRefreshCounterRef.current === refreshId) {
           setIsEstimatingRoutes(false);
         }
-      });
+      }
+    };
+
+    void loadRouteEstimates();
 
     return () => {
       cancelled = true;
     };
-  }, [activeTrip]);
+  }, [routeSignature]);
+
+  useEffect(() => {
+    if (routeRequests.length === 0) {
+      return;
+    }
+
+    setRouteEstimates((currentEstimates) =>
+      mergeTravelEstimateMetadata(currentEstimates, routeRequests),
+    );
+  }, [routeRequests]);
 
   const tripDays = useMemo(() => (activeTrip ? getTripDays(activeTrip) : []), [activeTrip]);
   const effectiveSelectedDate = tripDays.includes(selectedDate)
@@ -336,16 +418,6 @@ export default function PlannerApp() {
           {statusMessage}
         </div>
       ) : null}
-      {routeError ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {routeError}
-        </div>
-      ) : null}
-      {isEstimatingRoutes ? (
-        <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">
-          Refreshing route estimates and travel buffers...
-        </div>
-      ) : null}
     </>
   );
 
@@ -410,7 +482,10 @@ export default function PlannerApp() {
   );
 
   const renderOverviewPanel = () => (
-    <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
+    <div
+      data-testid="overview-scroll-region"
+      className="space-y-4 pr-1 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:gap-4 lg:space-y-0 lg:overflow-y-auto"
+    >
       <TripHeader
         tripName={activeTrip?.name ?? ""}
         homeLabel={activeTrip?.home.label ?? ""}
@@ -436,14 +511,23 @@ export default function PlannerApp() {
         onCreateCloudTripFromCurrent={createCloudTripFromCurrent}
       />
 
-      <TravelInsightsPanel estimates={routeEstimates} />
+      <TravelInsightsPanel
+        estimates={routeEstimates}
+        legCount={routeRequests.length}
+        status={routeInsightsState}
+        statusMessage={routeStatusMessage}
+        isRefreshing={isEstimatingRoutes}
+      />
       <ValidationWarningsPanel warnings={validationWarnings} />
       <GapWarnings warnings={gapWarnings} />
     </div>
   );
 
   const renderTodayPanel = () => (
-    <div className="min-h-0 space-y-4 overflow-y-auto pr-1">
+    <div
+      data-testid="today-scroll-region"
+      className="space-y-4 pr-1 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:gap-4 lg:space-y-0 lg:overflow-y-auto"
+    >
       <TodayActionsPanel actions={todayActions} />
     </div>
   );

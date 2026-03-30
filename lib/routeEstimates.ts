@@ -1,9 +1,58 @@
-import { buildTravelEstimateRequests } from "@/lib/tripDerived";
-import { TravelLegEstimate, Trip } from "@/types/trip";
+import {
+  buildTravelEstimateRequests,
+  buildTravelLegSignature,
+} from "@/lib/tripDerived";
+import { isOpenRouteServiceDebugEnabled } from "@/lib/runtimeFlags";
+import { TravelLegEstimate, TravelLegRequest, Trip } from "@/types/trip";
 
-export const fetchTravelLegEstimates = async (trip: Trip): Promise<TravelLegEstimate[]> => {
-  const legs = buildTravelEstimateRequests(trip);
-  if (legs.length === 0) {
+export const buildTripTravelLegPayload = (
+  trip: Trip,
+): {
+  requests: TravelLegRequest[];
+  signature: string;
+} => {
+  const requests = buildTravelEstimateRequests(trip);
+
+  return {
+    requests,
+    signature: buildTravelLegSignature(requests),
+  };
+};
+
+export const mergeTravelEstimateMetadata = (
+  estimates: TravelLegEstimate[],
+  requests: TravelLegRequest[],
+): TravelLegEstimate[] => {
+  if (estimates.length === 0 || requests.length === 0) {
+    return [];
+  }
+
+  const estimateById = new Map(estimates.map((estimate) => [estimate.id, estimate]));
+
+  return requests.flatMap((request) => {
+    const estimate = estimateById.get(request.id);
+    if (!estimate) {
+      return [];
+    }
+
+    return [
+      {
+        ...estimate,
+        fromId: request.fromId,
+        fromLabel: request.fromLabel,
+        toId: request.toId,
+        toLabel: request.toLabel,
+        date: request.date,
+        relatedStopId: request.relatedStopId,
+      },
+    ];
+  });
+};
+
+export const fetchTravelLegEstimates = async (
+  requests: TravelLegRequest[],
+): Promise<TravelLegEstimate[]> => {
+  if (requests.length === 0) {
     return [];
   }
 
@@ -11,8 +60,9 @@ export const fetchTravelLegEstimates = async (trip: Trip): Promise<TravelLegEsti
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(isOpenRouteServiceDebugEnabled() ? { "x-route-debug": "1" } : {}),
     },
-    body: JSON.stringify({ legs }),
+    body: JSON.stringify({ legs: requests }),
   });
 
   const payload = (await response.json().catch(() => null)) as

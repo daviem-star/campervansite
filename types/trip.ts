@@ -137,7 +137,8 @@ export type ValidationWarningKind =
   | "ferry_check_in"
   | "arrival_window"
   | "travel_feasibility"
-  | "coverage_gap";
+  | "coverage_gap"
+  | "route_confidence";
 
 export type ValidationWarningSeverity = "high" | "medium" | "low";
 
@@ -154,6 +155,18 @@ export type ValidationWarning = {
 export type TravelEstimateConfidence = "live" | "fallback";
 
 export type TravelLegKind = "road";
+
+export type TravelLegRequest = {
+  id: string;
+  fromId: string;
+  fromLabel: string;
+  toId: string;
+  toLabel: string;
+  date: string;
+  relatedStopId?: string;
+  from: Coordinates;
+  to: Coordinates;
+};
 
 export type TravelLegEstimate = {
   id: string;

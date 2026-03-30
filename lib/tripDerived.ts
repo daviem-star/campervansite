@@ -26,6 +26,7 @@ import {
   StayStop,
   TodayAction,
   TravelLegEstimate,
+  TravelLegRequest,
   Trip,
   TripStop,
   ValidationWarning,
@@ -585,17 +586,7 @@ const buildTravelLegContexts = (trip: Trip): TravelLegContext[] => {
 
 export const buildTravelEstimateRequests = (
   trip: Trip,
-): Array<{
-  id: string;
-  fromId: string;
-  fromLabel: string;
-  toId: string;
-  toLabel: string;
-  date: string;
-  relatedStopId?: string;
-  from: { lat: number; lng: number };
-  to: { lat: number; lng: number };
-}> => {
+): TravelLegRequest[] => {
   return buildTravelLegContexts(trip).map((context) => ({
     id: context.id,
     fromId: context.fromId,
@@ -607,6 +598,28 @@ export const buildTravelEstimateRequests = (
     from: context.from.coordinates,
     to: context.to.coordinates,
   }));
+};
+
+export const buildTravelLegSignature = (requests: TravelLegRequest[]): string => {
+  if (requests.length === 0) {
+    return "";
+  }
+
+  return requests
+    .map((request) =>
+      [
+        request.id,
+        request.date,
+        request.relatedStopId ?? "",
+        request.fromId,
+        request.toId,
+        request.from.lat.toFixed(5),
+        request.from.lng.toFixed(5),
+        request.to.lat.toFixed(5),
+        request.to.lng.toFixed(5),
+      ].join(":"),
+    )
+    .join("|");
 };
 
 export const getTravelSummary = (estimates: TravelLegEstimate[]): {
@@ -639,6 +652,9 @@ export const getValidationWarnings = (
   const estimateById = new Map(estimates.map((estimate) => [estimate.id, estimate]));
   const contexts = buildTravelLegContexts(trip);
   const driveMinutesByDate = new Map<string, number>();
+  const estimateDates = new Set<string>();
+  const fallbackOnlyDates = new Set<string>();
+  const datesWithLiveEstimates = new Set<string>();
 
   contexts.forEach((context) => {
     const estimate = estimateById.get(context.id);
@@ -646,10 +662,20 @@ export const getValidationWarnings = (
       return;
     }
 
+    estimateDates.add(estimate.date);
     driveMinutesByDate.set(
       estimate.date,
       (driveMinutesByDate.get(estimate.date) ?? 0) + estimate.bufferedDurationMinutes,
     );
+
+    if (estimate.confidence === "fallback") {
+      if (!datesWithLiveEstimates.has(estimate.date)) {
+        fallbackOnlyDates.add(estimate.date);
+      }
+    } else {
+      datesWithLiveEstimates.add(estimate.date);
+      fallbackOnlyDates.delete(estimate.date);
+    }
 
     if (estimate.bufferedDurationMinutes >= LONG_LEG_WARNING_MINUTES) {
       warnings.push({
@@ -748,6 +774,32 @@ export const getValidationWarnings = (
       detail: `Buffered road travel totals ${formatDurationMinutes(
         bufferedMinutes,
       )} for this day.`,
+      date,
+    });
+  });
+
+  estimateDates.forEach((date) => {
+    if (!fallbackOnlyDates.has(date)) {
+      return;
+    }
+
+    const hasRiskWarning = warnings.some(
+      (warning) =>
+        warning.date === date &&
+        warning.kind !== "coverage_gap" &&
+        warning.kind !== "route_confidence",
+    );
+
+    warnings.push({
+      id: `route-confidence-${date}`,
+      kind: "route_confidence",
+      severity: hasRiskWarning ? "medium" : "low",
+      label: hasRiskWarning
+        ? `Risky travel day on ${formatDateOnly(date)} is using fallback timings`
+        : `Route timings for ${formatDateOnly(date)} are using fallback estimates`,
+      detail: hasRiskWarning
+        ? "Live routing is unavailable for this day, so travel warnings are based on fallback estimates."
+        : "These timings are using fallback road estimates instead of live OpenRouteService data.",
       date,
     });
   });
