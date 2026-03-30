@@ -46,6 +46,7 @@ MCP servers are not required for this setup. Provider dashboards and environment
    - `http://127.0.0.1:3000`
    - `http://127.0.0.1:3001`
    - your Vercel preview domain
+   - Vercel preview wildcard redirects, for example `https://*-<your-vercel-team-or-account-slug>.vercel.app/**`
    - your production domain
 4. Apply the SQL in `supabase/migrations/20260328_trip_documents.sql`.
 5. Record:
