@@ -1,6 +1,6 @@
 # Campervan Trip Planner
 
-A Next.js App Router trip planner for campervan travel. The current `main` branch is the auth-first beta foundation: signed-out users land on a private access screen, then the full planner opens after magic-link sign-in.
+A Next.js App Router trip planner for campervan travel. The current `main` branch is the auth-first beta foundation: signed-out users land on a private access screen, then the full planner opens after magic-link sign-in. Most of the phase 1 product work is already in code; the remaining work is live-service activation, preview validation, and release hardening.
 
 ## Current Status
 
@@ -9,8 +9,9 @@ A Next.js App Router trip planner for campervan travel. The current `main` branc
 - Signed-in onboarding creates a cloud-backed starter example trip automatically, or offers a one-time import/local-choice flow when legacy browser data exists.
 - Cloud mode adds email magic-link auth, cloud trip save/load, sync messaging, conflict recovery, and offline read-only reopening of the last synced trip.
 - Desktop uses a rail-based planner shell where the itinerary owns scrolling and overview/today content live in switchable panels.
-- Route realism includes road-leg estimates, buffered drive times, and validation warnings for difficult travel days.
-- Automated coverage includes Vitest for logic and Playwright for core trust flows.
+- Route realism includes road-leg estimates, buffered drive times, route-confidence messaging, snapped routing coordinates for edited places, and validation warnings for difficult travel days.
+- Automated coverage includes Vitest, API route tests, and Playwright trust flows.
+- Forced demo mode and local test sign-in exist for deterministic local preview and E2E work.
 
 The project is beyond the original local-only MVP. The main remaining gap is live service activation and hosted validation, not the core app architecture.
 
@@ -23,6 +24,7 @@ The project is beyond the original local-only MVP. The main remaining gap is liv
 - Default to `View mode`, then explicitly unlock `Edit trip` before mutating the itinerary.
 - Visualize the itinerary on a map with ferry port markers and ferry segments.
 - Show trip-day navigation, today actions, overview insights, gap warnings, route insights, and validation warnings.
+- Search for places in the stop editor and preserve separate routing coordinates when route access data is available.
 - Store campsite metadata such as booking status, hookups, hardstanding, amenities, phone, and website.
 - Store ferry metadata such as operator, booking reference, vehicle details, and check-in buffers.
 - Cache the last synced cloud trip so it can be reopened offline in read-only mode.
@@ -30,19 +32,27 @@ The project is beyond the original local-only MVP. The main remaining gap is liv
 ## Services Required For Full Mode
 
 - Supabase: email magic-link auth, session verification, and cloud trip persistence.
-- OpenRouteService: live route estimates. The app falls back to internal estimates if this is not configured.
+- OpenRouteService: live route estimates and snapped route-access coordinates. The app falls back when this is not configured.
 - Vercel: intended preview and production hosting target.
+- Nominatim: live geocode lookup for place search. No extra key is currently required.
 
 The app does not require MCP servers to run. Provider integrations may become useful later, but the normal path is still service dashboards plus environment variables.
 
 ## Environment Variables
 
-Copy `.env.example` to `.env.local` and fill in:
+Copy `.env.example` to `.env.local` and fill in the live-service values:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `OPENROUTESERVICE_API_KEY`
+
+Optional local-only and test flags are also documented in `.env.example`:
+
+- `NEXT_PUBLIC_E2E_AUTH_BYPASS`
+- `E2E_AUTH_BYPASS`
+- `NEXT_PUBLIC_LOCAL_TEST_SIGN_IN`
+- `NEXT_PUBLIC_OPENROUTESERVICE_DEBUG`
 
 Supabase schema setup lives in `supabase/migrations/20260328_trip_documents.sql`.
 
@@ -85,7 +95,8 @@ npm run test:e2e
 2. Create an OpenRouteService API key.
 3. Add the required env vars locally and in Vercel Preview/Production.
 4. Deploy a preview build and run the smoke checklist in `docs/FOUNDATION_ACTIVATION.md`.
-5. Treat the branch as release-ready only after auth-first entry, starter/import onboarding, save, conflict, offline, and route-estimate checks pass against live services.
+5. Record device and smoke-pass results in `docs/QA_NOTES.md`.
+6. Treat the branch as release-ready only after auth-first entry, starter/import onboarding, save, conflict, offline, route-estimate, and place-search checks pass against live services.
 
 ## Repo Docs
 
@@ -101,14 +112,14 @@ The forward plan in this repository now follows the architecture brief in `campe
 2. Planning quality: route realism, ferry depth, campsite intelligence, and stronger validation
 3. On-road readiness: concise travel-day support, sharing/export, and mobile/tablet practicality
 
-The current codebase is partway through phase 1. The next development work should continue to respect that sequence rather than jumping ahead to convenience features too early.
+The current codebase is late in phase 1. The next development work should continue to respect that sequence rather than jumping ahead to convenience features too early.
 
 ## Next Steps
 
 - Finish the hosted-service path on live infrastructure:
   - Supabase auth and persistence
   - Vercel preview and production wiring
-  - OpenRouteService once the current UI shell feels stable
+  - OpenRouteService for live timings and route-access snapping
 - Validate the current auth-first planner shell on real devices:
   - starter/import onboarding
   - desktop rail layout

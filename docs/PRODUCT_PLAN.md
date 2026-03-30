@@ -2,90 +2,127 @@
 
 ## Product Position
 
-The `main` branch represents the beta foundation for the planner. The app already has the core trip-planning UX and the cloud-sync architecture in code. The immediate job is to make that foundation real with hosted services, real credentials, and preview validation.
+The `main` branch now contains the beta planner foundation in code. This is no longer just a local-only MVP or a design exploration. The repository already has the auth-first entry, cloud-backed trip core, desktop/tablet/mobile planner shell, route-realism foundations, and deterministic automated coverage.
 
-This plan is aligned with the beta architecture brief in `campervan_architect_brief.docx`, which recommended a phased roadmap:
+As of 2026-03-30, the live roadmap is:
 
-1. Foundation and trust
-2. Planning quality
-3. On-road readiness
+1. Close out phase 1 by activating and hardening the hosted path.
+2. Use real preview feedback to sharpen planning quality.
+3. Only then expand into deeper on-road tooling.
 
-The current codebase sits in phase 1, with part of that phase already implemented in code.
+The older `docs/EXECUTION_PLAN_2026-02-27.md` file is now historical context, not the current source of truth.
 
 ## Current Product Status
 
-- One active trip planning experience with:
+- The root route now opens the planner, not the older marketing landing page.
+- The planner supports one active trip workspace with:
   - stays
   - ferries
   - points of interest
-- Auth-first access model with a signed-out welcome screen.
-- Signed-in starter flow that either:
-  - auto-creates the example trip in the cloud, or
-  - offers a one-time local-import-or-example choice when legacy browser data exists
-- Desktop-first planning layout plus mobile/tablet travel review.
-- Cloud-capable mode with:
-  - Supabase email magic-link auth
-  - cloud trip save/load/import server routes
-  - sync status messaging
+- Auth-first access is in place:
+  - signed-out users land on a private access gate
+  - signed-in users continue into the full planner
+- Signed-in onboarding handles both first-run cases:
+  - automatic starter example trip creation for empty cloud accounts
+  - one-time import-or-example choice when legacy browser data exists
+- Cloud sync foundations are implemented:
+  - Supabase magic-link auth
+  - cloud trip list/load/save/import API routes
+  - schema migration for `trip_documents`
   - stale-write conflict recovery
-  - offline read-only reopening of the last synced trip
-- Planner shell now defaults to:
-  - `Itinerary` as the main desktop panel
-  - `View mode` until the user explicitly unlocks `Edit trip`
-  - overview and today content moved into switchable panels instead of a permanently stacked left column
-- Route realism support with:
+  - cached last-synced trip reopening in offline read-only mode
+- The planner shell is established across form factors:
+  - desktop rail with switchable `Itinerary`, `Overview`, and `Today` panels
+  - mobile defaulting to `Today` with tabbed review panels
+  - tablet/desktop map plus itinerary pairing
+  - global `Edit trip` locking to prevent accidental mutation
+- Planning-quality groundwork is already present:
   - live or fallback road-leg estimates
-  - buffered drive times
-  - validation warnings for travel feasibility
-- Automated coverage with unit tests, lint/build checks, and Playwright trust-flow tests.
+  - buffered campervan drive timings
+  - route-confidence messaging
+  - stale route cache reuse when refresh fails
+  - snapped routing coordinates for edited places when OpenRouteService is available
+  - validation warnings, gap warnings, today actions, and travel insights
+- Search and editing foundations are in place:
+  - GB-focused geocode search via Nominatim
+  - stop create/edit flows for stays, ferries, and POIs
+  - campsite and ferry metadata fields already represented in the data model and editor
+- Automated coverage is materially stronger than before:
+  - Vitest coverage for data normalization, route estimates, routing helpers, cache logic, runtime flags, and Supabase helpers
+  - API route tests for route estimates and route access
+  - Playwright trust-flow coverage for auth gate, starter-trip onboarding, legacy import, save flow, stale conflict recovery, offline read-only reopen, route-confidence display, route caching behavior, and desktop shell interactions
+  - forced demo mode plus local test sign-in for deterministic local preview work
 
-## Immediate Milestone: Finish Foundation And Trust
+## Phase 1: Foundation And Trust
 
-The architect brief identified foundation and trust as the first major delivery phase. In this repository, that means finishing the service activation and stabilisation work around the planner shell that now exists.
+Status: mostly implemented in code; still open operationally until live preview validation is complete.
 
-- Validate the auth-first UI and live cloud path on preview:
-  - magic-link sign-in
-  - starter example trip creation
-  - local import choice flow
-  - save and reload
-  - stale-write conflict recovery
+### What Is Done
+
+- The core planner app is the primary experience on `main`.
+- Auth-first access, onboarding, sync, conflict recovery, and offline review behavior are implemented.
+- The planner shell, map behavior, and edit locking are in place across desktop, tablet, and mobile.
+- Route realism, place search, and route-access plumbing exist in code with fallback behavior.
+- Test harnesses exist for both local deterministic flows and browser-level trust checks.
+
+### What Still Remains
+
+- Activate the hosted stack end to end:
+  - Supabase project, auth settings, redirect URLs, and applied migration
+  - Vercel Preview and Production env wiring
+  - OpenRouteService key for live route estimates and snapped route-access coordinates
+- Run and record live preview smoke testing on real services:
+  - auth gate
+  - magic-link flow
+  - starter trip creation
+  - legacy import choice
+  - save and reload on multiple devices
+  - stale-write recovery
   - offline read-only reopen
-  - route-estimate success and fallback behavior once OpenRouteService is wired
-- Keep the new desktop rail layout, edit locking, and full-trip map framing stable on real devices.
-- Stand up the remaining hosted stack pieces cleanly:
-  - Supabase
-  - OpenRouteService
-  - Vercel
-- Capture evidence that the planner now satisfies the brief's "one trip across desktop and mobile" expectation before expanding the surface area.
+  - route estimate live and fallback behavior
+  - geocode search and edited-place route access
+- Capture the outcome in `docs/QA_NOTES.md` rather than relying only on automated coverage.
+- Decide the minimum release-hardening layer still missing from the current beta:
+  - analytics and observability beyond console logging
+  - preview-to-production promotion criteria
+  - any remaining copy or polish fixes discovered during live-device validation
 
 ### Definition Of Done
 
-- Preview deployment is wired to real Supabase credentials, and OpenRouteService can be added without destabilizing the planner shell.
-- The smoke checklist in `docs/FOUNDATION_ACTIVATION.md` passes on desktop and mobile/tablet for auth-first entry, onboarding, edit locking, and offline read-only behavior.
-- `README.md`, `docs/PRODUCT_PLAN.md`, and `docs/QA_NOTES.md` accurately describe the branch.
+- A preview deployment is running against a real Supabase project with the migration applied.
+- OpenRouteService-backed route estimates and route-access snapping have been verified, alongside the fallback paths.
+- The activation and device smoke checklist passes and is recorded in `docs/QA_NOTES.md`.
+- `README.md`, `docs/PRODUCT_PLAN.md`, `docs/FOUNDATION_ACTIVATION.md`, and `docs/QA_NOTES.md` all describe the branch accurately.
 
-## Next Milestone After Activation: Planning Quality
+## Phase 2: Planning Quality
 
-Once the hosted path is live and stable, move into the architect brief's second phase: making desktop planning more trustworthy and differentiated.
+Status: foundations present, but the product work is still ahead of us.
 
-- Improve route estimate quality and presentation.
-- Deepen ferry handling with operator logic, booking detail, vehicle detail, and check-in confidence.
-- Expand campsite data where it improves trip preparation.
-- Refine warnings and travel-feasibility guidance using live user feedback and route data.
+Some second-phase groundwork is already in code, especially around route realism, warnings, ferry metadata, and campsite fields. The remaining job is to turn that raw capability into higher-trust planning.
 
-## Following Milestone: On-Road Readiness
+Priority areas:
 
-After planning quality is strong enough for real trip preparation, move into the brief's third phase: making the product genuinely useful while travelling.
+- Improve route realism quality, presentation, and provider resilience.
+- Deepen ferry planning into a more complete booking and check-in workflow.
+- Improve campsite intelligence and trust signals where they genuinely help trip preparation.
+- Strengthen place-search quality and route-access accuracy for edited stops.
+- Tune warnings and planner guidance from real preview usage rather than only seeded data.
 
-- Improve offline travel mode beyond the current read-only baseline when it is safe to do so.
-- Strengthen concise travel-day support for mobile/tablet use.
-- Add sharing/export/handoff capabilities so the trip is usable outside the app.
-- Keep performance, observability, and degraded-mode behaviour visible as first-class requirements.
+## Phase 3: On-Road Readiness
+
+Status: intentionally deferred until the hosted planner is trustworthy.
+
+Priority areas:
+
+- Improve concise travel-day use on mobile and tablet.
+- Consider safe offline expansion beyond the current read-only reopening model.
+- Add export, sharing, or handoff paths once the core planner is dependable.
+- Treat performance, degraded-mode behaviour, and observability as first-class travel concerns.
 
 ## Explicit Non-Goals For Now
 
-- Collaboration or trip sharing between users.
+- Multi-user collaboration or shared-trip editing.
 - Offline editing or merge resolution.
-- Making MCP or provider integrations a prerequisite for development.
-
-Those can be revisited later, but they should not block activation or the first beta rollout.
+- A separate `/ui-lab` or theme-exploration branch becoming the roadmap driver again.
+- MCP or provider integrations being required for normal development or deployment.
+- Broad feature expansion before hosted activation and trust validation are closed.

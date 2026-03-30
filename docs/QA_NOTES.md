@@ -2,7 +2,7 @@
 
 Manual QA tracking for the Campervan Trip Planner.
 
-This checklist is currently weighted toward the architect brief's first phase, "foundation and trust", because that is the stage the `main` branch is still completing.
+This checklist is currently weighted toward the activation and stabilisation tail of the architect brief's first phase, "foundation and trust". Most of the phase 1 feature work is already in code; the remaining job is to verify it against live services and real devices.
 
 ## How To Use
 
@@ -25,7 +25,7 @@ For each issue, record:
 
 ## Manual QA Checklist
 
-### Cloud / Sync Smoke
+### Activation / Cloud Smoke
 
 - [ ] Signed-out state shows the auth gate and does not expose the example itinerary before login
 - [ ] Magic-link request shows a clear success banner with the target email
@@ -36,6 +36,7 @@ For each issue, record:
 - [ ] Legacy local import works once and then drops back into the main planner
 - [ ] Stale write conflict reloads the latest trip and shows recovery messaging
 - [ ] Last synced trip reopens offline in read-only mode with the global `Edit trip` control disabled
+- [ ] Stop editor place search returns live results and an edited place can be saved successfully
 - [ ] Route estimates succeed when OpenRouteService is configured and fall back gracefully when unavailable
 
 ### Mobile
@@ -74,6 +75,7 @@ For each issue, record:
 - [ ] Geocode search: short query prompt (<2 chars)
 - [ ] Geocode search: no matches state
 - [ ] Geocode search: service error state
+- [ ] Route-access fallback does not block stop save when snapped routing coordinates are unavailable
 - [ ] Auth/session failure state explains what the user should do next
 - [ ] Cloud service error state falls back cleanly without breaking the planner
 - [ ] Stop editor invalid date/time shows clear error
