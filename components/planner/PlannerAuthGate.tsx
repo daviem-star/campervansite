@@ -2,11 +2,14 @@
 
 import { FormEvent, useState } from "react";
 
+import { canUseLocalTestSignIn, isLocalTestSignInEnabled } from "@/lib/runtimeFlags";
+
 type PlannerAuthGateProps = {
   authStatus: "disabled" | "signed_out";
   error: string | null;
   statusMessage: string | null;
   onSignIn: (email: string) => Promise<void>;
+  onSignInAsTestUser: () => Promise<void>;
 };
 
 export default function PlannerAuthGate({
@@ -14,9 +17,12 @@ export default function PlannerAuthGate({
   error,
   statusMessage,
   onSignIn,
+  onSignInAsTestUser,
 }: PlannerAuthGateProps) {
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const showLocalTestSignIn = isLocalTestSignInEnabled();
+  const localTestSignInReady = canUseLocalTestSignIn();
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -102,6 +108,30 @@ export default function PlannerAuthGate({
               >
                 {isSubmitting ? "Sending..." : "Send magic link"}
               </button>
+
+              {showLocalTestSignIn ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4">
+                  <p className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
+                    Local dev only
+                  </p>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Skip email delivery and open the planner with the local test account.
+                  </p>
+                  {!localTestSignInReady ? (
+                    <p className="mt-2 text-xs text-amber-700">
+                      Enable the E2E auth bypass env flags to use local test sign-in.
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => void onSignInAsTestUser()}
+                    disabled={isSubmitting || !localTestSignInReady}
+                    className="mt-3 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Sign in as test user
+                  </button>
+                </div>
+              ) : null}
             </form>
           ) : (
             <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">

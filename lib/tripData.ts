@@ -1,4 +1,5 @@
 import { APP_TIMEZONE, nowIso } from "@/lib/date";
+import { normalizePlaceRef } from "@/lib/placeRouting";
 import {
   AppData,
   FerryStop,
@@ -48,6 +49,7 @@ export const normalizeTrip = (
       if (stop.type === "stay") {
         return {
           ...stop,
+          place: normalizePlaceRef(stop.place),
           bookingStatus: stop.bookingStatus ?? "planned",
           hookup: stop.hookup ?? false,
           hardstanding: stop.hardstanding ?? false,
@@ -60,6 +62,8 @@ export const normalizeTrip = (
       if (stop.type === "ferry") {
         return {
           ...stop,
+          departurePort: normalizePlaceRef(stop.departurePort),
+          arrivalPort: normalizePlaceRef(stop.arrivalPort),
           checkInBufferMinutes: stop.checkInBufferMinutes ?? getDefaultFerryCheckInBufferMinutes(stop),
           vehicleDetails: stop.vehicleDetails
             ? {
@@ -72,13 +76,17 @@ export const normalizeTrip = (
         };
       }
 
-      return stop;
+      return {
+        ...stop,
+        place: normalizePlaceRef(stop.place),
+      };
     }),
   );
 
   return {
     ...trip,
     timezone: APP_TIMEZONE,
+    home: normalizePlaceRef(trip.home),
     ownerUserId,
     version: typeof trip.version === "number" && Number.isFinite(trip.version) ? trip.version : 1,
     createdAt: trip.createdAt ?? nowIso(),

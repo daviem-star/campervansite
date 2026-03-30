@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 
+import { canUseLocalTestSignIn, isLocalTestSignInEnabled } from "@/lib/runtimeFlags";
 import { SyncStatus } from "@/types/trip";
 
 type AuthStatus = "disabled" | "checking" | "signed_out" | "signed_in";
@@ -16,6 +17,7 @@ type AccountPanelProps = {
   hasLegacyImport: boolean;
   statusMessage: string | null;
   onSignIn: (email: string) => Promise<void>;
+  onSignInAsTestUser: () => Promise<void>;
   onSignOut: () => Promise<void>;
   onImportLegacy: () => Promise<void>;
   onCreateCloudTripFromCurrent: () => Promise<void>;
@@ -46,12 +48,15 @@ export default function AccountPanel({
   hasLegacyImport,
   statusMessage,
   onSignIn,
+  onSignInAsTestUser,
   onSignOut,
   onImportLegacy,
   onCreateCloudTripFromCurrent,
 }: AccountPanelProps) {
   const [email, setEmail] = useState("");
   const [isWorking, setIsWorking] = useState(false);
+  const showLocalTestSignIn = isLocalTestSignInEnabled();
+  const localTestSignInReady = canUseLocalTestSignIn();
 
   const submitMagicLink = async (event: FormEvent) => {
     event.preventDefault();
@@ -158,22 +163,48 @@ export default function AccountPanel({
       </div>
 
       {authStatus === "signed_out" ? (
-        <form onSubmit={submitMagicLink} className="mt-4 flex flex-col gap-2 sm:flex-row">
-          <input
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@example.com"
-            className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
-          />
-          <button
-            type="submit"
-            disabled={isWorking}
-            className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-          >
-            {isWorking ? "Sending..." : "Send magic link"}
-          </button>
-        </form>
+        <div className="mt-4 space-y-3">
+          <form onSubmit={submitMagicLink} className="flex flex-col gap-2 sm:flex-row">
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="you@example.com"
+              className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={isWorking}
+              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              {isWorking ? "Sending..." : "Send magic link"}
+            </button>
+          </form>
+
+          {showLocalTestSignIn ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4">
+              <p className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
+                Local dev only
+              </p>
+              <p className="mt-2 text-sm text-slate-600">
+                Use the built-in test account to open signed-in planner flows without sending email.
+              </p>
+              {!localTestSignInReady ? (
+                <p className="mt-2 text-xs text-amber-700">
+                  Enable the E2E auth bypass env flags to use local test sign-in.
+                </p>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => void runAction(onSignInAsTestUser)}
+                disabled={isWorking || !localTestSignInReady}
+                className="mt-3 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Sign in as test user
+              </button>
+            </div>
+          ) : null}
+        </div>
       ) : null}
     </section>
   );

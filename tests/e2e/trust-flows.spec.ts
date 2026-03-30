@@ -16,6 +16,7 @@ test("shows magic-link request UI when auth envs are present and user is signed 
   await page.goto("/");
 
   await expect(page.getByRole("button", { name: /Send magic link/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Sign in as test user/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Sign in first, then plan/i })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Outer Hebrides Family Trip/i })).toHaveCount(0);
   await page.getByPlaceholder("you@example.com").fill("traveller@example.com");
@@ -24,6 +25,27 @@ test("shows magic-link request UI when auth envs are present and user is signed 
   await expect(
     page.getByText(/Magic link sent to traveller@example.com/i),
   ).toBeVisible();
+});
+
+test("local test-user helper signs in and creates a starter trip", async ({ page }) => {
+  await page.request.post("/api/e2e/trips/seed", {
+    data: {
+      user: {
+        id: "local-test-user",
+        email: "local-dev@example.com",
+      },
+      data: null,
+    },
+  });
+  await primeSignedOutState(page);
+
+  await page.goto("/");
+  await page.getByRole("button", { name: /Sign in as test user/i }).click();
+
+  await expect(page.getByText(/Example trip ready|Cloud trip loaded/i).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Outer Hebrides Family Trip/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Send magic link/i })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
 });
 
 test("creates a starter example trip when a signed-in account has no cloud trip yet", async ({
@@ -107,6 +129,153 @@ test("shows live and fallback route confidence details in the overview panel", a
   await expect(page.getByTestId("route-confidence-live").first()).toBeVisible();
   await expect(page.getByTestId("route-confidence-fallback").first()).toBeVisible();
   await expect(page.getByText(/Last fetched 02\/04\/2026 10:00/i).first()).toBeVisible();
+});
+
+test("stores separate routing coordinates for edited places and uses them for route estimates", async ({
+  page,
+}) => {
+  const user = createTestUser("routing-coordinates");
+  await primeSignedInSession(page, user);
+
+  let savedPlace:
+    | {
+        coordinates: { lat: number; lng: number };
+        routingCoordinates?: { lat: number; lng: number };
+      }
+    | undefined;
+  const routeEstimatePayloads: Array<{
+    legs: Array<{
+      id: string;
+      toId: string;
+      from: { lat: number; lng: number };
+      to: { lat: number; lng: number };
+    }>;
+  }> = [];
+
+  await page.route("**/api/geocode**", async (route) => {
+    await route.fulfill({
+      json: [
+        {
+          label: "Lochside Camp, Harris",
+          lat: 57.8725,
+          lng: -6.9346,
+          osmId: "123",
+          osmType: "way",
+        },
+      ],
+    });
+  });
+
+  await page.route("**/api/route-access", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      place: {
+        label: string;
+        coordinates: { lat: number; lng: number };
+      };
+    };
+
+    await route.fulfill({
+      json: {
+        place: {
+          ...payload.place,
+          routingCoordinates: { lat: 57.8751, lng: -6.9261 },
+        },
+      },
+    });
+  });
+
+  await page.route("**/api/route-estimates", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      legs: Array<{
+        id: string;
+        fromId: string;
+        fromLabel: string;
+        toId: string;
+        toLabel: string;
+        date: string;
+        relatedStopId?: string;
+        from: { lat: number; lng: number };
+        to: { lat: number; lng: number };
+      }>;
+    };
+
+    routeEstimatePayloads.push(payload);
+
+    await route.fulfill({
+      json: {
+        estimates: payload.legs.map((leg) => ({
+          id: leg.id,
+          fromId: leg.fromId,
+          fromLabel: leg.fromLabel,
+          toId: leg.toId,
+          toLabel: leg.toLabel,
+          kind: "road",
+          distanceKm: 20,
+          durationMinutes: 25,
+          bufferedDurationMinutes: 35,
+          provider: "openrouteservice_driving_car",
+          fetchedAt: "2026-04-02T09:00:00.000Z",
+          confidence: "live",
+          date: leg.date,
+          relatedStopId: leg.relatedStopId,
+        })),
+      },
+    });
+  });
+
+  await page.route("**/api/trips/**", async (route) => {
+    if (route.request().method() !== "PUT") {
+      await route.continue();
+      return;
+    }
+
+    const payload = route.request().postDataJSON() as {
+      trip: {
+        stops: Array<{
+          id: string;
+          type: string;
+          place?: {
+            coordinates: { lat: number; lng: number };
+            routingCoordinates?: { lat: number; lng: number };
+          };
+        }>;
+      };
+    };
+
+    savedPlace = payload.trip.stops.find((stop) => stop.id === "stop_stay_1")?.place;
+    await route.continue();
+  });
+
+  await page.goto("/");
+  await expect(page.getByText(/Cloud trip loaded/i).first()).toBeVisible();
+
+  await page.getByRole("button", { name: /Edit trip/i }).click();
+  await page.getByRole("button", { name: /^Edit$/ }).nth(1).click();
+  await expect(page.getByRole("heading", { name: /Edit stop/i })).toBeVisible();
+
+  const locationInput = page.getByPlaceholder("Search campsite");
+  await locationInput.fill("Lochside");
+  await page.getByRole("button", { name: /Lochside Camp, Harris/i }).click();
+  await page.getByRole("button", { name: /Update stop/i }).click();
+
+  await expect.poll(() => savedPlace).toMatchObject({
+    coordinates: { lat: 57.8725, lng: -6.9346 },
+    routingCoordinates: { lat: 57.8751, lng: -6.9261 },
+  });
+
+  await expect
+    .poll(() =>
+      routeEstimatePayloads.some((payload) =>
+        payload.legs.some(
+          (leg) =>
+            leg.toId === "stop_stay_1" &&
+            leg.to.lat === 57.8751 &&
+            leg.to.lng === -6.9261 &&
+            !(leg.to.lat === 57.8725 && leg.to.lng === -6.9346),
+        ),
+      ),
+    )
+    .toBe(true);
 });
 
 test("desktop overview panel stays scrollable when route realism grows tall", async ({

@@ -115,6 +115,10 @@ const writeStoredE2ESession = (session: BrowserAuthSession | null) => {
   window.localStorage.setItem(storageKey, JSON.stringify(session));
 };
 
+export const storeBrowserE2ESession = (session: BrowserAuthSession | null) => {
+  writeStoredE2ESession(session);
+};
+
 const createBrowserE2EAuthClient = (): BrowserAuthClient => ({
   auth: {
     getSession: async () => ({
@@ -161,7 +165,7 @@ export const emitBrowserE2ESignIn = (user: BrowserAuthUser, accessToken: string)
     user,
   };
 
-  writeStoredE2ESession(session);
+  storeBrowserE2ESession(session);
   e2eAuthListeners.forEach((listener) => listener("SIGNED_IN", session));
 };
 

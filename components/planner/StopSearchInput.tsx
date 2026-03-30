@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ensurePlaceRoutingCoordinates } from "@/lib/placeRoutingClient";
 import { GeocodeResult, PlaceRef } from "@/types/trip";
 
 type StopSearchInputProps = {
@@ -20,6 +21,7 @@ export default function StopSearchInput({
   const [query, setQuery] = useState(value?.label ?? "");
   const [results, setResults] = useState<GeocodeResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSelectingResult, setIsSelectingResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -94,6 +96,26 @@ export default function StopSearchInput({
 
   const selectedLabel = useMemo(() => value?.label ?? "", [value?.label]);
 
+  const onSelectResult = async (result: GeocodeResult) => {
+    const selectionKey = `${result.osmType}-${result.osmId}-${result.lat}-${result.lng}`;
+    setIsSelectingResult(selectionKey);
+
+    try {
+      const place = await ensurePlaceRoutingCoordinates({
+        label: result.label,
+        coordinates: { lat: result.lat, lng: result.lng },
+        osmId: result.osmId,
+        osmType: result.osmType,
+      });
+
+      onSelect(place);
+      setQuery(place.label);
+      setIsOpen(false);
+    } finally {
+      setIsSelectingResult(null);
+    }
+  };
+
   return (
     <div ref={containerRef} className="relative">
       <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
@@ -120,6 +142,10 @@ export default function StopSearchInput({
             <p className="px-3 py-2 text-xs text-slate-500">Searching...</p>
           ) : null}
 
+          {!isLoading && isSelectingResult ? (
+            <p className="px-3 py-2 text-xs text-slate-500">Saving nearby road access...</p>
+          ) : null}
+
           {!isLoading && error ? (
             <p className="px-3 py-2 text-xs text-rose-500">{error}</p>
           ) : null}
@@ -138,15 +164,9 @@ export default function StopSearchInput({
                   key={`${result.osmType}-${result.osmId}-${result.lat}-${result.lng}`}
                   type="button"
                   onClick={() => {
-                    onSelect({
-                      label: result.label,
-                      coordinates: { lat: result.lat, lng: result.lng },
-                      osmId: result.osmId,
-                      osmType: result.osmType,
-                    });
-                    setQuery(result.label);
-                    setIsOpen(false);
+                    void onSelectResult(result);
                   }}
+                  disabled={Boolean(isSelectingResult)}
                   className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs text-slate-700 transition hover:bg-slate-50"
                 >
                   {result.label}

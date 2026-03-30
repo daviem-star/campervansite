@@ -21,6 +21,7 @@ describe("tripData migration", () => {
           home: {
             label: "Home",
             coordinates: { lat: 56, lng: -4 },
+            routingCoordinates: { lat: 56.01, lng: -3.99 },
           },
           createdAt: toIsoFromLocalInput("2026-03-01T09:00"),
           updatedAt: toIsoFromLocalInput("2026-03-01T09:00"),
@@ -33,6 +34,7 @@ describe("tripData migration", () => {
               place: {
                 label: "Stay",
                 coordinates: { lat: 56.2, lng: -4.1 },
+                routingCoordinates: { lat: 56.21, lng: -4.09 },
               },
               checkInAt: toIsoFromLocalInput("2026-03-03T16:00"),
               checkOutAt: toIsoFromLocalInput("2026-03-04T11:00"),
@@ -45,10 +47,12 @@ describe("tripData migration", () => {
               departurePort: {
                 label: "Departure",
                 coordinates: { lat: 56.3, lng: -4.2 },
+                routingCoordinates: { lat: 56.3004, lng: -4.1996 },
               },
               arrivalPort: {
                 label: "Arrival",
                 coordinates: { lat: 56.5, lng: -4.4 },
+                routingCoordinates: { lat: 56.5004, lng: -4.3996 },
               },
               departureAt: toIsoFromLocalInput("2026-03-04T13:00"),
               arrivalAt: toIsoFromLocalInput("2026-03-04T15:00"),
@@ -64,13 +68,23 @@ describe("tripData migration", () => {
     expect(migrated?.trips[0].ownerUserId).toBeNull();
     expect(migrated?.trips[0].version).toBe(1);
     expect(migrated?.trips[0].lastSyncedAt).toBeNull();
+    expect(migrated?.trips[0].home.routingCoordinates).toEqual({ lat: 56.01, lng: -3.99 });
     expect(migrated?.trips[0].stops[0]).toMatchObject({
+      place: {
+        routingCoordinates: { lat: 56.21, lng: -4.09 },
+      },
       bookingStatus: "planned",
       hookup: false,
       hardstanding: false,
       amenitiesSummary: "",
     });
     expect(migrated?.trips[0].stops[1]).toMatchObject({
+      departurePort: {
+        routingCoordinates: { lat: 56.3004, lng: -4.1996 },
+      },
+      arrivalPort: {
+        routingCoordinates: { lat: 56.5004, lng: -4.3996 },
+      },
       checkInBufferMinutes: 45,
     });
   });

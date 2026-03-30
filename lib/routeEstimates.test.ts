@@ -119,6 +119,28 @@ describe("routeEstimates", () => {
     expect(buildTripTravelLegPayload(locationEditedTrip).signature).not.toBe(baseSignature);
   });
 
+  it("changes the travel-leg signature when routing coordinates change", () => {
+    const trip = buildTrip();
+    const baseSignature = buildTripTravelLegPayload(trip).signature;
+
+    const routingEditedTrip: Trip = {
+      ...trip,
+      stops: trip.stops.map((stop) =>
+        stop.id === "stay-1"
+          ? {
+              ...stop,
+              place: {
+                ...stop.place,
+                routingCoordinates: { lat: 56.24, lng: -4.06 },
+              },
+            }
+          : stop,
+      ),
+    };
+
+    expect(buildTripTravelLegPayload(routingEditedTrip).signature).not.toBe(baseSignature);
+  });
+
   it("reuses current itinerary labels when hydrating cached estimates", () => {
     const trip = buildTrip();
     const { requests } = buildTripTravelLegPayload(trip);

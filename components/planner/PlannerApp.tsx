@@ -167,6 +167,7 @@ export default function PlannerApp() {
     plannerInteractionMode,
     initialize,
     signInWithMagicLink,
+    signInAsTestUser,
     signOut,
     importLegacyTrips,
     createCloudTripFromCurrent,
@@ -506,6 +507,7 @@ export default function PlannerApp() {
         hasLegacyImport={hasLegacyImport}
         statusMessage={null}
         onSignIn={signInWithMagicLink}
+        onSignInAsTestUser={signInAsTestUser}
         onSignOut={signOut}
         onImportLegacy={importLegacyTrips}
         onCreateCloudTripFromCurrent={createCloudTripFromCurrent}
@@ -656,6 +658,7 @@ export default function PlannerApp() {
         error={error}
         statusMessage={statusMessage}
         onSignIn={signInWithMagicLink}
+        onSignInAsTestUser={signInAsTestUser}
       />
     );
   }
