@@ -255,6 +255,8 @@ test("stores separate routing coordinates for edited places and uses them for ro
 
   const locationInput = page.getByPlaceholder("Search campsite");
   await locationInput.fill("Lochside");
+  await expect(page.getByText(/Press Search to look up this place\./i)).toBeVisible();
+  await page.getByRole("button", { name: /^Search$/ }).click();
   await page.getByRole("button", { name: /Lochside Camp, Harris/i }).click();
   await page.getByRole("button", { name: /Update stop/i }).click();
 
@@ -524,6 +526,7 @@ test("does not refetch route estimates after a non-routing stop edit", async ({ 
   const initialRouteRequestCount = routeRequestCount;
 
   await page.getByRole("button", { name: /Edit trip/i }).click();
+  await page.getByTestId("desktop-panel-itinerary").click();
   await page.getByRole("button", { name: /^Edit$/ }).first().dispatchEvent("click");
   await expect(page.getByRole("heading", { name: /Edit stop/i })).toBeVisible();
   await page.getByPlaceholder("Stop title").fill("Barra Sands Campsite Renamed");

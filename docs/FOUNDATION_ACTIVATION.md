@@ -1,6 +1,6 @@
 # Foundation Activation Guide
 
-Use this runbook to take the current `main` branch from repo-complete beta foundation to a verified live preview. As of 2026-03-30, most phase 1 feature work is already in code. The remaining job is operational activation, preview validation, and release hardening.
+Use this runbook to take approved commits from `main` through `staging` and into a verified live preview. As of 2026-03-30, most phase 1 feature work is already in code. The remaining job is operational activation, preview validation, and release hardening.
 
 ## What This Guide Covers
 
@@ -10,6 +10,8 @@ Use this runbook to take the current `main` branch from repo-complete beta found
 - preview-only quota guardrails for search, tiles, and tester access
 - live smoke testing across devices
 - optional local-only bypass flags for deterministic testing
+
+The pre-launch release model is one app codebase with short-lived feature branches merging into `main`, approved commits fast-forwarded into `staging` for protected cloud QA, and a dormant `production` branch reserved for the first intentional go-live cutover.
 
 ## Current Service Shape
 
@@ -35,7 +37,7 @@ Use this runbook to take the current `main` branch from repo-complete beta found
 - Reference file:
   - `.env.example`
 
-MCP servers are not required for this setup. Provider dashboards and environment variables are enough to activate the branch.
+MCP servers are not required for this setup. Provider dashboards and environment variables are enough to activate preview from `staging` after promotion from `main` and keep production dormant until launch.
 
 ## 1. Supabase Setup
 
@@ -102,11 +104,26 @@ Recommended local check after setting the live env vars:
 
 1. Create or link the Vercel project for this repository.
 2. Add the environment variables to Preview first, including any map tile overrides if you are not using the default OpenStreetMap raster tiles.
-3. Enable deployment protection for the preview and keep the first hosted wave to 1-3 testers.
-4. The repo pins the Vercel framework preset in `vercel.json`; if the dashboard still shows `Other`, redeploy after pulling the latest branch so the override takes effect.
-5. Deploy a preview build.
-6. Verify the Supabase redirect URLs match the preview host before testing auth.
-7. Do not promote to production until the smoke checklist below and the wider `docs/QA_NOTES.md` device checks pass.
+3. Add the same app-facing variables to Production with production-safe values so the project is launch-ready even before you use the production branch.
+4. Enable deployment protection for the preview and keep the first hosted wave to 1-3 testers.
+5. In the Vercel dashboard, open `Settings -> Environments -> Production -> Branch Tracking`, set the Production Branch to `production`, and do not push that branch until launch is approved.
+6. Keep `main` as the integration branch, and create long-lived local `staging` and `production` refs if they do not already exist.
+7. When a `main` commit passes local validation, fast-forward `staging` to that exact commit and push `staging`.
+8. The repo pins the Vercel framework preset in `vercel.json`; if the dashboard still shows `Other`, redeploy after pulling the latest branch so the override takes effect.
+9. Verify the preview deployment metadata and Supabase redirect URLs match the `staging` preview host before testing auth.
+10. Do not push or promote production until the smoke checklist below and the wider `docs/QA_NOTES.md` device checks pass.
+
+Recommended promotion commands:
+
+```bash
+git switch staging
+git merge --ff-only main
+git push origin staging
+
+git switch production
+git merge --ff-only staging
+git push origin production
+```
 
 ## 5. Live-Service Smoke Checklist
 
@@ -138,7 +155,7 @@ npm run build
 npm run test:e2e
 ```
 
-The Playwright suite uses the repository's internal E2E auth and backend bypass for deterministic coverage. It is valuable regression coverage, but it does not replace live preview testing against real Supabase, OpenRouteService, and Vercel configuration.
+The Playwright suite uses the repository's internal E2E auth and backend bypass for deterministic coverage. It is valuable regression coverage, but it does not replace live preview testing against real Supabase, OpenRouteService, and Vercel configuration on the promoted `staging` branch.
 
 ## 7. Remaining Hardening After Activation
 
@@ -154,5 +171,5 @@ Activation is not the end of phase 1. After the live path works, we still need t
 
 - Offline behavior is intentionally read-only for the last synced active trip in this milestone.
 - Forced demo mode and the local test-user helper are for development and automated testing, not the primary shipped experience.
-- Provider dashboards and environment variables are enough to activate the branch. MCP servers are not required.
+- Provider dashboards and environment variables are enough to activate preview from `staging` after promotion from `main` and hold production for later. The one required branch-tracking toggle currently lives in the Vercel dashboard rather than this repository. MCP servers are not required.
 - The default hosted-preview tile fallback still uses OpenStreetMap raster tiles, so wider/public rollout should switch to a more durable tile provider before removing preview access limits.

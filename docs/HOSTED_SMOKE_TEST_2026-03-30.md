@@ -1,6 +1,6 @@
 # Hosted Smoke Test Deep Dive
 
-This document records the first end-to-end hosted smoke pass for the protected Vercel preview on `codex/cloud-preview-activation`. It is both a historical record of what actually happened on 2026-03-30 and a repeatable operator guide for rerunning the same hosted verification later.
+This document records the first end-to-end hosted smoke pass for the protected Vercel preview on `codex/cloud-preview-activation`. It is both a historical record of what actually happened on 2026-03-30 and a repeatable operator guide for rerunning the same hosted verification later. That branch has since been fast-forwarded into `main`, so future hosted verification should run from `staging` after promotion from approved `main` commits, with the Vercel dashboard keeping `production` as the dormant production-tracking branch until launch.
 
 ## Purpose And Outcome
 

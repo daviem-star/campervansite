@@ -32,6 +32,7 @@ export default defineConfig({
       NEXT_PUBLIC_LOCAL_TEST_SIGN_IN: "1",
       NEXT_PUBLIC_E2E_AUTH_BYPASS: "1",
       E2E_AUTH_BYPASS: "1",
+      NEXT_PUBLIC_OPENROUTESERVICE_DEBUG: "0",
       NEXT_PUBLIC_SUPABASE_URL: "https://e2e.supabase.co",
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "e2e-anon-key",
       SUPABASE_SERVICE_ROLE_KEY: "e2e-service-role-key",

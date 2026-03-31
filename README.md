@@ -1,6 +1,6 @@
 # Campervan Trip Planner
 
-A Next.js App Router trip planner for campervan travel. The current `main` branch is the auth-first beta foundation: signed-out users land on a private access screen, then the full planner opens after magic-link sign-in. Most of the phase 1 product work is already in code; the remaining work is live-service activation, preview validation, and release hardening.
+A Next.js App Router trip planner for campervan travel. During the pre-launch phase, the `main` branch is the integration and release-candidate source of truth for the auth-first beta foundation: signed-out users land on a private access screen, then the full planner opens after magic-link sign-in. Most of the phase 1 product work is already in code; the remaining work is live-service activation, preview validation, and release hardening.
 
 ## Current Status
 
@@ -12,6 +12,7 @@ A Next.js App Router trip planner for campervan travel. The current `main` branc
 - Route realism includes road-leg estimates, buffered drive times, route-confidence messaging, snapped routing coordinates for edited places, and validation warnings for difficult travel days.
 - Automated coverage includes Vitest, API route tests, and Playwright trust flows.
 - Forced demo mode and local test sign-in exist for deterministic local preview and E2E work.
+- Pre-launch release management should stay on one codebase, with `main` as integration, `staging` as the protected cloud QA lane, and a dormant `production` branch reserved for go-live.
 
 The project is beyond the original local-only MVP. The main remaining gap is live service activation and hosted validation, not the core app architecture.
 
@@ -81,6 +82,8 @@ Supabase schema setup lives in `supabase/migrations/20260328_trip_documents.sql`
 
 With Supabase env vars populated, the auth gate should expose magic-link sign-in and the post-login planner. Without them, the app stays on the setup gate until the runtime keys are added.
 
+For day-to-day work, keep feature development on short-lived branches that merge back into `main`. Do not keep a permanent cloud-preview branch; use runtime flags and environment variables to separate local testing from protected preview and production. Before launch, keep Vercel's production branch on a dormant `production` branch, treat `staging` as the canonical hosted QA lane, and fast-forward `staging` only from approved `main` commits.
+
 ## Validation
 
 Run the full local validation set before merging:
@@ -99,7 +102,10 @@ npm run test:e2e
 3. Add the required env vars locally and in Vercel Preview, including any map tile overrides if you are not using the default OpenStreetMap raster tiles.
 4. Protect the preview deployment, keep the first wave to 1-3 testers, and run the smoke checklist in `docs/FOUNDATION_ACTIVATION.md`.
 5. Record device and smoke-pass results in `docs/QA_NOTES.md`.
-6. Treat the branch as release-ready only after auth-first entry, starter/import onboarding, save, conflict, offline, route-estimate, and place-search checks pass against live services.
+6. Treat a commit on `main` as ready for `staging` promotion only after auth-first entry, starter/import onboarding, save, conflict, offline, route-estimate, and place-search checks pass against live services.
+7. In the Vercel dashboard, set `Settings -> Environments -> Production -> Branch Tracking` to the dormant `production` branch before treating `staging` as the canonical hosted QA branch.
+8. Fast-forward or push `staging` to the exact approved `main` commit and run the protected preview smoke there.
+9. When launch is approved, fast-forward or push the dormant `production` branch to the exact approved `staging` commit so Vercel can create the first intentional production deployment.
 
 ## Repo Docs
 

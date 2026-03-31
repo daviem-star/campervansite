@@ -19,7 +19,8 @@ For each issue, record:
 
 - Date:
 - Tester:
-- Branch:
+- Branch: usually `staging` for hosted preview work, `main` for integration validation, `production` only for go-live verification
+- Vercel Production Branch setting: should stay on `production` during pre-launch
 - Commit:
 - Build/Run mode: (`npm run dev` / `npm run start`)
 
@@ -27,7 +28,7 @@ For each issue, record:
 
 - Date: 2026-03-30
 - Tester: Codex automation plus user-confirmed magic-link login
-- Branch: `codex/cloud-preview-activation`
+- Historical branch: `codex/cloud-preview-activation`
 - Commit: `d6e1079`
 - Build/Run mode: protected Vercel preview
 - Preview URL: `campervansite-git-codex-cloud-prev-57af82-daviem-4121s-projects.vercel.app`
@@ -47,6 +48,7 @@ For each issue, record:
 - Notes:
   - Hosted smoke was exercised with `node scripts/preview-smoke.mjs <vercel-share-url>`.
   - The failing hosted search path was repaired by removing nested form markup from `components/planner/StopSearchInput.tsx`.
+  - This smoke pass happened before the preview hardening was fast-forwarded into `main`; future hosted passes should be recorded against `staging` commits promoted from `main`.
 
 ## Manual QA Checklist
 

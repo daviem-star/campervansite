@@ -61,3 +61,7 @@ Git history currently starts with a single `Initial commit`, so use clear, imper
 - Flag stale examples, stale environment variable lists, and mismatches between code and docs.
 - Treat broken onboarding or setup instructions as a P1 issue.
 - Treat docs typos as low priority unless they change meaning.
+
+## Cloud Platform Guidelines
+- Always look to maintain free/hobby/no-cost license usage in any cloud platform utilised.
+- If limits seem likely to be breached then pause and ask for guidance.
