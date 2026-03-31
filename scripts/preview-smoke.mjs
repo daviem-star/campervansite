@@ -363,7 +363,7 @@ const run = async () => {
     const pageA = await contextA.newPage();
     await gotoPreview(pageA, shareUrl, baseUrl);
     await waitForAnyText(pageA, [/Example trip ready/i, /Cloud trip loaded/i], 45000);
-    await waitForVisible(pageA.getByRole("heading", { name: /Outer Hebrides Family Trip/i }), 45000);
+    await waitForVisible(pageA.getByRole("button", { name: /Edit trip/i }), 45000);
     results.starterTrip = true;
 
     await verifyAccountPopup(pageA, email);
