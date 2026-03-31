@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import {
   createTestUser,
@@ -10,7 +10,7 @@ import {
 } from "./helpers";
 
 const mockHomeSearch = async (
-  page: import("@playwright/test").Page,
+  page: Page,
   options: {
     queryLabel: string;
     resultLabel: string;
@@ -51,6 +51,21 @@ const mockHomeSearch = async (
   });
 };
 
+const openAccountDrawer = async (page: Page) => {
+  await page.getByRole("button", { name: /Open account and sync/i }).click();
+  await expect(page.getByText(/Account and sync/i).first()).toBeVisible();
+};
+
+const closeAccountDrawer = async (page: Page) => {
+  await page.getByRole("button", { name: /^Close$/ }).click();
+};
+
+const expectAccountNotice = async (page: Page, pattern: RegExp) => {
+  await openAccountDrawer(page);
+  await expect(page.getByTestId("account-notice")).toContainText(pattern);
+  await closeAccountDrawer(page);
+};
+
 test("shows magic-link request UI when auth envs are present and user is signed out", async ({
   page,
 }) => {
@@ -84,7 +99,8 @@ test("local test-user helper signs in and creates a starter trip", async ({ page
   await page.goto("/");
   await page.getByRole("button", { name: /Sign in as test user/i }).click();
 
-  await expect(page.getByText(/Example trip ready|Cloud trip loaded/i).last()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
+  await expectAccountNotice(page, /Example trip ready|Cloud trip loaded/i);
   await expect(page.getByRole("button", { name: /Send magic link/i })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
 });
@@ -98,7 +114,8 @@ test("creates a starter example trip when a signed-in account has no cloud trip 
 
   await page.goto("/");
 
-  await expect(page.getByText(/Example trip ready/i).last()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
+  await expectAccountNotice(page, /Example trip ready/i);
   await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
 });
 
@@ -116,10 +133,51 @@ test("keeps overview trip-only and moves account controls into the account popup
   await expect(overviewRegion.getByRole("button", { name: /Sign out/i })).toHaveCount(0);
 
   await expect(page.getByRole("button", { name: /Open account and sync/i })).toBeVisible();
-  await page.getByRole("button", { name: /Open account and sync/i }).click();
+  await openAccountDrawer(page);
 
   await expect(page.getByText(/Account and sync/i)).toBeVisible();
   await expect(page.getByRole("button", { name: /Sign out/i })).toBeVisible();
+  await expect(page.getByText(/Sync details/i)).toBeVisible();
+});
+
+test("keeps the desktop account trigger inside the rail and expands below it", async ({ page }) => {
+  const user = createTestUser("account-trigger");
+  await primeSignedInSession(page, user);
+
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.goto("/");
+
+  const rail = page.getByTestId("planner-rail-column");
+  const trigger = page.getByTestId("account-status-trigger");
+
+  await expect(trigger).toBeVisible();
+
+  const railBox = await rail.boundingBox();
+  const triggerBox = await trigger.boundingBox();
+
+  expect(railBox).not.toBeNull();
+  expect(triggerBox).not.toBeNull();
+
+  if (!railBox || !triggerBox) {
+    return;
+  }
+
+  expect(triggerBox.x).toBeGreaterThanOrEqual(railBox.x - 1);
+  expect(triggerBox.x + triggerBox.width).toBeLessThanOrEqual(railBox.x + railBox.width + 1);
+
+  await trigger.click();
+
+  const panel = page.getByTestId("account-status-panel");
+  await expect(panel).toBeVisible();
+
+  const panelBox = await panel.boundingBox();
+  expect(panelBox).not.toBeNull();
+
+  if (!panelBox) {
+    return;
+  }
+
+  expect(panelBox.y).toBeGreaterThanOrEqual(triggerBox.y + triggerBox.height - 1);
 });
 
 test("manages trips from the dedicated trips panel", async ({ page }) => {
@@ -144,7 +202,7 @@ test("manages trips from the dedicated trips panel", async ({ page }) => {
   await page.getByRole("button", { name: /Create trip/i }).click();
 
   await expect(page.getByRole("heading", { name: /North Coast run/i })).toBeVisible();
-  await expect(page.getByText(/Blank trip created/i).last()).toBeVisible();
+  await expectAccountNotice(page, /Blank trip created/i);
 
   await page.getByTestId("desktop-panel-trips").click();
   await page.getByRole("button", { name: /^New trip$/ }).click();
@@ -191,8 +249,8 @@ test("manages trips from the dedicated trips panel", async ({ page }) => {
     .first();
   await renamedTripCardForDelete.getByRole("button", { name: /^Delete$/ }).click();
 
-  await expect(page.getByText(/Trip deleted\. Loaded Outer Hebrides Family Trip/i).last()).toBeVisible();
   await expect(page.getByRole("heading", { name: /Outer Hebrides Family Trip/i })).toBeVisible();
+  await expectAccountNotice(page, /Trip deleted\. Loaded Outer Hebrides Family Trip/i);
 });
 
 test("loads a signed-in cloud trip and saves an edit", async ({ page }) => {
@@ -201,7 +259,8 @@ test("loads a signed-in cloud trip and saves an edit", async ({ page }) => {
 
   await page.goto("/");
 
-  await expect(page.getByText(/Cloud trip loaded/i).last()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
+  await expectAccountNotice(page, /Cloud trip loaded/i);
 
   await page.getByRole("button", { name: /Edit trip/i }).click();
   await expect(page.getByText(/Edit mode is unlocked/i)).toBeVisible();
@@ -211,7 +270,7 @@ test("loads a signed-in cloud trip and saves an edit", async ({ page }) => {
   await page.getByRole("button", { name: /Update stop/i }).click();
 
   await expect(page.getByText(/Barra Sands Campsite Updated/i)).toBeVisible();
-  await expect(page.getByText(/Cloud trip saved successfully/i).last()).toBeVisible();
+  await expectAccountNotice(page, /Cloud trip saved successfully/i);
 });
 
 test("shows live and fallback route confidence details in the overview panel", async ({
@@ -262,6 +321,129 @@ test("shows live and fallback route confidence details in the overview panel", a
   await expect(page.getByTestId("route-confidence-live").first()).toBeVisible();
   await expect(page.getByTestId("route-confidence-fallback").first()).toBeVisible();
   await expect(page.getByText(/Last fetched 02\/04\/2026 10:00/i).last()).toBeVisible();
+});
+
+test("shows a routing-in-progress chip before the first route response resolves", async ({
+  page,
+}) => {
+  const user = createTestUser("route-pending");
+  await primeSignedInSession(page, user);
+
+  let releaseRouteResponse: (() => void) | null = null;
+  let markRouteSeen: (() => void) | null = null;
+  const routeRequestSeen = new Promise<void>((resolve) => {
+    markRouteSeen = resolve;
+  });
+
+  await page.route("**/api/route-estimates", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      legs: Array<{
+        id: string;
+        fromId: string;
+        fromLabel: string;
+        toId: string;
+        toLabel: string;
+        date: string;
+        relatedStopId?: string;
+        from: { lat: number; lng: number };
+        to: { lat: number; lng: number };
+      }>;
+    };
+
+    markRouteSeen?.();
+    await new Promise<void>((release) => {
+      releaseRouteResponse = release;
+    });
+
+    await route.fulfill({
+      json: {
+        estimates: payload.legs.map((leg) => ({
+          id: leg.id,
+          fromId: leg.fromId,
+          fromLabel: leg.fromLabel,
+          toId: leg.toId,
+          toLabel: leg.toLabel,
+          kind: "road",
+          distanceKm: 45,
+          durationMinutes: 60,
+          bufferedDurationMinutes: 79,
+          provider: "openrouteservice_driving_car",
+          fetchedAt: "2026-04-02T09:00:00.000Z",
+          confidence: "live",
+          date: leg.date,
+          relatedStopId: leg.relatedStopId,
+          geometry: {
+            type: "LineString",
+            coordinates: [
+              { lat: leg.from.lat, lng: leg.from.lng },
+              {
+                lat: (leg.from.lat + leg.to.lat) / 2,
+                lng: (leg.from.lng + leg.to.lng) / 2,
+              },
+              { lat: leg.to.lat, lng: leg.to.lng },
+            ],
+          },
+        })),
+      },
+    });
+  });
+
+  await page.goto("/");
+  await routeRequestSeen;
+
+  await expect(page.getByTestId("map-route-status-chip")).toContainText(/Routing in progress/i);
+
+  releaseRouteResponse?.();
+
+  await expect(page.getByTestId("map-route-status-chip")).toHaveCount(0);
+});
+
+test("shows fallback route status on the map when road legs use fallback estimates", async ({
+  page,
+}) => {
+  const user = createTestUser("route-fallback-map");
+  await primeSignedInSession(page, user);
+
+  await page.route("**/api/route-estimates", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      legs: Array<{
+        id: string;
+        fromId: string;
+        fromLabel: string;
+        toId: string;
+        toLabel: string;
+        date: string;
+        relatedStopId?: string;
+      }>;
+    };
+
+    await route.fulfill({
+      json: {
+        estimates: payload.legs.map((leg, index) => ({
+          id: leg.id,
+          fromId: leg.fromId,
+          fromLabel: leg.fromLabel,
+          toId: leg.toId,
+          toLabel: leg.toLabel,
+          kind: "road",
+          distanceKm: 30 + index * 5,
+          durationMinutes: 40 + index * 5,
+          bufferedDurationMinutes: 55 + index * 5,
+          provider: "fallback_haversine",
+          fetchedAt: "2026-04-02T09:00:00.000Z",
+          confidence: "fallback",
+          date: leg.date,
+          relatedStopId: leg.relatedStopId,
+        })),
+      },
+    });
+  });
+
+  await page.goto("/");
+
+  await expect(page.getByTestId("map-route-status-chip")).toContainText(/fallback road leg/i);
+  await page.getByTestId("desktop-panel-overview").click();
+  await expect(page.getByTestId("route-confidence-fallback").first()).toBeVisible();
 });
 
 test("stores separate routing coordinates for edited places and uses them for route estimates", async ({
@@ -380,7 +562,7 @@ test("stores separate routing coordinates for edited places and uses them for ro
   });
 
   await page.goto("/");
-  await expect(page.getByText(/Cloud trip loaded/i).last()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
 
   await page.getByRole("button", { name: /Edit trip/i }).click();
   await page.getByRole("button", { name: /^Edit$/ }).nth(1).click();
@@ -450,7 +632,7 @@ test("desktop itinerary remains scrollable and lower trip items stay interactive
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto("/");
 
-  await expect(page.getByText(/Cloud trip loaded/i).last()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
   await page.getByRole("button", { name: /Edit trip/i }).click();
 
   const scrollRegion = page.getByTestId("desktop-itinerary-scroll-region");
@@ -477,6 +659,30 @@ test("desktop itinerary remains scrollable and lower trip items stay interactive
   await expect(page.getByRole("heading", { name: /Edit stop/i })).toBeVisible();
 });
 
+test("desktop itinerary panel aligns with the map frame", async ({ page }) => {
+  const user = createTestUser("desktop-layout");
+  await primeSignedInSession(page, user);
+
+  await page.setViewportSize({ width: 1366, height: 900 });
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
+
+  const itineraryBox = await page.getByTestId("desktop-panel-itinerary-region").boundingBox();
+  const mapBox = await page.getByTestId("planner-map-panel").boundingBox();
+
+  expect(itineraryBox).not.toBeNull();
+  expect(mapBox).not.toBeNull();
+
+  if (!itineraryBox || !mapBox) {
+    return;
+  }
+
+  expect(Math.abs(itineraryBox.y - mapBox.y)).toBeLessThanOrEqual(4);
+  expect(
+    Math.abs(itineraryBox.y + itineraryBox.height - (mapBox.y + mapBox.height)),
+  ).toBeLessThanOrEqual(4);
+});
+
 test("offers a one-time import-or-example choice when a signed-in account has local legacy data", async ({
   page,
 }) => {
@@ -491,8 +697,8 @@ test("offers a one-time import-or-example choice when a signed-in account has lo
   await expect(page.getByRole("heading", { name: /Choose how this account should start/i })).toBeVisible();
   await page.getByRole("button", { name: /Import local trip/i }).click();
 
-  await expect(page.getByText(/Imported 1 local trip into cloud sync/i).last()).toBeVisible();
   await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
+  await expectAccountNotice(page, /Imported 1 local trip into cloud sync/i);
 });
 
 test("reopens the last synced trip offline in read-only mode", async ({ browser }) => {
@@ -502,7 +708,7 @@ test("reopens the last synced trip offline in read-only mode", async ({ browser 
 
   await primeSignedInSession(page, user);
   await page.goto("/");
-  await expect(page.getByText(/Cloud trip loaded/i).last()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
 
   await context.route(/\/api\/trips(\/.*)?$/, (route) => route.abort());
 
@@ -592,13 +798,13 @@ test("recovers cleanly from a stale write conflict", async ({ browser }) => {
   const pageA = await contextA.newPage();
   await primeSignedInSession(pageA, user);
   await pageA.goto("/");
-  await expect(pageA.getByText(/Cloud trip loaded/i).last()).toBeVisible();
+  await expect(pageA.getByRole("button", { name: /Edit trip/i })).toBeVisible();
 
   const contextB = await browser.newContext();
   const pageB = await contextB.newPage();
   await primeSignedInSession(pageB, user);
   await pageB.goto("/");
-  await expect(pageB.getByText(/Cloud trip loaded/i).last()).toBeVisible();
+  await expect(pageB.getByRole("button", { name: /Edit trip/i })).toBeVisible();
 
   await pageA.getByRole("button", { name: /Edit trip/i }).click();
   await pageA.getByRole("button", { name: /^Edit$/ }).first().dispatchEvent("click");
@@ -667,7 +873,6 @@ test("does not refetch route estimates after a non-routing stop edit", async ({ 
   });
 
   await page.goto("/");
-  await expect(page.getByText(/Cloud trip loaded/i).last()).toBeVisible();
   await page.getByTestId("desktop-panel-overview").click();
   await expect(page.getByText(/Last fetched 02\/04\/2026 10:00/i).last()).toBeVisible();
 
@@ -681,6 +886,6 @@ test("does not refetch route estimates after a non-routing stop edit", async ({ 
   await page.getByRole("button", { name: /Update stop/i }).click();
 
   await expect(page.getByText(/Barra Sands Campsite Renamed/i)).toBeVisible();
-  await expect(page.getByText(/Cloud trip saved successfully/i).last()).toBeVisible();
+  await expectAccountNotice(page, /Cloud trip saved successfully/i);
   await expect.poll(() => routeRequestCount, { timeout: 1000 }).toBe(initialRouteRequestCount);
 });

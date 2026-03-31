@@ -173,6 +173,16 @@ export type TravelEstimateConfidence = "live" | "fallback";
 
 export type TravelLegKind = "road";
 
+export type PlannerNoticeTone = "info" | "success" | "warning";
+
+export type PlannerNoticeSurface = "inline" | "account" | "auth";
+
+export type PlannerNotice = {
+  text: string;
+  tone: PlannerNoticeTone;
+  surface: PlannerNoticeSurface;
+};
+
 export type RouteLineString = {
   type: "LineString";
   coordinates: Coordinates[];
@@ -224,6 +234,8 @@ export type MapMarker = {
 
 export type MapSegmentType = "road" | "ferry";
 
+export type MapRoadRenderState = "pending" | "live" | "fallback";
+
 export type MapSegment = {
   id: string;
   type: MapSegmentType;
@@ -232,6 +244,8 @@ export type MapSegment = {
   stopId?: string;
   entityKind?: StopType;
   geometry?: RouteLineString;
+  routeStatus?: MapRoadRenderState;
+  routeConfidence?: TravelEstimateConfidence;
 };
 
 export type SelectedEntity =

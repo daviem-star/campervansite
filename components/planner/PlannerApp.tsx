@@ -57,6 +57,13 @@ type MobileTab = "trips" | "today" | "itinerary" | "overview" | "map";
 type DesktopPanel = "trips" | "itinerary" | "overview" | "today";
 type SelectionOrigin = "itinerary" | "map" | "system";
 type RouteInsightsState = "fresh" | "stale" | "unavailable";
+type MapRouteSummary = {
+  totalRoadLegs: number;
+  pendingRoadLegs: number;
+  liveRoadLegs: number;
+  fallbackRoadLegs: number;
+  isRefreshing: boolean;
+};
 
 const defaultEditorState: EditorState = {
   isOpen: false,
@@ -85,6 +92,12 @@ const mobilePanelMeta: Array<{
   { id: "today", label: "Today" },
   { id: "map", label: "Map" },
 ];
+
+const noticeToneClass = {
+  info: "border-sky-200 bg-sky-50 text-sky-800",
+  success: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  warning: "border-amber-200 bg-amber-50 text-amber-800",
+} as const;
 
 const panelIcon = (panel: DesktopPanel) => {
   if (panel === "trips") {
@@ -136,7 +149,7 @@ export default function PlannerApp() {
     tripSummaries,
     isLoading,
     error,
-    statusMessage,
+    notice,
     authStatus,
     mode,
     user,
@@ -378,6 +391,20 @@ export default function PlannerApp() {
       ? selectedEntity
       : null;
   }, [activeTrip, selectedEntity]);
+  const inlineNotice = notice?.surface === "inline" ? notice : null;
+  const accountNotice = notice?.surface === "account" ? notice : null;
+  const authNotice = notice?.surface === "auth" ? notice : null;
+  const routeMapSummary = useMemo<MapRouteSummary>(() => {
+    const roadSegments = mapData.segments.filter((segment) => segment.type === "road");
+
+    return {
+      totalRoadLegs: roadSegments.length,
+      pendingRoadLegs: roadSegments.filter((segment) => segment.routeStatus === "pending").length,
+      liveRoadLegs: roadSegments.filter((segment) => segment.routeStatus === "live").length,
+      fallbackRoadLegs: roadSegments.filter((segment) => segment.routeStatus === "fallback").length,
+      isRefreshing: isEstimatingRoutes,
+    };
+  }, [isEstimatingRoutes, mapData.segments]);
 
   const canEditTrip = plannerInteractionMode === "edit" && !isOfflineReadOnly;
   const isTripLibraryBusy = isLoading || isManagingTrips || syncStatus === "saving";
@@ -549,9 +576,12 @@ export default function PlannerApp() {
           {error}
         </div>
       ) : null}
-      {statusMessage ? (
-        <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-          {statusMessage}
+      {inlineNotice ? (
+        <div
+          data-testid="planner-inline-notice"
+          className={`rounded-2xl border px-4 py-3 text-sm ${noticeToneClass[inlineNotice.tone]}`}
+        >
+          {inlineNotice.text}
         </div>
       ) : null}
     </>
@@ -592,7 +622,7 @@ export default function PlannerApp() {
   );
 
   const renderTripsPanel = () => (
-    <div className="lg:flex lg:h-full lg:min-h-0 lg:flex-col">
+    <div data-testid="desktop-panel-trips-region" className="lg:flex lg:h-full lg:min-h-0 lg:flex-col">
       <TripsPanel
         trips={tripSummaries}
         activeTripId={activeTrip?.id ?? ""}
@@ -609,7 +639,10 @@ export default function PlannerApp() {
   );
 
   const renderItineraryPanel = (isVisible: boolean) => (
-    <div className="space-y-4 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+    <div
+      data-testid="desktop-panel-itinerary-region"
+      className="space-y-4 lg:flex lg:h-full lg:min-h-0 lg:flex-1 lg:flex-col"
+    >
       <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:flex-none">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-900">Trip days</h3>
@@ -714,7 +747,7 @@ export default function PlannerApp() {
         <div
           data-testid="desktop-itinerary-scroll-region"
           data-itinerary-scroll-container="true"
-          className="max-h-[52vh] overflow-y-auto pr-1 lg:min-h-0 lg:flex-1 lg:overflow-y-auto"
+          className="max-h-[52vh] overflow-y-auto pr-1 lg:max-h-none lg:min-h-0 lg:flex-1 lg:overflow-y-auto"
         >
           <ItinerarySections
             sections={itinerarySections}
@@ -750,6 +783,7 @@ export default function PlannerApp() {
       trip={activeTrip!}
       markers={mapData.markers}
       segments={mapData.segments}
+      routeSummary={routeMapSummary}
       selectedEntity={effectiveSelectedEntity}
       selectionOrigin={selectionOrigin}
       onSelectEntity={onSelectEntityFromMap}
@@ -771,7 +805,7 @@ export default function PlannerApp() {
       <PlannerAuthGate
         authStatus={authStatus}
         error={error}
-        statusMessage={statusMessage}
+        notice={authNotice}
         onSignIn={signInWithMagicLink}
         onSignInAsTestUser={signInAsTestUser}
       />
@@ -825,13 +859,17 @@ export default function PlannerApp() {
         <div className="mx-auto flex h-full w-full max-w-[1760px] flex-col gap-4 p-3 lg:flex-row lg:items-stretch lg:p-4">
           <section className="rounded-3xl bg-white/30 p-1 lg:h-full lg:w-[46%] lg:overflow-hidden">
             <div className="rounded-3xl p-2 lg:flex lg:h-full lg:min-h-0 lg:gap-3">
-              <div className="hidden w-[90px] flex-none lg:flex lg:flex-col lg:gap-3">
+              <div
+                data-testid="planner-rail-column"
+                className="hidden w-[90px] flex-none lg:flex lg:flex-col lg:gap-3"
+              >
                 <AccountStatusControl
                   authStatus={authStatus}
                   mode={mode}
                   userEmail={user?.email ?? null}
                   syncStatus={syncStatus}
                   isOfflineReadOnly={isOfflineReadOnly}
+                  notice={accountNotice}
                   onSignIn={signInWithMagicLink}
                   onSignInAsTestUser={signInAsTestUser}
                   onSignOut={signOut}
@@ -875,6 +913,7 @@ export default function PlannerApp() {
                       userEmail={user?.email ?? null}
                       syncStatus={syncStatus}
                       isOfflineReadOnly={isOfflineReadOnly}
+                      notice={accountNotice}
                       onSignIn={signInWithMagicLink}
                       onSignInAsTestUser={signInAsTestUser}
                       onSignOut={signOut}
@@ -916,7 +955,7 @@ export default function PlannerApp() {
                 <div className="hidden lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-4">
                   {renderSharedNotices()}
 
-                  <div className="min-h-0 flex-1">
+                  <div data-testid="desktop-panel-region" className="min-h-0 flex-1 lg:flex lg:flex-col">
                     {desktopPanel === "trips" && isCloudTripLibraryAvailable ? renderTripsPanel() : null}
                     {desktopPanel === "overview" ? renderOverviewPanel() : null}
                     {desktopPanel === "today" ? renderTodayPanel() : null}
@@ -927,7 +966,11 @@ export default function PlannerApp() {
             </div>
           </section>
 
-          <aside className="hidden h-full lg:block lg:min-h-0 lg:w-[54%]">{renderPlannerMap(true)}</aside>
+          <aside className="hidden h-full lg:block lg:min-h-0 lg:w-[54%]">
+            <div className="h-full rounded-3xl bg-white/30 p-1">
+              <div className="h-full rounded-3xl p-2">{renderPlannerMap(true)}</div>
+            </div>
+          </aside>
         </div>
       </div>
 

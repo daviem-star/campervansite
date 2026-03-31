@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 
 import { canUseLocalTestSignIn, isLocalTestSignInEnabled } from "@/lib/runtimeFlags";
-import { SyncStatus } from "@/types/trip";
+import { PlannerNotice, SyncStatus } from "@/types/trip";
 
 type AuthStatus = "disabled" | "checking" | "signed_out" | "signed_in";
 type PlannerMode = "demo" | "cloud";
@@ -14,6 +14,7 @@ type AccountStatusControlProps = {
   userEmail: string | null;
   syncStatus: SyncStatus;
   isOfflineReadOnly: boolean;
+  notice: PlannerNotice | null;
   onSignIn: (email: string) => Promise<void>;
   onSignInAsTestUser: () => Promise<void>;
   onSignOut: () => Promise<void>;
@@ -46,6 +47,12 @@ const statusDot = {
   error: "bg-rose-500",
 } as const;
 
+const noticeTone = {
+  info: "border-sky-200 bg-sky-50 text-sky-800",
+  success: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  warning: "border-amber-200 bg-amber-50 text-amber-800",
+} as const;
+
 const buttonClass =
   "rounded-2xl border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60";
 
@@ -55,6 +62,7 @@ export default function AccountStatusControl({
   userEmail,
   syncStatus,
   isOfflineReadOnly,
+  notice,
   onSignIn,
   onSignInAsTestUser,
   onSignOut,
@@ -65,7 +73,7 @@ export default function AccountStatusControl({
   const [isOpen, setIsOpen] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
   const [email, setEmail] = useState("");
-  const panelRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const showLocalTestSignIn = isLocalTestSignInEnabled();
   const localTestSignInReady = canUseLocalTestSignIn();
 
@@ -75,7 +83,7 @@ export default function AccountStatusControl({
     }
 
     const onPointerDown = (event: MouseEvent) => {
-      if (!panelRef.current?.contains(event.target as Node)) {
+      if (!containerRef.current?.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -115,35 +123,60 @@ export default function AccountStatusControl({
       : mode === "demo"
         ? "Demo mode"
         : "Account";
+  const syncDetails =
+    authStatus === "signed_in"
+      ? mode === "cloud"
+        ? "Cloud sync is active. Routine load and save updates appear here instead of as planner banners."
+        : "This planner is still using demo data. Demo changes stay on this device until you create a cloud trip."
+      : authStatus === "signed_out"
+        ? "Sign in to keep the same trip available across devices while you are online."
+        : "Planner access is waiting on environment configuration in this workspace.";
+  const accountInitial = userEmail?.charAt(0).toUpperCase() ?? (mode === "demo" ? "D" : "A");
 
   return (
-    <div className="relative z-30">
+    <div ref={containerRef} className="relative z-30 lg:w-full">
       <button
         type="button"
         aria-label="Open account and sync"
+        aria-expanded={isOpen}
+        data-testid="account-status-trigger"
         onClick={() => setIsOpen((current) => !current)}
-        className="group inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+        title={accountLabel}
+        className="group inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50 lg:w-full lg:flex-col lg:justify-center lg:gap-2 lg:rounded-3xl lg:px-2 lg:py-3"
       >
-        <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-slate-950 text-sm font-semibold text-white">
-          {userEmail ? userEmail.charAt(0).toUpperCase() : "A"}
+        <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-slate-950 text-sm font-semibold text-white lg:h-12 lg:w-12">
+          {accountInitial}
           <span
             className={`absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-white ${statusDot[syncStatus]}`}
           />
         </span>
 
-        <span className="hidden min-w-0 lg:block">
+        <span className="min-w-0 lg:hidden">
           <span className="block truncate text-sm font-semibold text-slate-900">{accountLabel}</span>
           <span className="block text-xs text-slate-500">{statusLabel[syncStatus]}</span>
+        </span>
+
+        <span className="hidden h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 transition group-hover:border-slate-300 group-hover:bg-white lg:inline-flex">
+          <svg
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            className={`h-3.5 w-3.5 transition ${isOpen ? "rotate-180" : ""}`}
+            aria-hidden="true"
+          >
+            <path d="m5 7 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </span>
       </button>
 
       {isOpen ? (
         <>
-          <div className="fixed inset-0 z-30 bg-slate-900/30 lg:bg-transparent" />
+          <div className="fixed inset-0 z-30 bg-slate-900/30 lg:hidden" />
 
           <div
-            ref={panelRef}
-            className="fixed inset-y-0 left-0 z-40 w-[min(24rem,92vw)] overflow-y-auto border-r border-slate-200 bg-white p-5 shadow-2xl lg:absolute lg:left-0 lg:top-[calc(100%+0.75rem)] lg:inset-y-auto lg:w-96 lg:rounded-3xl lg:border lg:shadow-xl"
+            data-testid="account-status-panel"
+            className="fixed inset-y-0 left-0 z-40 w-[min(24rem,92vw)] overflow-y-auto border-r border-slate-200 bg-white p-5 shadow-2xl lg:absolute lg:left-0 lg:top-[calc(100%+0.75rem)] lg:inset-y-auto lg:max-h-[min(78vh,44rem)] lg:w-[22rem] lg:overflow-y-auto lg:rounded-3xl lg:border lg:shadow-xl"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -190,6 +223,21 @@ export default function AccountStatusControl({
                 locked until the connection returns.
               </p>
             ) : null}
+
+            <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Sync details
+              </p>
+              <p className="mt-2 text-sm text-slate-600">{syncDetails}</p>
+              {notice ? (
+                <p
+                  data-testid="account-notice"
+                  className={`mt-3 rounded-2xl border px-3 py-2 text-sm ${noticeTone[notice.tone]}`}
+                >
+                  {notice.text}
+                </p>
+              ) : null}
+            </div>
 
             <div className="mt-5 space-y-4">
               {authStatus === "signed_in" ? (

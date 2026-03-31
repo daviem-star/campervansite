@@ -19,6 +19,7 @@ import {
   GapWarning,
   ItinerarySection,
   MapMarker,
+  MapRoadRenderState,
   RouteLineString,
   MapSegment,
   PlaceRef,
@@ -871,12 +872,49 @@ export const getMapData = (
       return [[estimate.relatedStopId, estimate.geometry] as const];
     }),
   );
+  const roadEstimateByStopId = new Map(
+    estimates.flatMap((estimate) => {
+      if (estimate.kind !== "road" || !estimate.relatedStopId) {
+        return [];
+      }
+
+      return [[estimate.relatedStopId, estimate] as const];
+    }),
+  );
+
+  const getRoadSegmentRouteState = (
+    stopId: string,
+  ): {
+    routeStatus: MapRoadRenderState;
+    routeConfidence?: TravelLegEstimate["confidence"];
+  } => {
+    const estimate = roadEstimateByStopId.get(stopId);
+
+    if (!estimate) {
+      return {
+        routeStatus: "pending",
+      };
+    }
+
+    if (estimate.confidence === "live" && estimate.geometry?.coordinates.length) {
+      return {
+        routeStatus: "live",
+        routeConfidence: estimate.confidence,
+      };
+    }
+
+    return {
+      routeStatus: "fallback",
+      routeConfidence: estimate.confidence,
+    };
+  };
 
   const orderedStops = getOrderedStopsForTravel(trip);
   let previous = trip.home;
 
   orderedStops.forEach((stop) => {
     if (stop.type === "stay") {
+      const roadState = getRoadSegmentRouteState(stop.id);
       markers.push({
         ...markerForPlace(stop.id, "stay", stop.place, stop.title),
         stopId: stop.id,
@@ -894,12 +932,15 @@ export const getMapData = (
           previous.coordinates,
           stop.place.coordinates,
         ),
+        routeStatus: roadState.routeStatus,
+        routeConfidence: roadState.routeConfidence,
       });
       previous = stop.place;
       return;
     }
 
     if (stop.type === "point_of_interest") {
+      const roadState = getRoadSegmentRouteState(stop.id);
       markers.push({
         ...markerForPlace(stop.id, "poi", stop.place, stop.title),
         stopId: stop.id,
@@ -917,10 +958,14 @@ export const getMapData = (
           previous.coordinates,
           stop.place.coordinates,
         ),
+        routeStatus: roadState.routeStatus,
+        routeConfidence: roadState.routeConfidence,
       });
       previous = stop.place;
       return;
     }
+
+    const roadState = getRoadSegmentRouteState(stop.id);
 
     markers.push(
       {
@@ -949,6 +994,8 @@ export const getMapData = (
         previous.coordinates,
         stop.departurePort.coordinates,
       ),
+      routeStatus: roadState.routeStatus,
+      routeConfidence: roadState.routeConfidence,
     });
 
     segments.push({

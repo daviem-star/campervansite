@@ -46,12 +46,24 @@ type PlannerMapProps = {
   trip: Trip;
   markers: MapMarker[];
   segments: MapSegment[];
+  routeSummary: {
+    totalRoadLegs: number;
+    pendingRoadLegs: number;
+    liveRoadLegs: number;
+    fallbackRoadLegs: number;
+    isRefreshing: boolean;
+  };
   selectedEntity: SelectedEntity;
   selectionOrigin?: "itinerary" | "map" | "system";
   onSelectEntity: (entity: Exclude<SelectedEntity, null>) => void;
   className?: string;
   isVisible?: boolean;
 };
+
+const routeChipToneClass = {
+  neutral: "border-slate-200 bg-white/95 text-slate-700",
+  warning: "border-amber-200 bg-amber-50/95 text-amber-900",
+} as const;
 
 const isSameEntity = (markerOrSegment: { stopId?: string; entityKind?: StopType }, selected: SelectedEntity) => {
   if (!selected) {
@@ -194,6 +206,7 @@ export default function PlannerMap({
   trip,
   markers,
   segments,
+  routeSummary,
   selectedEntity,
   selectionOrigin = "system",
   onSelectEntity,
@@ -270,6 +283,8 @@ export default function PlannerMap({
           type: segment.type,
           stopId: segment.stopId ?? "",
           entityKind: segment.entityKind ?? "",
+          routeStatus: segment.routeStatus ?? "",
+          routeConfidence: segment.routeConfidence ?? "",
           isSelected: isSameEntity(segment, selectedEntity) && segment.type === "ferry",
         },
         geometry: {
@@ -526,14 +541,35 @@ export default function PlannerMap({
       });
 
       map.addLayer({
-        id: "road-segments",
+        id: "road-segments-live",
         type: "line",
         source: "segments",
-        filter: ["==", ["get", "type"], "road"],
+        filter: [
+          "all",
+          ["==", ["get", "type"], "road"],
+          ["==", ["get", "routeStatus"], "live"],
+        ],
         paint: {
           "line-color": "#64748b",
           "line-width": 2.5,
           "line-opacity": 0.65,
+        },
+      });
+
+      map.addLayer({
+        id: "road-segments-fallback",
+        type: "line",
+        source: "segments",
+        filter: [
+          "all",
+          ["==", ["get", "type"], "road"],
+          ["==", ["get", "routeStatus"], "fallback"],
+        ],
+        paint: {
+          "line-color": "#d97706",
+          "line-width": 3,
+          "line-dasharray": [1.5, 1.5],
+          "line-opacity": 0.9,
         },
       });
 
@@ -828,9 +864,47 @@ export default function PlannerMap({
   ]);
 
   const currentSelectionTitle = selectedTitle(trip, selectedEntity);
+  const routeStatusChip = useMemo(() => {
+    if (routeSummary.totalRoadLegs === 0) {
+      return null;
+    }
+
+    if (
+      routeSummary.pendingRoadLegs === routeSummary.totalRoadLegs &&
+      routeSummary.liveRoadLegs === 0 &&
+      routeSummary.fallbackRoadLegs === 0
+    ) {
+      return {
+        tone: "neutral" as const,
+        title: "Routing in progress",
+        detail: "Road geometry is still loading, so direct placeholder lines stay hidden for now.",
+      };
+    }
+
+    if (routeSummary.fallbackRoadLegs > 0) {
+      return {
+        tone: "warning" as const,
+        title:
+          routeSummary.fallbackRoadLegs === 1
+            ? "1 fallback road leg"
+            : `${routeSummary.fallbackRoadLegs} fallback road legs`,
+        detail: "Fallback road legs are shown as direct dashed lines until live routing is available.",
+      };
+    }
+
+    if (routeSummary.isRefreshing) {
+      return {
+        tone: "neutral" as const,
+        title: "Refreshing route geometry",
+        detail: "Live road routing is already visible and will update if fresher data arrives.",
+      };
+    }
+
+    return null;
+  }, [routeSummary]);
 
   return (
-    <div className={`relative overflow-hidden ${className ?? ""}`}>
+    <div data-testid="planner-map-panel" className={`relative overflow-hidden ${className ?? ""}`}>
       {mapError ? (
         <div className="flex h-full w-full items-center justify-center bg-slate-100 p-6" aria-label="Trip map unavailable">
           <div className="max-w-sm rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
@@ -843,21 +917,33 @@ export default function PlannerMap({
       )}
 
       <div className="pointer-events-none absolute left-3 right-3 top-3 z-10 flex items-start justify-between gap-3">
-        <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur">
-          <button
-            type="button"
-            onClick={() => {
-              const map = mapRef.current;
-              if (map) {
-                fitOverview(map);
-                popupRef.current?.remove();
-                popupRef.current = null;
-              }
-            }}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
-          >
-            Reset Map
-          </button>
+        <div className="pointer-events-auto flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur">
+            <button
+              type="button"
+              onClick={() => {
+                const map = mapRef.current;
+                if (map) {
+                  fitOverview(map);
+                  popupRef.current?.remove();
+                  popupRef.current = null;
+                }
+              }}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+            >
+              Reset Map
+            </button>
+          </div>
+
+          {routeStatusChip ? (
+            <div
+              data-testid="map-route-status-chip"
+              className={`max-w-xs rounded-xl border px-3 py-2 text-xs shadow-sm backdrop-blur ${routeChipToneClass[routeStatusChip.tone]}`}
+            >
+              <p className="font-semibold">{routeStatusChip.title}</p>
+              <p className="mt-1 leading-5">{routeStatusChip.detail}</p>
+            </div>
+          ) : null}
         </div>
 
         {currentSelectionTitle ? (

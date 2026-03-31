@@ -25,16 +25,11 @@ const waitForVisible = async (locator, timeout = 30000) => {
 
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-const waitForAnyText = async (page, patterns, timeout = 30000) => {
-  const started = Date.now();
-  while (Date.now() - started < timeout) {
-    const bodyText = await page.locator("body").innerText().catch(() => "");
-    if (patterns.some((pattern) => pattern.test(bodyText))) {
-      return bodyText;
-    }
-    await page.waitForTimeout(500);
-  }
-  throw new Error(`Timed out waiting for any of: ${patterns.map((p) => p.toString()).join(", ")}`);
+const waitForAccountNotice = async (page, pattern, timeout = 30000) => {
+  await page.getByRole("button", { name: /Open account and sync/i }).click();
+  await waitForVisible(page.getByText(/Account and sync/i).first(), timeout);
+  await waitForVisible(page.getByTestId("account-notice").filter({ hasText: pattern }).first(), timeout);
+  await page.getByRole("button", { name: /^Close$/ }).click();
 };
 
 const primeSession = async (context, storageKey, session) => {
@@ -92,7 +87,7 @@ const editFirstStopTitle = async (page, title) => {
   await titleInput.fill(title);
   await page.getByRole("button", { name: /Update stop/i }).click();
   await waitForVisible(page.getByText(title).first());
-  await waitForVisible(page.getByText(/Cloud trip saved successfully/i).last());
+  await waitForAccountNotice(page, /Cloud trip saved successfully/i);
 };
 
 const updateStayLocation = async (page) => {
@@ -131,7 +126,7 @@ const updateStayLocation = async (page) => {
   }
   await result.click();
   await page.getByRole("button", { name: /Update stop/i }).click();
-  await waitForVisible(page.getByText(/Cloud trip saved successfully/i).last(), 30000);
+  await waitForAccountNotice(page, /Cloud trip saved successfully/i, 30000);
 };
 
 const verifyRouteOverview = async (page) => {
@@ -147,7 +142,7 @@ const verifyDesktopSwitching = async (page) => {
   await waitForVisible(page.getByLabel(/Trip map/i));
 };
 
-const verifyAccountPopup = async (page, email) => {
+const verifyAccountPopup = async (page, email, noticePattern) => {
   await page.getByTestId("desktop-panel-overview").click();
   const overviewRegion = page.getByTestId("overview-scroll-region");
   const accountTextCount = await overviewRegion.getByText(/Account and sync/i).count();
@@ -157,7 +152,11 @@ const verifyAccountPopup = async (page, email) => {
 
   await page.getByRole("button", { name: /Open account and sync/i }).click();
   await waitForVisible(page.getByText(/Account and sync/i).first());
+  await waitForVisible(page.getByText(/Sync details/i).first());
   await waitForVisible(page.getByRole("button", { name: /Sign out/i }));
+  if (noticePattern) {
+    await waitForVisible(page.getByTestId("account-notice").filter({ hasText: noticePattern }).first());
+  }
   if (email) {
     await waitForVisible(page.getByText(email).first());
   }
@@ -208,7 +207,7 @@ const createBlankTrip = async (page, name) => {
   await modal.getByRole("button", { name: /Create trip/i }).click();
 
   await waitForVisible(page.getByRole("heading", { name: new RegExp(escapeRegExp(name), "i") }));
-  await waitForVisible(page.getByText(/Blank trip created/i).last());
+  await waitForAccountNotice(page, /Blank trip created/i);
 };
 
 const createExampleTrip = async (page, name) => {
@@ -251,7 +250,7 @@ const deleteNonActiveTripFromLibrary = async (page, name) => {
   await waitForVisible(selectedTripCard);
   page.once("dialog", (dialog) => dialog.accept());
   await selectedTripCard.getByRole("button", { name: /^Delete$/ }).click();
-  await waitForVisible(page.getByText(/Trip deleted successfully\./i).last());
+  await waitForAccountNotice(page, /Trip deleted successfully\./i);
   await waitForTripCardCount(page, 2);
 
   const started = Date.now();
@@ -273,10 +272,11 @@ const deleteActiveTripFromLibrary = async (page, name, fallbackName) => {
   await selectedTripCard.getByRole("button", { name: /^Delete$/ }).click();
 
   await waitForVisible(
-    page.getByText(new RegExp(`Trip deleted\\. Loaded ${escapeRegExp(fallbackName)}`, "i")).last(),
-  );
-  await waitForVisible(
     page.getByRole("heading", { name: new RegExp(escapeRegExp(fallbackName), "i") }),
+  );
+  await waitForAccountNotice(
+    page,
+    new RegExp(`Trip deleted\\. Loaded ${escapeRegExp(fallbackName)}`, "i"),
   );
 };
 
@@ -392,11 +392,10 @@ const run = async () => {
     await primeSession(contextA, storageKey, session);
     const pageA = await contextA.newPage();
     await gotoPreview(pageA, shareUrl, baseUrl);
-    await waitForAnyText(pageA, [/Example trip ready/i, /Cloud trip loaded/i], 45000);
     await waitForVisible(pageA.getByRole("button", { name: /Edit trip/i }), 45000);
     results.starterTrip = true;
 
-    await verifyAccountPopup(pageA, email);
+    await verifyAccountPopup(pageA, email, /Example trip ready|Cloud trip loaded/i);
     results.accountPopup = true;
 
     await openTripsPanel(pageA);
@@ -470,7 +469,7 @@ const run = async () => {
     await primeSession(offlineContext, storageKey, session);
     const onlinePage = await offlineContext.newPage();
     await gotoPreview(onlinePage, shareUrl, baseUrl);
-    await waitForAnyText(onlinePage, [/Cloud trip loaded/i, /Example trip ready/i], 45000);
+    await waitForVisible(onlinePage.getByRole("button", { name: /Edit trip/i }), 45000);
     await offlineContext.route(/\/api\/trips(\/.*)?$/, (route) => route.abort());
 
     const offlinePage = await offlineContext.newPage();

@@ -119,6 +119,9 @@ describe("tripDerived", () => {
       lat: 56.2,
       lng: -4.1,
     });
+    expect(mapData.segments.find((segment) => segment.id === "road-stay-1")?.routeStatus).toBe(
+      "pending",
+    );
   });
 
   it("prefers live road geometry on map segments while anchoring it to display coordinates", () => {
@@ -169,6 +172,38 @@ describe("tripDerived", () => {
         { lat: 56.12, lng: -4.03 },
         { lat: 56.2, lng: -4.1 },
       ],
+    });
+    expect(mapData.segments.find((segment) => segment.id === "road-stay-1")).toMatchObject({
+      routeStatus: "live",
+      routeConfidence: "live",
+    });
+  });
+
+  it("marks road segments as fallback when live geometry is unavailable", () => {
+    const trip = buildTrip();
+    const mapData = getMapData(trip, [
+      {
+        id: "road-home-stay-1",
+        fromId: "home",
+        fromLabel: "Home",
+        toId: "stay-1",
+        toLabel: "Camp one",
+        kind: "road",
+        distanceKm: 42,
+        durationMinutes: 50,
+        bufferedDurationMinutes: 68,
+        provider: "fallback_haversine",
+        fetchedAt: new Date().toISOString(),
+        confidence: "fallback",
+        date: "2026-04-03",
+        relatedStopId: "stay-1",
+      },
+    ]);
+
+    expect(mapData.segments.find((segment) => segment.id === "road-stay-1")).toMatchObject({
+      routeStatus: "fallback",
+      routeConfidence: "fallback",
+      geometry: undefined,
     });
   });
 

@@ -4,19 +4,26 @@ import { FormEvent, useState } from "react";
 
 import PlannerBrandBadge from "@/components/planner/PlannerBrandBadge";
 import { canUseLocalTestSignIn, isLocalTestSignInEnabled } from "@/lib/runtimeFlags";
+import { PlannerNotice } from "@/types/trip";
 
 type PlannerAuthGateProps = {
   authStatus: "disabled" | "signed_out";
   error: string | null;
-  statusMessage: string | null;
+  notice: PlannerNotice | null;
   onSignIn: (email: string) => Promise<void>;
   onSignInAsTestUser: () => Promise<void>;
 };
 
+const noticeToneClass = {
+  info: "border-sky-200 bg-sky-50 text-sky-800",
+  success: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  warning: "border-amber-200 bg-amber-50 text-amber-800",
+} as const;
+
 export default function PlannerAuthGate({
   authStatus,
   error,
-  statusMessage,
+  notice,
   onSignIn,
   onSignInAsTestUser,
 }: PlannerAuthGateProps) {
@@ -81,9 +88,12 @@ export default function PlannerAuthGate({
             </p>
           ) : null}
 
-          {statusMessage ? (
-            <p className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-              {statusMessage}
+          {notice ? (
+            <p
+              data-testid="auth-notice"
+              className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${noticeToneClass[notice.tone]}`}
+            >
+              {notice.text}
             </p>
           ) : null}
 
