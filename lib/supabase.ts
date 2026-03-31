@@ -28,7 +28,13 @@ type BrowserDatabase = {
   };
 };
 
-type BrowserAuthChangeEvent = "SIGNED_IN" | "SIGNED_OUT";
+type BrowserAuthChangeEvent =
+  | "INITIAL_SESSION"
+  | "SIGNED_IN"
+  | "SIGNED_OUT"
+  | "TOKEN_REFRESHED"
+  | "USER_UPDATED"
+  | "PASSWORD_RECOVERY";
 
 export type BrowserAuthClient = {
   auth: {

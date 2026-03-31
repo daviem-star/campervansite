@@ -44,6 +44,7 @@ const localRepository = new LegacyLocalStorageTripRepository();
 
 let authListenerBound = false;
 let connectivityListenersBound = false;
+const pendingStarterTripLoads = new Map<string, Promise<Trip | null>>();
 
 const getSupabaseClient = () => {
   return getBrowserSupabaseClient();
@@ -92,6 +93,32 @@ const upsertTripSummary = (summaries: TripSummary[], summary: TripSummary): Trip
 
 const removeTripSummary = (summaries: TripSummary[], tripId: string): TripSummary[] => {
   return sortTripSummaries(summaries.filter((summary) => summary.id !== tripId));
+};
+
+export const shouldReinitializeFromAuthEvent = (event: string): boolean => {
+  return event === "SIGNED_IN" || event === "SIGNED_OUT";
+};
+
+export const withPerUserLock = async <T>(
+  pending: Map<string, Promise<T>>,
+  userId: string,
+  action: () => Promise<T>,
+): Promise<T> => {
+  const existing = pending.get(userId);
+  if (existing) {
+    return await existing;
+  }
+
+  const promise = action();
+  pending.set(userId, promise);
+
+  try {
+    return await promise;
+  } finally {
+    if (pending.get(userId) === promise) {
+      pending.delete(userId);
+    }
+  }
 };
 
 const setLoadedCloudTripState = (
@@ -185,7 +212,11 @@ const bindAuthListener = (
   }
 
   authListenerBound = true;
-  client.auth.onAuthStateChange((_event, session) => {
+  client.auth.onAuthStateChange((event, session) => {
+    if (!shouldReinitializeFromAuthEvent(event)) {
+      return;
+    }
+
     set({ authStatus: session?.user ? "signed_in" : "signed_out" });
     void get().initialize();
   });
@@ -323,6 +354,45 @@ const createCloudTrip = async (
   }
 };
 
+const loadOrCreateStarterTrip = async (
+  set: (partial: Partial<TripStoreState>) => void,
+  get: () => TripStoreState,
+  user: SessionUser,
+): Promise<Trip | null> => {
+  return await withPerUserLock(pendingStarterTripLoads, user.id, async () => {
+    const cloudRepository = getCloudRepository();
+    const refreshedSummaries = await cloudRepository.listTrips();
+    const existingTripId = pickInitialCloudTripId(refreshedSummaries, user);
+
+    if (existingTripId) {
+      const trip = await cloudRepository.loadTrip(existingTripId);
+      setPreferredActiveTripId(user.id, trip.id);
+      markFirstTripSetupResolved(user.id);
+      setLoadedCloudTripState(set, trip, {
+        authStatus: "signed_in",
+        user,
+        tripSummaries: refreshedSummaries,
+        statusMessage: "Example trip ready. Open Edit trip when you want to change stops or dates.",
+      });
+      return trip;
+    }
+
+    return await createCloudTrip(
+      set,
+      get,
+      user,
+      {
+        source: "example",
+        name: getExampleTripDefaultName(),
+      },
+      {
+        analyticsEvent: "cloud_trip_created",
+        statusMessage: "Example trip ready. Open Edit trip when you want to change stops or dates.",
+      },
+    );
+  });
+};
+
 const loadSignedInMode = async (
   set: (partial: Partial<TripStoreState>) => void,
   get: () => TripStoreState,
@@ -378,20 +448,7 @@ const loadSignedInMode = async (
         return;
       }
 
-      const starterTrip = await createCloudTrip(
-        set,
-        get,
-        user,
-        {
-          source: "example",
-          name: getExampleTripDefaultName(),
-        },
-        {
-          analyticsEvent: "cloud_trip_created",
-          statusMessage:
-            "Example trip ready. Open Edit trip when you want to change stops or dates.",
-        },
-      );
+      const starterTrip = await loadOrCreateStarterTrip(set, get, user);
 
       if (!starterTrip) {
         set({ isLoading: false });
@@ -730,19 +787,7 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
       return;
     }
 
-    await createCloudTrip(
-      set,
-      get,
-      state.user,
-      {
-        source: "example",
-        name: getExampleTripDefaultName(),
-      },
-      {
-        analyticsEvent: "cloud_trip_created",
-        statusMessage: "Example trip ready. Open Edit trip when you want to change stops or dates.",
-      },
-    );
+    await loadOrCreateStarterTrip(set, get, state.user);
   },
 
   loadCloudTrip: async (tripId: string) => {
