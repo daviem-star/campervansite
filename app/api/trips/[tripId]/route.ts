@@ -32,6 +32,9 @@ type SaveTripBody = {
 
 type RenameTripBody = RenameTripInput;
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const loadExistingTrip = async (
   ownerUserId: string,
   tripId: string,

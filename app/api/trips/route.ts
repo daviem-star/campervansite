@@ -16,6 +16,9 @@ import { CreateTripInput, PlaceRef } from "@/types/trip";
 
 type CreateTripBody = CreateTripInput;
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 };

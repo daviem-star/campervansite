@@ -77,9 +77,12 @@ const gotoPreview = async (page, shareUrl, baseUrl) => {
 
 const ensureEditMode = async (page) => {
   const editTripButton = page.getByRole("button", { name: /Edit trip/i });
+  if (!(await editTripButton.isVisible().catch(() => false))) {
+    await page.getByTestId("desktop-panel-itinerary").click();
+  }
   await waitForVisible(editTripButton);
   await editTripButton.click();
-  await waitForVisible(page.getByText(/Edit mode is unlocked/i).first());
+  await waitForVisible(page.getByText(/Edit mode is unlocked/i).last());
 };
 
 const editFirstStopTitle = async (page, title) => {
@@ -89,7 +92,7 @@ const editFirstStopTitle = async (page, title) => {
   await titleInput.fill(title);
   await page.getByRole("button", { name: /Update stop/i }).click();
   await waitForVisible(page.getByText(title).first());
-  await waitForVisible(page.getByText(/Cloud trip saved successfully/i).first());
+  await waitForVisible(page.getByText(/Cloud trip saved successfully/i).last());
 };
 
 const updateStayLocation = async (page) => {
@@ -128,7 +131,7 @@ const updateStayLocation = async (page) => {
   }
   await result.click();
   await page.getByRole("button", { name: /Update stop/i }).click();
-  await waitForVisible(page.getByText(/Cloud trip saved successfully/i).first(), 30000);
+  await waitForVisible(page.getByText(/Cloud trip saved successfully/i).last(), 30000);
 };
 
 const verifyRouteOverview = async (page) => {
@@ -173,6 +176,21 @@ const tripCard = (page, name) =>
     .locator("[data-testid^='trip-summary-']")
     .filter({ has: page.getByText(name, { exact: true }) })
     .first();
+
+const waitForTripCardCount = async (page, expectedCount, timeout = 30000) => {
+  const started = Date.now();
+
+  while (Date.now() - started < timeout) {
+    const count = await page.locator("[data-testid^='trip-summary-']").count();
+    if (count === expectedCount) {
+      return;
+    }
+    await page.waitForTimeout(250);
+  }
+
+  const actualCount = await page.locator("[data-testid^='trip-summary-']").count();
+  throw new Error(`Expected ${expectedCount} trip cards, but found ${actualCount}.`);
+};
 
 const createBlankTrip = async (page, name) => {
   await openTripsPanel(page);
@@ -233,6 +251,8 @@ const deleteNonActiveTripFromLibrary = async (page, name) => {
   await waitForVisible(selectedTripCard);
   page.once("dialog", (dialog) => dialog.accept());
   await selectedTripCard.getByRole("button", { name: /^Delete$/ }).click();
+  await waitForVisible(page.getByText(/Trip deleted successfully\./i).last());
+  await waitForTripCardCount(page, 2);
 
   const started = Date.now();
   while (Date.now() - started < 30000) {
@@ -262,12 +282,22 @@ const deleteActiveTripFromLibrary = async (page, name, fallbackName) => {
 
 const verifyLastTripDeleteGuard = async (page, remainingTripName) => {
   await openTripsPanel(page);
-  const selectedTripCard = tripCard(page, remainingTripName);
-  await waitForVisible(selectedTripCard);
-  const deleteButton = selectedTripCard.getByRole("button", { name: /^Delete$/ });
-  if (!(await deleteButton.isDisabled())) {
-    throw new Error("Last remaining cloud trip still had an enabled Delete action.");
+  await waitForTripCardCount(page, 1);
+  const started = Date.now();
+
+  while (Date.now() - started < 30000) {
+    const selectedTripCard = tripCard(page, remainingTripName);
+    if ((await selectedTripCard.count()) > 0) {
+      const deleteButton = selectedTripCard.getByRole("button", { name: /^Delete$/ });
+      if (await deleteButton.isDisabled()) {
+        return;
+      }
+    }
+
+    await page.waitForTimeout(250);
   }
+
+  throw new Error("Last remaining cloud trip still had an enabled Delete action.");
 };
 
 const run = async () => {
@@ -426,7 +456,7 @@ const run = async () => {
     await pageB.getByPlaceholder("Stop title").fill(loserTitle);
     await pageB.getByRole("button", { name: /Update stop/i }).click();
     await waitForVisible(
-      pageB.getByText(/Trip changed on another device\. The latest version has been loaded/i).first(),
+      pageB.getByText(/Trip changed on another device\. The latest version has been loaded/i).last(),
       30000,
     );
     await waitForVisible(pageB.getByText(winnerTitle).first(), 30000);
@@ -446,11 +476,11 @@ const run = async () => {
     const offlinePage = await offlineContext.newPage();
     await offlinePage.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 60000 });
     await waitForVisible(
-      offlinePage.getByText(/Unable to reach cloud sync\. Showing the last synced trip instead\./i).first(),
+      offlinePage.getByText(/Unable to reach cloud sync\. Showing the last synced trip instead\./i).last(),
       45000,
     );
     await waitForVisible(
-      offlinePage.getByText(/This trip is read-only until the connection returns\./i).first(),
+      offlinePage.getByText(/This trip is read-only until the connection returns\./i).last(),
       30000,
     );
     const editTripButton = offlinePage.getByRole("button", { name: /Edit trip/i });

@@ -16,6 +16,9 @@ type ImportBody = {
   data?: unknown;
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const getUniqueImportedTripId = (baseId: string, takenIds: Set<string>): string => {
   if (!takenIds.has(baseId)) {
     takenIds.add(baseId);
