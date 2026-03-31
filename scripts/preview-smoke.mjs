@@ -23,6 +23,8 @@ const waitForVisible = async (locator, timeout = 30000) => {
   await locator.waitFor({ state: "visible", timeout });
 };
 
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 const waitForAnyText = async (page, patterns, timeout = 30000) => {
   const started = Date.now();
   while (Date.now() - started < timeout) {
@@ -142,6 +144,132 @@ const verifyDesktopSwitching = async (page) => {
   await waitForVisible(page.getByLabel(/Trip map/i));
 };
 
+const verifyAccountPopup = async (page, email) => {
+  await page.getByTestId("desktop-panel-overview").click();
+  const overviewRegion = page.getByTestId("overview-scroll-region");
+  const accountTextCount = await overviewRegion.getByText(/Account and sync/i).count();
+  if (accountTextCount > 0) {
+    throw new Error("Overview still contains account and sync content.");
+  }
+
+  await page.getByRole("button", { name: /Open account and sync/i }).click();
+  await waitForVisible(page.getByText(/Account and sync/i).first());
+  await waitForVisible(page.getByRole("button", { name: /Sign out/i }));
+  if (email) {
+    await waitForVisible(page.getByText(email).first());
+  }
+  await page.getByRole("button", { name: /^Close$/ }).click();
+};
+
+const openTripsPanel = async (page) => {
+  await page.getByTestId("desktop-panel-trips").click();
+  await waitForVisible(page.getByRole("heading", { name: /Manage your trip library/i }));
+};
+
+const tripModal = (page) => page.locator("div.fixed.inset-0.z-50").last();
+
+const tripCard = (page, name) =>
+  page
+    .locator("[data-testid^='trip-summary-']")
+    .filter({ has: page.getByText(name, { exact: true }) })
+    .first();
+
+const createBlankTrip = async (page, name) => {
+  await openTripsPanel(page);
+  await page.getByRole("button", { name: /^New trip$/ }).click();
+
+  const modal = tripModal(page);
+  await waitForVisible(modal.getByRole("heading", { name: /Create another trip/i }));
+  await modal.getByLabel("Trip name").fill(name);
+  await modal.getByPlaceholder("Search home base").fill("Inverness");
+  await modal.getByRole("button", { name: /^Search$/ }).click();
+
+  const result = modal.getByRole("button", { name: /Inverness/i }).first();
+  await waitForVisible(result, 30000);
+  await result.click();
+  await modal.getByRole("button", { name: /Create trip/i }).click();
+
+  await waitForVisible(page.getByRole("heading", { name: new RegExp(escapeRegExp(name), "i") }));
+  await waitForVisible(page.getByText(/Blank trip created/i).last());
+};
+
+const createExampleTrip = async (page, name) => {
+  await openTripsPanel(page);
+  await page.getByRole("button", { name: /^New trip$/ }).click();
+
+  const modal = tripModal(page);
+  await waitForVisible(modal.getByRole("heading", { name: /Create another trip/i }));
+  await modal.getByTestId("trip-source-example").click();
+  await modal.getByLabel("Trip name").fill(name);
+  await modal.getByRole("button", { name: /Create trip/i }).click();
+
+  await waitForVisible(page.getByRole("heading", { name: new RegExp(escapeRegExp(name), "i") }));
+};
+
+const renameTripInLibrary = async (page, currentName, nextName) => {
+  await openTripsPanel(page);
+  const currentTripCard = tripCard(page, currentName);
+  await waitForVisible(currentTripCard);
+  await currentTripCard.getByRole("button", { name: /^Rename$/ }).click();
+
+  const modal = tripModal(page);
+  await waitForVisible(modal.getByText(/Rename trip/i).first());
+  await modal.getByLabel("Trip name").fill(nextName);
+  await modal.getByRole("button", { name: /Rename trip/i }).click();
+  await waitForVisible(tripCard(page, nextName));
+};
+
+const openTripFromLibrary = async (page, name) => {
+  await openTripsPanel(page);
+  const selectedTripCard = tripCard(page, name);
+  await waitForVisible(selectedTripCard);
+  await selectedTripCard.getByRole("button", { name: /^Open$/ }).click();
+  await waitForVisible(page.getByRole("heading", { name: new RegExp(escapeRegExp(name), "i") }));
+};
+
+const deleteNonActiveTripFromLibrary = async (page, name) => {
+  await openTripsPanel(page);
+  const selectedTripCard = tripCard(page, name);
+  await waitForVisible(selectedTripCard);
+  page.once("dialog", (dialog) => dialog.accept());
+  await selectedTripCard.getByRole("button", { name: /^Delete$/ }).click();
+
+  const started = Date.now();
+  while (Date.now() - started < 30000) {
+    if ((await tripCard(page, name).count()) === 0) {
+      return;
+    }
+    await page.waitForTimeout(250);
+  }
+
+  throw new Error(`Trip "${name}" was not removed from the Trips panel.`);
+};
+
+const deleteActiveTripFromLibrary = async (page, name, fallbackName) => {
+  await openTripsPanel(page);
+  const selectedTripCard = tripCard(page, name);
+  await waitForVisible(selectedTripCard);
+  page.once("dialog", (dialog) => dialog.accept());
+  await selectedTripCard.getByRole("button", { name: /^Delete$/ }).click();
+
+  await waitForVisible(
+    page.getByText(new RegExp(`Trip deleted\\. Loaded ${escapeRegExp(fallbackName)}`, "i")).last(),
+  );
+  await waitForVisible(
+    page.getByRole("heading", { name: new RegExp(escapeRegExp(fallbackName), "i") }),
+  );
+};
+
+const verifyLastTripDeleteGuard = async (page, remainingTripName) => {
+  await openTripsPanel(page);
+  const selectedTripCard = tripCard(page, remainingTripName);
+  await waitForVisible(selectedTripCard);
+  const deleteButton = selectedTripCard.getByRole("button", { name: /^Delete$/ });
+  if (!(await deleteButton.isDisabled())) {
+    throw new Error("Last remaining cloud trip still had an enabled Delete action.");
+  }
+};
+
 const run = async () => {
   const shareUrl = process.argv[2];
   if (!shareUrl) {
@@ -197,6 +325,9 @@ const run = async () => {
   const results = {
     signedOutGate: false,
     starterTrip: false,
+    accountPopup: false,
+    tripLibraryVisible: false,
+    multiTripCrud: false,
     saveFlow: false,
     placeSearch: false,
     liveRoutes: false,
@@ -234,6 +365,24 @@ const run = async () => {
     await waitForAnyText(pageA, [/Example trip ready/i, /Cloud trip loaded/i], 45000);
     await waitForVisible(pageA.getByRole("heading", { name: /Outer Hebrides Family Trip/i }), 45000);
     results.starterTrip = true;
+
+    await verifyAccountPopup(pageA, email);
+    results.accountPopup = true;
+
+    await openTripsPanel(pageA);
+    results.tripLibraryVisible = true;
+
+    const blankTripName = `Hosted Blank ${Date.now()}`;
+    const renamedBlankTripName = `${blankTripName} Updated`;
+    const exampleTripName = `Hosted Example ${Date.now()}`;
+    await createBlankTrip(pageA, blankTripName);
+    await createExampleTrip(pageA, exampleTripName);
+    await renameTripInLibrary(pageA, blankTripName, renamedBlankTripName);
+    await openTripFromLibrary(pageA, renamedBlankTripName);
+    await deleteNonActiveTripFromLibrary(pageA, exampleTripName);
+    await deleteActiveTripFromLibrary(pageA, renamedBlankTripName, "Outer Hebrides Family Trip");
+    await verifyLastTripDeleteGuard(pageA, "Outer Hebrides Family Trip");
+    results.multiTripCrud = true;
 
     await ensureEditMode(pageA);
     const initialEditedTitle = `Preview Smoke Primary ${Date.now()}`;

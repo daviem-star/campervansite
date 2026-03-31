@@ -93,6 +93,22 @@ export type TripSummary = {
   lastSyncedAt: string | null;
 };
 
+export type CreateTripSource = "blank" | "example";
+
+export type CreateTripInput = {
+  source: CreateTripSource;
+  name: string;
+  home?: PlaceRef;
+};
+
+export type RenameTripInput = {
+  name: string;
+};
+
+export type DeleteTripResponse = {
+  deletedTripId: string;
+};
+
 export type AppData = {
   schemaVersion: 2;
   activeTripId: string;

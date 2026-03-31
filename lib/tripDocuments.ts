@@ -78,3 +78,13 @@ export const rowToTripSummary = (row: Pick<TripDocumentRow, "trip_id" | "trip_na
   updatedAt: row.updated_at,
   lastSyncedAt: row.last_synced_at,
 });
+
+export const tripToTripSummary = (
+  trip: Pick<Trip, "id" | "name" | "version" | "updatedAt" | "lastSyncedAt">,
+): TripSummary => ({
+  id: trip.id,
+  name: trip.name,
+  version: trip.version,
+  updatedAt: trip.updatedAt,
+  lastSyncedAt: trip.lastSyncedAt,
+});

@@ -2,7 +2,7 @@
 
 Manual QA tracking for the Campervan Trip Planner.
 
-This checklist is currently weighted toward the activation and stabilisation tail of the architect brief's first phase, "foundation and trust". Most of the phase 1 feature work is already in code; the remaining job is to verify it against live services and real devices.
+This checklist is weighted toward validating the current hosted beta shell: a cloud trip library with one active trip workspace at a time, explicit itinerary edit locking, and trust-first auth/sync behaviour. The main job now is to verify the shipped multi-trip planner against live services and real devices.
 
 ## How To Use
 
@@ -46,6 +46,7 @@ For each issue, record:
   - Stale write conflict reloads the latest trip with recovery messaging
   - Offline reopen shows the last synced trip as read-only with `Edit trip` disabled
 - Notes:
+  - This hosted smoke pass predates the new `Trips` section and top-left account/status control, so those flows still need a current hosted rerun and fresh evidence.
   - Hosted smoke was exercised with `node scripts/preview-smoke.mjs <vercel-share-url>`.
   - The failing hosted search path was repaired by removing nested form markup from `components/planner/StopSearchInput.tsx`.
   - This smoke pass happened before the preview hardening was fast-forwarded into `main`; future hosted passes should be recorded against `staging` commits promoted from `main`.
@@ -58,9 +59,19 @@ For each issue, record:
 - [x] Magic-link request shows a clear success banner with the target email
 - [x] Signed-in empty account auto-creates the starter example trip when no legacy local data exists
 - [ ] Signed-in empty account with legacy local data shows the one-time import-or-example chooser
+- [ ] Signed-in cloud mode shows the `Trips` section plus the top-left account/status control
+- [ ] Account/status control reflects sync state (`saved`, `saving`, `offline`, `error`) and exposes auth actions without leaking into `Overview`
+- [ ] Blank trip can be created from `Trips` by entering trip name and home pin
+- [ ] Example trip can be created from `Trips`
+- [ ] Trip switching loads the selected trip and returns the planner to `View mode`
+- [ ] Trip rename works from `Trips` and updates both the list and active trip header
+- [ ] Non-active trip delete removes the trip without changing the current workspace
+- [ ] Active trip delete loads the most recently updated remaining trip
+- [ ] Last-trip delete is blocked clearly
 - [x] Cloud trip can be loaded on a second browser/device
 - [x] Stop edit returns sync state to `Saved`
 - [ ] Legacy local import works once and then drops back into the main planner
+- [ ] `Import local trips` is available from `Trips` when legacy browser data exists and disappears after successful import
 - [x] Stale write conflict reloads the latest trip and shows recovery messaging
 - [x] Last synced trip reopens offline in read-only mode with the global `Edit trip` control disabled
 - [x] Stop editor place search returns submitted results after pressing `Search` and an edited place can be saved successfully
@@ -69,8 +80,13 @@ For each issue, record:
 ### Mobile
 
 - [ ] Default tab is `Today`
-- [ ] Tab switching preserves selection/highlights (`Today` / `Itinerary` / `Overview` / `Map`)
+- [ ] Signed-in cloud mode exposes tabs for `Trips`, `Itinerary`, `Overview`, `Today`, and `Map`
+- [ ] Demo mode or missing cloud config hides `Trips`
+- [ ] Tab switching preserves selection/highlights (`Trips` / `Itinerary` / `Overview` / `Today` / `Map`)
+- [ ] The tab row remains horizontally usable without crushing labels
+- [ ] Top-left account/status icon opens cleanly and exposes auth/sync controls
 - [ ] Itinerary tab has fixed controls and scrollable itinerary list only
+- [ ] `Overview` is trip-only and does not contain account or sync controls
 - [ ] Day chip selection scrolls to the correct itinerary section
 - [ ] Map interactions select and highlight itinerary items
 - [ ] Today actions are readable and correctly formatted
@@ -86,9 +102,13 @@ For each issue, record:
 ### Desktop
 
 - [ ] Authenticated desktop defaults to the `Itinerary` panel with the map visible
-- [x] Left rail switches cleanly between `Itinerary`, `Overview`, and `Today`
+- [ ] Signed-in cloud mode shows the top-left account/status control and `Trips`, `Itinerary`, `Overview`, and `Today` in the left rail
+- [ ] Demo mode hides `Trips` while keeping the rest of the planner usable
+- [x] Left rail switches cleanly between `Trips`, `Itinerary`, `Overview`, and `Today` when the trip library is available
 - [ ] Lower itinerary sections remain reachable and their `Edit` actions stay clickable
 - [ ] Itinerary auto-scroll keeps the top toolbar and rail visible instead of shifting the whole planner upward
+- [ ] `Overview` remains trip-only and does not contain auth or sync controls
+- [ ] Top-left account/status popup holds auth, sync, and demo-only reset controls
 - [ ] View mode hides mutation controls until `Edit trip` is enabled
 - [ ] Offline read-only state keeps `Edit trip` disabled and the itinerary non-mutable
 - [ ] First itinerary selection focuses map
@@ -108,6 +128,9 @@ For each issue, record:
 - [ ] Cloud service error state falls back cleanly without breaking the planner
 - [ ] Stop editor invalid date/time shows clear error
 - [ ] Stop editor invalid cost shows clear error
+- [ ] Trip creation rejects blank name and blank-home submissions clearly
+- [ ] Trip rename rejects empty names clearly
+- [ ] Trip delete confirmation is explicit and clearly communicates the last-trip guardrail
 
 ## Issue Log
 

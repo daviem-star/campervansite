@@ -93,6 +93,70 @@ export const saveE2ETrip = (
   };
 };
 
+export const createE2ETrip = (user: SessionUser, trip: Trip): Trip => {
+  const rows = ensureUserRows(user);
+  const row = toTripDocumentRow(normalizeTrip(trip, user.id), user.id, 1);
+  rows.set(row.trip_id, row);
+  return rowToTrip(row);
+};
+
+export const renameE2ETrip = (
+  user: SessionUser,
+  tripId: string,
+  name: string,
+): TripSummary | null => {
+  const rows = ensureUserRows(user);
+  const existing = rows.get(tripId);
+
+  if (!existing) {
+    return null;
+  }
+
+  const nextVersion = existing.version + 1;
+  const nextTrip = rowToTrip(existing);
+  const row = toTripDocumentRow(
+    {
+      ...nextTrip,
+      name,
+      updatedAt: existing.updated_at,
+      lastSyncedAt: existing.last_synced_at,
+      version: nextVersion,
+    },
+    user.id,
+    nextVersion,
+    existing.created_at,
+  );
+  rows.set(row.trip_id, row);
+  return rowToTripSummary(row);
+};
+
+export const deleteE2ETrip = (
+  user: SessionUser,
+  tripId: string,
+): {
+  ok: boolean;
+  error?: string;
+} => {
+  const rows = ensureUserRows(user);
+
+  if (!rows.has(tripId)) {
+    return {
+      ok: false,
+      error: "Trip not found.",
+    };
+  }
+
+  if (rows.size <= 1) {
+    return {
+      ok: false,
+      error: "Create another trip before deleting this one.",
+    };
+  }
+
+  rows.delete(tripId);
+  return { ok: true };
+};
+
 const getUniqueImportedTripId = (baseId: string, rows: Map<string, TripDocumentRow>): string => {
   if (!rows.has(baseId)) {
     return baseId;

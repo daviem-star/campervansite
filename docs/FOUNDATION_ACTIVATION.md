@@ -1,6 +1,6 @@
 # Foundation Activation Guide
 
-Use this runbook to take approved commits from `main` through `staging` and into a verified live preview. As of 2026-03-30, most phase 1 feature work is already in code. The remaining job is operational activation, preview validation, and release hardening.
+Use this runbook to take approved commits from `main` through `staging` and into a verified live preview. Roadmap and product-scope decisions live in `docs/PRODUCT_PLAN.md`; this guide is only for environment setup, promotion, and smoke validation.
 
 ## What This Guide Covers
 
@@ -109,6 +109,7 @@ Recommended local check after setting the live env vars:
 5. In the Vercel dashboard, open `Settings -> Environments -> Production -> Branch Tracking`, set the Production Branch to `production`, and do not push that branch until launch is approved.
 6. Keep `main` as the integration branch, and create long-lived local `staging` and `production` refs if they do not already exist.
 7. When a `main` commit passes local validation, fast-forward `staging` to that exact commit and push `staging`.
+   Use `npm run promote:staging` from a clean `main` worktree to automate the push plus fast-forward sequence.
 8. The repo pins the Vercel framework preset in `vercel.json`; if the dashboard still shows `Other`, redeploy after pulling the latest branch so the override takes effect.
 9. Verify the preview deployment metadata and Supabase redirect URLs match the `staging` preview host before testing auth.
 10. Do not push or promote production until the smoke checklist below and the wider `docs/QA_NOTES.md` device checks pass.
@@ -116,14 +117,24 @@ Recommended local check after setting the live env vars:
 Recommended promotion commands:
 
 ```bash
-git switch staging
-git merge --ff-only main
-git push origin staging
+npm run promote:staging
 
 git switch production
 git merge --ff-only staging
 git push origin production
 ```
+
+The staged hosted smoke runner now has a promotion preflight. Use:
+
+```bash
+npm run smoke:staging -- "<vercel-share-url>"
+```
+
+That command refuses to run if:
+
+- the worktree is dirty
+- `HEAD` has not been pushed to `origin/main`
+- `origin/staging` has not been fast-forwarded to the same commit as `origin/main`
 
 ## 5. Live-Service Smoke Checklist
 
@@ -134,13 +145,22 @@ Run this first on preview, then repeat on desktop plus at least one mobile/table
 3. A signed-in empty account either:
    - auto-gets the starter example trip when no legacy browser data exists, or
    - sees the one-time import-or-example chooser when legacy browser data exists
-4. Signed-in user can save a stop edit and the sync state returns to `Saved`.
-5. The same cloud trip opens on a second browser or device.
-6. Place search works in the stop editor after a deliberate submitted lookup, and saving the edited place does not break the itinerary.
-7. Route estimates show live OpenRouteService confidence when the key is valid, and fall back cleanly when the service is unavailable.
-8. If two devices edit the same trip, the stale device shows recovery messaging and reloads the latest version.
-9. If the device loses service after syncing, the app reopens the cached trip in read-only mode and disables `Edit trip`.
-10. Desktop rail switching, itinerary scrolling, map framing, and mobile `Today` and `Itinerary` review still behave correctly after live-service wiring.
+4. Signed-in cloud mode shows the `Trips` section and top-left account/status control.
+5. Multi-trip flows work:
+   - create blank trip
+   - create example trip
+   - switch trip
+   - rename trip
+   - delete non-active trip
+   - delete active trip with fallback load
+   - block deleting the last remaining trip
+6. Signed-in user can save a stop edit and the sync state returns to `Saved`.
+7. The same cloud trip opens on a second browser or device.
+8. Place search works in the stop editor after a deliberate submitted lookup, and saving the edited place does not break the itinerary.
+9. Route estimates show live OpenRouteService confidence when the key is valid, and fall back cleanly when the service is unavailable.
+10. If two devices edit the same trip, the stale device shows recovery messaging and reloads the latest version.
+11. If the device loses service after syncing, the app reopens the cached trip in read-only mode and disables `Edit trip`.
+12. Desktop rail switching, itinerary scrolling, map framing, mobile tabs, and the account/status popup all behave correctly after live-service wiring.
 
 Use `docs/QA_NOTES.md` for the broader layout and failure-handling matrix after this core smoke pass.
 
@@ -159,7 +179,7 @@ The Playwright suite uses the repository's internal E2E auth and backend bypass 
 
 ## 7. Remaining Hardening After Activation
 
-Activation is not the end of phase 1. After the live path works, we still need to close the small hardening tail:
+After the live path works, we still need to close the remaining hardening tail:
 
 - Record smoke and device-pass results in `docs/QA_NOTES.md`.
 - Decide whether the current console-backed `/api/analytics` endpoint is sufficient for first release or whether lightweight hosted observability is needed.

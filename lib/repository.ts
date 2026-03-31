@@ -1,7 +1,15 @@
 import { getSeedData, getSeedDataShiftedToTodayAlignedTo } from "@/lib/seedData";
 import { readCachedActiveTrip, writeCachedActiveTrip } from "@/lib/offlineCache";
 import { parseStoredAppData, serializeAppData } from "@/lib/tripData";
-import { AppData, SessionUser, Trip, TripSummary } from "@/types/trip";
+import {
+  AppData,
+  CreateTripInput,
+  DeleteTripResponse,
+  RenameTripInput,
+  SessionUser,
+  Trip,
+  TripSummary,
+} from "@/types/trip";
 
 const LEGACY_STORAGE_KEY = "campervan_trip_planner_v1";
 const ACTIVE_TRIP_PREFERENCE_PREFIX = "campervan_trip_planner_active_trip";
@@ -11,6 +19,9 @@ export interface TripRepository {
   listTrips(): Promise<TripSummary[]>;
   loadTrip(tripId: string): Promise<Trip>;
   saveTrip(trip: Trip): Promise<Trip>;
+  createTrip(input: CreateTripInput): Promise<Trip>;
+  renameTrip(tripId: string, input: RenameTripInput): Promise<TripSummary>;
+  deleteTrip(tripId: string): Promise<DeleteTripResponse>;
   importLocalTrips(data: AppData): Promise<TripSummary[]>;
   getCachedActiveTrip(): Promise<Trip | null>;
 }
@@ -179,6 +190,29 @@ export class CloudTripRepository implements TripRepository {
     });
     await writeCachedActiveTrip(payload.trip);
     return payload.trip;
+  }
+
+  async createTrip(input: CreateTripInput): Promise<Trip> {
+    const payload = await this.request<{ trip: Trip }>("/api/trips", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    await writeCachedActiveTrip(payload.trip);
+    return payload.trip;
+  }
+
+  async renameTrip(tripId: string, input: RenameTripInput): Promise<TripSummary> {
+    const payload = await this.request<{ trip: TripSummary }>(`/api/trips/${tripId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+    return payload.trip;
+  }
+
+  async deleteTrip(tripId: string): Promise<DeleteTripResponse> {
+    return await this.request<DeleteTripResponse>(`/api/trips/${tripId}`, {
+      method: "DELETE",
+    });
   }
 
   async importLocalTrips(data: AppData): Promise<TripSummary[]> {

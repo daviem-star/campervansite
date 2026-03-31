@@ -2,7 +2,7 @@
 
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 
-import AccountPanel from "@/components/planner/AccountPanel";
+import AccountStatusControl from "@/components/planner/AccountStatusControl";
 import DayStrip from "@/components/planner/DayStrip";
 import FirstTripSetupPanel from "@/components/planner/FirstTripSetupPanel";
 import GapWarnings from "@/components/planner/GapWarnings";
@@ -12,7 +12,10 @@ import PlannerMap from "@/components/planner/PlannerMap";
 import StopEditorModal from "@/components/planner/StopEditorModal";
 import TodayActionsPanel from "@/components/planner/TodayActionsPanel";
 import TravelInsightsPanel from "@/components/planner/TravelInsightsPanel";
+import TripCreateModal from "@/components/planner/TripCreateModal";
 import TripHeader from "@/components/planner/TripHeader";
+import TripRenameModal from "@/components/planner/TripRenameModal";
+import TripsPanel from "@/components/planner/TripsPanel";
 import ValidationWarningsPanel from "@/components/planner/ValidationWarningsPanel";
 import { formatDateOnly, todayDateInTimezone } from "@/lib/date";
 import { readCachedRouteEstimateSet, writeCachedRouteEstimateSet } from "@/lib/routeEstimateCache";
@@ -21,6 +24,7 @@ import {
   fetchTravelLegEstimates,
   mergeTravelEstimateMetadata,
 } from "@/lib/routeEstimates";
+import { getExampleTripDefaultName } from "@/lib/tripFactories";
 import {
   formatTripDateRange,
   getCostSummary,
@@ -39,6 +43,7 @@ import {
   StopType,
   TravelLegEstimate,
   TripStop,
+  TripSummary,
 } from "@/types/trip";
 
 type EditorState = {
@@ -48,8 +53,8 @@ type EditorState = {
   initialStop: TripStop | null;
 };
 
-type MobileTab = "today" | "itinerary" | "overview" | "map";
-type DesktopPanel = "itinerary" | "overview" | "today";
+type MobileTab = "trips" | "today" | "itinerary" | "overview" | "map";
+type DesktopPanel = "trips" | "itinerary" | "overview" | "today";
 type SelectionOrigin = "itinerary" | "map" | "system";
 type RouteInsightsState = "fresh" | "stale" | "unavailable";
 
@@ -60,64 +65,38 @@ const defaultEditorState: EditorState = {
   initialStop: null,
 };
 
-const syncLabel = {
-  idle: "Idle",
-  saving: "Saving",
-  saved: "Saved",
-  offline: "Offline",
-  error: "Needs attention",
-} as const;
-
-const syncTone = {
-  idle: "border-slate-200 bg-slate-100 text-slate-700",
-  saving: "border-sky-200 bg-sky-50 text-sky-700",
-  saved: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  offline: "border-amber-200 bg-amber-50 text-amber-800",
-  error: "border-rose-200 bg-rose-50 text-rose-700",
-} as const;
-
-const panelMeta: Array<{
+const desktopPanelMeta: Array<{
   id: DesktopPanel;
   label: string;
-  detail: string;
 }> = [
-  {
-    id: "itinerary",
-    label: "Itinerary",
-    detail: "Browse the trip timeline and unlock edit mode when you want to change it.",
-  },
-  {
-    id: "overview",
-    label: "Overview",
-    detail: "Trip summary, account controls, travel insights, and planning warnings.",
-  },
-  {
-    id: "today",
-    label: "Today",
-    detail: "Travel-day actions and checks that matter while you are on the road.",
-  },
+  { id: "trips", label: "Trips" },
+  { id: "itinerary", label: "Itinerary" },
+  { id: "overview", label: "Overview" },
+  { id: "today", label: "Today" },
 ];
 
-const mobilePanelMeta: Record<MobileTab, { label: string; detail: string }> = {
-  today: {
-    label: "Today",
-    detail: "Travel-day actions and checks that matter while you are on the road.",
-  },
-  itinerary: {
-    label: "Itinerary",
-    detail: "Browse the trip timeline and unlock edit mode when you want to change it.",
-  },
-  overview: {
-    label: "Overview",
-    detail: "Trip summary, account controls, travel insights, and planning warnings.",
-  },
-  map: {
-    label: "Map",
-    detail: "See the whole route, reset to the trip overview, and inspect selected stops.",
-  },
-};
+const mobilePanelMeta: Array<{
+  id: MobileTab;
+  label: string;
+}> = [
+  { id: "trips", label: "Trips" },
+  { id: "itinerary", label: "Itinerary" },
+  { id: "overview", label: "Overview" },
+  { id: "today", label: "Today" },
+  { id: "map", label: "Map" },
+];
 
 const panelIcon = (panel: DesktopPanel) => {
+  if (panel === "trips") {
+    return (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <rect x="4" y="5" width="16" height="14" rx="2.2" />
+        <path d="M8 9h8" strokeLinecap="round" />
+        <path d="M8 13h5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
   if (panel === "itinerary") {
     return (
       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -154,6 +133,7 @@ const panelIcon = (panel: DesktopPanel) => {
 export default function PlannerApp() {
   const {
     data,
+    tripSummaries,
     isLoading,
     error,
     statusMessage,
@@ -171,7 +151,11 @@ export default function PlannerApp() {
     signOut,
     importLegacyTrips,
     createCloudTripFromCurrent,
+    createTrip,
     startWithExampleTrip,
+    loadCloudTrip,
+    renameTrip,
+    deleteTrip,
     resetToSeed,
     resetToSeedAlignedToToday,
     setPlannerInteractionMode,
@@ -191,6 +175,10 @@ export default function PlannerApp() {
   const [isEstimatingRoutes, setIsEstimatingRoutes] = useState(false);
   const [routeInsightsState, setRouteInsightsState] = useState<RouteInsightsState>("fresh");
   const [routeStatusMessage, setRouteStatusMessage] = useState<string | null>(null);
+  const [isTripCreateOpen, setIsTripCreateOpen] = useState(false);
+  const [tripToRename, setTripToRename] = useState<TripSummary | null>(null);
+  const [isManagingTrips, setIsManagingTrips] = useState(false);
+  const panelSelectionVersionRef = useRef(0);
   const routeRefreshCounterRef = useRef(0);
 
   useEffect(() => {
@@ -217,6 +205,26 @@ export default function PlannerApp() {
 
     return data.trips.find((trip) => trip.id === data.activeTripId) ?? null;
   }, [data]);
+
+  const isCloudTripLibraryAvailable = authStatus === "signed_in" && mode === "cloud";
+  const desktopPanels = isCloudTripLibraryAvailable
+    ? desktopPanelMeta
+    : desktopPanelMeta.filter((panel) => panel.id !== "trips");
+  const mobilePanels = isCloudTripLibraryAvailable
+    ? mobilePanelMeta
+    : mobilePanelMeta.filter((panel) => panel.id !== "trips");
+
+  useEffect(() => {
+    if (!isCloudTripLibraryAvailable) {
+      if (desktopPanel === "trips") {
+        setDesktopPanel("overview");
+      }
+
+      if (mobileTab === "trips") {
+        setMobileTab("overview");
+      }
+    }
+  }, [desktopPanel, isCloudTripLibraryAvailable, mobileTab]);
 
   const routePayload = useMemo(() => {
     if (!activeTrip) {
@@ -372,8 +380,33 @@ export default function PlannerApp() {
   }, [activeTrip, selectedEntity]);
 
   const canEditTrip = plannerInteractionMode === "edit" && !isOfflineReadOnly;
-  const activePanelMeta = panelMeta.find((panel) => panel.id === desktopPanel) ?? panelMeta[0];
-  const activeToolbarMeta = isDesktopViewport ? activePanelMeta : mobilePanelMeta[mobileTab];
+  const isTripLibraryBusy = isLoading || isManagingTrips || syncStatus === "saving";
+
+  const selectDesktopPanel = (panel: DesktopPanel) => {
+    panelSelectionVersionRef.current += 1;
+    setDesktopPanel(panel);
+  };
+
+  const selectMobileTab = (panel: MobileTab) => {
+    panelSelectionVersionRef.current += 1;
+    setMobileTab(panel);
+  };
+
+  const showOverviewPanel = (selectionVersion?: number) => {
+    if (
+      typeof selectionVersion === "number" &&
+      panelSelectionVersionRef.current !== selectionVersion
+    ) {
+      return;
+    }
+
+    if (isDesktopViewport) {
+      setDesktopPanel("overview");
+      return;
+    }
+
+    setMobileTab("overview");
+  };
 
   const onCreateStop = async (stop: NewTripStop) => {
     await addStop(stop);
@@ -407,6 +440,108 @@ export default function PlannerApp() {
     selectEntity(entity, "map");
   };
 
+  const handleOpenTrip = async (tripId: string) => {
+    const selectionVersion = panelSelectionVersionRef.current;
+
+    if (tripId === activeTrip?.id) {
+      showOverviewPanel();
+      return;
+    }
+
+    setIsManagingTrips(true);
+
+    try {
+      await loadCloudTrip(tripId);
+      const nextState = useTripStore.getState();
+      if (!nextState.error && nextState.data?.activeTripId === tripId) {
+        showOverviewPanel(selectionVersion);
+      }
+    } finally {
+      setIsManagingTrips(false);
+    }
+  };
+
+  const handleCreateTrip = async (
+    input: Parameters<typeof createTrip>[0],
+  ): Promise<boolean> => {
+    const previousActiveTripId = activeTrip?.id ?? null;
+    const selectionVersion = panelSelectionVersionRef.current;
+    setIsManagingTrips(true);
+
+    try {
+      await createTrip(input);
+      const nextState = useTripStore.getState();
+      const nextActiveTripId = nextState.data?.activeTripId ?? null;
+      const didCreate = !nextState.error && nextActiveTripId !== previousActiveTripId;
+
+      if (didCreate) {
+        showOverviewPanel(selectionVersion);
+      }
+
+      return didCreate;
+    } finally {
+      setIsManagingTrips(false);
+    }
+  };
+
+  const handleRenameTrip = async (name: string): Promise<boolean> => {
+    if (!tripToRename) {
+      return false;
+    }
+
+    setIsManagingTrips(true);
+
+    try {
+      await renameTrip(tripToRename.id, { name });
+      const nextState = useTripStore.getState();
+      const renamedTrip = nextState.tripSummaries.find((trip) => trip.id === tripToRename.id);
+      return !nextState.error && renamedTrip?.name === name.trim();
+    } finally {
+      setIsManagingTrips(false);
+    }
+  };
+
+  const handleDeleteTrip = async (trip: TripSummary) => {
+    const selectionVersion = panelSelectionVersionRef.current;
+    const confirmed = window.confirm(
+      trip.id === activeTrip?.id
+        ? `Delete "${trip.name}"? The planner will immediately load another remaining trip.`
+        : `Delete "${trip.name}"? This cannot be undone.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setIsManagingTrips(true);
+
+    try {
+      const isDeletingActiveTrip = trip.id === activeTrip?.id;
+      await deleteTrip(trip.id);
+      const nextState = useTripStore.getState();
+
+      if (!nextState.error && isDeletingActiveTrip) {
+        showOverviewPanel(selectionVersion);
+      }
+    } finally {
+      setIsManagingTrips(false);
+    }
+  };
+
+  const handleImportLegacyTrips = async () => {
+    const selectionVersion = panelSelectionVersionRef.current;
+    setIsManagingTrips(true);
+
+    try {
+      await importLegacyTrips();
+      const nextState = useTripStore.getState();
+      if (!nextState.error) {
+        showOverviewPanel(selectionVersion);
+      }
+    } finally {
+      setIsManagingTrips(false);
+    }
+  };
+
   const renderSharedNotices = () => (
     <>
       {error ? (
@@ -422,66 +557,6 @@ export default function PlannerApp() {
     </>
   );
 
-  const renderToolbar = () => (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-            {activeToolbarMeta.label}
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold text-slate-950">{activeTrip?.name}</h2>
-            <span
-              className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${syncTone[syncStatus]}`}
-            >
-              {syncLabel[syncStatus]}
-            </span>
-            <span
-              className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
-                plannerInteractionMode === "edit"
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : "border-slate-200 bg-slate-50 text-slate-700"
-              }`}
-            >
-              {plannerInteractionMode === "edit" ? "Edit mode" : "View mode"}
-            </span>
-          </div>
-          <p className="mt-2 text-sm text-slate-600">{activeToolbarMeta.detail}</p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => {
-            if (plannerInteractionMode === "edit") {
-              setEditor(defaultEditorState);
-              setPlannerInteractionMode("view");
-              return;
-            }
-
-            setPlannerInteractionMode("edit");
-          }}
-          disabled={isOfflineReadOnly}
-          className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
-            isOfflineReadOnly
-              ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400"
-              : plannerInteractionMode === "edit"
-                ? "border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
-                : "bg-slate-950 text-white hover:bg-slate-800"
-          }`}
-        >
-          {plannerInteractionMode === "edit" ? "Finish editing" : "Edit trip"}
-        </button>
-      </div>
-
-      {isOfflineReadOnly ? (
-        <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
-          The cached trip is available to review while offline, but editing stays locked until you
-          reconnect.
-        </p>
-      ) : null}
-    </div>
-  );
-
   const renderOverviewPanel = () => (
     <div
       data-testid="overview-scroll-region"
@@ -493,24 +568,6 @@ export default function PlannerApp() {
         dateRangeLabel={activeTrip ? formatTripDateRange(activeTrip) : ""}
         totalNights={costSummary.totalNights}
         totalCost={costSummary.totalCost}
-        showDemoControls={mode === "demo"}
-        onResetSeed={resetToSeed}
-        onResetSeedAlignedToToday={resetToSeedAlignedToToday}
-      />
-
-      <AccountPanel
-        authStatus={authStatus}
-        mode={mode}
-        userEmail={user?.email ?? null}
-        syncStatus={syncStatus}
-        isOfflineReadOnly={isOfflineReadOnly}
-        hasLegacyImport={hasLegacyImport}
-        statusMessage={null}
-        onSignIn={signInWithMagicLink}
-        onSignInAsTestUser={signInAsTestUser}
-        onSignOut={signOut}
-        onImportLegacy={importLegacyTrips}
-        onCreateCloudTripFromCurrent={createCloudTripFromCurrent}
       />
 
       <TravelInsightsPanel
@@ -534,6 +591,23 @@ export default function PlannerApp() {
     </div>
   );
 
+  const renderTripsPanel = () => (
+    <div className="lg:flex lg:h-full lg:min-h-0 lg:flex-col">
+      <TripsPanel
+        trips={tripSummaries}
+        activeTripId={activeTrip?.id ?? ""}
+        hasLegacyImport={hasLegacyImport}
+        isOfflineReadOnly={isOfflineReadOnly}
+        isWorking={isTripLibraryBusy}
+        onCreateTrip={() => setIsTripCreateOpen(true)}
+        onImportLegacyTrips={handleImportLegacyTrips}
+        onOpenTrip={handleOpenTrip}
+        onRenameTrip={setTripToRename}
+        onDeleteTrip={handleDeleteTrip}
+      />
+    </div>
+  );
+
   const renderItineraryPanel = (isVisible: boolean) => (
     <div className="space-y-4 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
       <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:flex-none">
@@ -551,20 +625,61 @@ export default function PlannerApp() {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
-        <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-slate-900">Itinerary</h3>
-            <p className="text-xs text-slate-500">
-              Grouped by campsite stays and the travel days around them
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold text-slate-900">Itinerary</h3>
+              <span
+                className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
+                  plannerInteractionMode === "edit"
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-200 bg-slate-50 text-slate-700"
+                }`}
+              >
+                {plannerInteractionMode === "edit" ? "Edit mode" : "View mode"}
+              </span>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              Grouped by campsite stays and the travel days around them.
             </p>
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (plannerInteractionMode === "edit") {
+                setEditor(defaultEditorState);
+                setPlannerInteractionMode("view");
+                return;
+              }
+
+              setPlannerInteractionMode("edit");
+            }}
+            disabled={isOfflineReadOnly}
+            className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
+              isOfflineReadOnly
+                ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400"
+                : plannerInteractionMode === "edit"
+                  ? "border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+                  : "bg-slate-950 text-white hover:bg-slate-800"
+            }`}
+          >
+            {plannerInteractionMode === "edit" ? "Finish editing" : "Edit trip"}
+          </button>
         </div>
 
         <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-600">
           {canEditTrip
             ? "Edit mode is unlocked. Add, update, and remove itinerary items from this view."
-            : "View mode is active. Use Edit trip to unlock changes without accidentally altering the route."}
+            : "View mode is active. Use Edit trip here to unlock changes without accidentally altering the route."}
         </div>
+
+        {isOfflineReadOnly ? (
+          <p className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+            The cached trip is available to review while offline, but editing stays locked until
+            you reconnect.
+          </p>
+        ) : null}
 
         {canEditTrip ? (
           <div className="mb-4 flex flex-wrap gap-2">
@@ -710,76 +825,102 @@ export default function PlannerApp() {
         <div className="mx-auto flex h-full w-full max-w-[1760px] flex-col gap-4 p-3 lg:flex-row lg:items-stretch lg:p-4">
           <section className="rounded-3xl bg-white/30 p-1 lg:h-full lg:w-[46%] lg:overflow-hidden">
             <div className="rounded-3xl p-2 lg:flex lg:h-full lg:min-h-0 lg:gap-3">
-              <nav className="hidden w-[82px] flex-none rounded-3xl border border-slate-200 bg-white p-2 shadow-sm lg:flex lg:flex-col lg:gap-2">
-                {panelMeta.map((panel) => {
-                  const active = desktopPanel === panel.id;
-                  return (
-                    <button
-                      key={panel.id}
-                      type="button"
-                      data-testid={`desktop-panel-${panel.id}`}
-                      onClick={() => setDesktopPanel(panel.id)}
-                      className={`group flex flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center transition ${
-                        active
-                          ? "bg-slate-950 text-white"
-                          : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
-                      }`}
-                      title={panel.label}
-                    >
-                      {panelIcon(panel.id)}
-                      <span className="text-[11px] font-semibold">{panel.label}</span>
-                    </button>
-                  );
-                })}
-              </nav>
+              <div className="hidden w-[90px] flex-none lg:flex lg:flex-col lg:gap-3">
+                <AccountStatusControl
+                  authStatus={authStatus}
+                  mode={mode}
+                  userEmail={user?.email ?? null}
+                  syncStatus={syncStatus}
+                  isOfflineReadOnly={isOfflineReadOnly}
+                  onSignIn={signInWithMagicLink}
+                  onSignInAsTestUser={signInAsTestUser}
+                  onSignOut={signOut}
+                  onCreateCloudTripFromCurrent={createCloudTripFromCurrent}
+                  onResetSeed={resetToSeed}
+                  onResetSeedAlignedToToday={resetToSeedAlignedToToday}
+                />
+
+                <nav className="flex-1 rounded-3xl border border-slate-200 bg-white p-2 shadow-sm">
+                  <div className="flex h-full flex-col gap-2">
+                    {desktopPanels.map((panel) => {
+                      const active = desktopPanel === panel.id;
+                      return (
+                        <button
+                          key={panel.id}
+                          type="button"
+                          data-testid={`desktop-panel-${panel.id}`}
+                          onClick={() => selectDesktopPanel(panel.id)}
+                          className={`group flex flex-col items-center gap-2 rounded-2xl px-2 py-3 text-center transition ${
+                            active
+                              ? "bg-slate-950 text-white"
+                              : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                          }`}
+                          title={panel.label}
+                        >
+                          {panelIcon(panel.id)}
+                          <span className="text-[11px] font-semibold">{panel.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </nav>
+              </div>
 
               <div className="min-h-0 min-w-0 lg:flex lg:flex-1 lg:flex-col lg:gap-4">
-                {renderSharedNotices()}
-
                 <div className="space-y-4 lg:hidden">
-                  {renderToolbar()}
+                  <div className="flex items-start justify-start">
+                    <AccountStatusControl
+                      authStatus={authStatus}
+                      mode={mode}
+                      userEmail={user?.email ?? null}
+                      syncStatus={syncStatus}
+                      isOfflineReadOnly={isOfflineReadOnly}
+                      onSignIn={signInWithMagicLink}
+                      onSignInAsTestUser={signInAsTestUser}
+                      onSignOut={signOut}
+                      onCreateCloudTripFromCurrent={createCloudTripFromCurrent}
+                      onResetSeed={resetToSeed}
+                      onResetSeedAlignedToToday={resetToSeedAlignedToToday}
+                    />
+                  </div>
+
+                  {renderSharedNotices()}
 
                   <div className="rounded-2xl border border-slate-200 bg-white p-2">
-                    <div className="grid grid-cols-4 gap-2">
-                      {([
-                        ["today", "Today"],
-                        ["itinerary", "Itinerary"],
-                        ["overview", "Overview"],
-                        ["map", "Map"],
-                      ] as const).map(([tabId, label]) => (
+                    <div className="flex gap-2 overflow-x-auto pb-1">
+                      {mobilePanels.map((panel) => (
                         <button
-                          key={tabId}
+                          key={panel.id}
                           type="button"
-                          onClick={() => setMobileTab(tabId)}
-                          className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                            mobileTab === tabId
+                          data-testid={`mobile-panel-${panel.id}`}
+                          onClick={() => selectMobileTab(panel.id)}
+                          className={`shrink-0 rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                            mobileTab === panel.id
                               ? "bg-slate-900 text-white"
                               : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
                           }`}
                         >
-                          {label}
+                          {panel.label}
                         </button>
                       ))}
                     </div>
                   </div>
 
+                  {mobileTab === "trips" && isCloudTripLibraryAvailable ? renderTripsPanel() : null}
                   {mobileTab === "today" ? renderTodayPanel() : null}
                   {mobileTab === "overview" ? renderOverviewPanel() : null}
-                  {mobileTab === "itinerary" ? renderItineraryPanel(mobileTab === "itinerary") : null}
-                  {mobileTab === "map" ? (
-                    <div className="h-[68vh]">{renderPlannerMap(mobileTab === "map")}</div>
-                  ) : null}
+                  {mobileTab === "itinerary" ? renderItineraryPanel(true) : null}
+                  {mobileTab === "map" ? <div className="h-[68vh]">{renderPlannerMap(true)}</div> : null}
                 </div>
 
                 <div className="hidden lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-4">
-                  {renderToolbar()}
+                  {renderSharedNotices()}
 
                   <div className="min-h-0 flex-1">
+                    {desktopPanel === "trips" && isCloudTripLibraryAvailable ? renderTripsPanel() : null}
                     {desktopPanel === "overview" ? renderOverviewPanel() : null}
                     {desktopPanel === "today" ? renderTodayPanel() : null}
-                    {desktopPanel === "itinerary"
-                      ? renderItineraryPanel(isDesktopViewport || mobileTab === "itinerary")
-                      : null}
+                    {desktopPanel === "itinerary" ? renderItineraryPanel(isDesktopViewport) : null}
                   </div>
                 </div>
               </div>
@@ -799,6 +940,27 @@ export default function PlannerApp() {
         onCreate={onCreateStop}
         onUpdate={onUpdateStop}
       />
+
+      {isTripCreateOpen ? (
+        <TripCreateModal
+          isOpen
+          isWorking={isTripLibraryBusy}
+          defaultExampleName={getExampleTripDefaultName()}
+          onClose={() => setIsTripCreateOpen(false)}
+          onCreate={handleCreateTrip}
+        />
+      ) : null}
+
+      {tripToRename ? (
+        <TripRenameModal
+          key={tripToRename.id}
+          isOpen
+          isWorking={isTripLibraryBusy}
+          currentName={tripToRename.name}
+          onClose={() => setTripToRename(null)}
+          onRename={handleRenameTrip}
+        />
+      ) : null}
     </>
   );
 }

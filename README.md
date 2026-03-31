@@ -1,30 +1,36 @@
 # Campervan Trip Planner
 
-A Next.js App Router trip planner for campervan travel. During the pre-launch phase, the `main` branch is the integration and release-candidate source of truth for the auth-first beta foundation: signed-out users land on a private access screen, then the full planner opens after magic-link sign-in. Most of the phase 1 product work is already in code; the remaining work is live-service activation, preview validation, and release hardening.
+A Next.js App Router trip planner for campervan travel. The app now ships an auth-first beta planner with a cloud trip library, a single active trip workspace, and deterministic local/test flows for confidence work before launch.
 
 ## Current Status
 
-- Single active trip planning experience with desktop, tablet, and mobile layouts.
-- Auth-first entry with a signed-out welcome screen instead of a public demo itinerary.
+- Cloud multi-trip management v1 is in code:
+  - create blank trip
+  - create example trip
+  - switch trip
+  - rename trip
+  - delete trip with last-trip guardrails
+- The planner keeps one active trip workspace open at a time.
+- Desktop navigation uses `Trips`, `Itinerary`, `Overview`, and `Today`, with the map persistent beside the planner.
+- Mobile navigation uses `Trips`, `Itinerary`, `Overview`, `Today`, and `Map`.
+- `Overview` is trip-only; account and sync controls live in a persistent top-left account/status popup.
 - Signed-in onboarding creates a cloud-backed starter example trip automatically, or offers a one-time import/local-choice flow when legacy browser data exists.
-- Cloud mode adds email magic-link auth, cloud trip save/load, sync messaging, conflict recovery, and offline read-only reopening of the last synced trip.
-- Desktop uses a rail-based planner shell where the itinerary owns scrolling and overview/today content live in switchable panels.
-- Route realism includes road-leg estimates, buffered drive times, route-confidence messaging, snapped routing coordinates for edited places, and validation warnings for difficult travel days.
+- Cloud mode includes email magic-link auth, trip CRUD, sync messaging, conflict recovery, and offline read-only reopening of the last synced trip.
+- Forced demo mode and local test sign-in remain available for deterministic local preview and E2E work.
 - Automated coverage includes Vitest, API route tests, and Playwright trust flows.
-- Forced demo mode and local test sign-in exist for deterministic local preview and E2E work.
-- Pre-launch release management should stay on one codebase, with `main` as integration, `staging` as the protected cloud QA lane, and a dormant `production` branch reserved for go-live.
 
-The project is beyond the original local-only MVP. The main remaining gap is live service activation and hosted validation, not the core app architecture.
+The main remaining gap is hosted activation and live-service validation, not missing core planner architecture.
 
 ## What The App Does Today
 
+- Manage a cloud trip library in authenticated cloud mode while keeping one selected trip loaded at a time.
 - Build and edit itinerary stops for:
   - `stay`
   - `ferry`
   - `point_of_interest`
-- Default to `View mode`, then explicitly unlock `Edit trip` before mutating the itinerary.
+- Default to `View mode`, then explicitly unlock `Edit trip` in `Itinerary` before mutating the trip.
 - Visualize the itinerary on a map with road-following road legs when live routing is available, plus ferry port markers and ferry segments.
-- Show trip-day navigation, today actions, overview insights, gap warnings, route insights, and validation warnings.
+- Show trip-day navigation, today actions, trip overview insights, gap warnings, route insights, and validation warnings.
 - Search for places in the stop editor with a deliberate submitted lookup and preserve separate routing coordinates when route access data is available.
 - Store campsite metadata such as booking status, hookups, hardstanding, amenities, phone, and website.
 - Store ferry metadata such as operator, booking reference, vehicle details, and check-in buffers.
@@ -95,6 +101,15 @@ npm run build
 npm run test:e2e
 ```
 
+For hosted promotion and smoke:
+
+```bash
+npm run promote:staging
+npm run smoke:staging -- "<vercel-share-url>"
+```
+
+`npm run smoke:staging` performs a git preflight first, so it will stop if the target commit has not been pushed to `main` and fast-forwarded to `staging`.
+
 ## Activation Checklist
 
 1. Create or reuse the dedicated Supabase project, enable email magic-link auth, and apply the migration.
@@ -105,35 +120,20 @@ npm run test:e2e
 6. Treat a commit on `main` as ready for `staging` promotion only after auth-first entry, starter/import onboarding, save, conflict, offline, route-estimate, and place-search checks pass against live services.
 7. In the Vercel dashboard, set `Settings -> Environments -> Production -> Branch Tracking` to the dormant `production` branch before treating `staging` as the canonical hosted QA branch.
 8. Fast-forward or push `staging` to the exact approved `main` commit and run the protected preview smoke there.
+   Prefer `npm run promote:staging`, then `npm run smoke:staging -- "<vercel-share-url>"`.
 9. When launch is approved, fast-forward or push the dormant `production` branch to the exact approved `staging` commit so Vercel can create the first intentional production deployment.
 
 ## Repo Docs
 
+- `docs/PRODUCT_PLAN.md`: canonical roadmap and product scope
 - `docs/FOUNDATION_ACTIVATION.md`: hosted service setup and smoke-test runbook
 - `docs/HOSTED_SMOKE_TEST_2026-03-30.md`: detailed record of the first hosted smoke pass, including access, failures, fixes, and rerun procedure
-- `docs/PRODUCT_PLAN.md`: current product status and next milestone order
 - `docs/QA_NOTES.md`: manual QA checklist and issue log
 
-## Roadmap Source
+## Roadmap
 
-The forward plan in this repository now follows the architecture brief in `campervan_architect_brief.docx`, which framed the product in three phases:
+The live roadmap now sits in [docs/PRODUCT_PLAN.md](docs/PRODUCT_PLAN.md). In short:
 
-1. Foundation and trust: shared trip data, sync, offline confidence, and a reliable trip core
-2. Planning quality: route realism, ferry depth, campsite intelligence, and stronger validation
-3. On-road readiness: concise travel-day support, sharing/export, and mobile/tablet practicality
-
-The current codebase is late in phase 1. The next development work should continue to respect that sequence rather than jumping ahead to convenience features too early.
-
-## Next Steps
-
-- Finish the hosted-service path on live infrastructure:
-  - existing Supabase auth and persistence
-  - protected Vercel preview and then production wiring
-  - OpenRouteService for live timings and route-access snapping
-- Validate the current auth-first planner shell on real devices:
-  - starter/import onboarding
-  - desktop rail layout
-  - edit locking
-  - map framing
-- After activation, move into the architect brief's next phase: planning quality and realism.
-- Keep README and planning docs aligned with actual shipped behavior on `main`.
+1. Validate and harden the hosted multi-trip planner on real services and devices.
+2. Use that feedback to improve planning quality and realism.
+3. Only then move deeper into on-road tooling, export, and sharing.
