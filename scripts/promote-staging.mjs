@@ -44,4 +44,5 @@ if (stagingHead !== head) {
 }
 
 console.log(`[promote:staging] staging is now fast-forwarded to ${head}.`);
-console.log('[promote:staging] Next: npm run smoke:staging -- "<vercel-share-url>"');
+console.log("[promote:staging] Hosted QA is now available on staging.");
+console.log('[promote:staging] If you want to run hosted smoke next, use: npm run smoke:staging -- "<vercel-share-url>"');

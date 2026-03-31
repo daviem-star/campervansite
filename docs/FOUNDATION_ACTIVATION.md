@@ -108,11 +108,20 @@ Recommended local check after setting the live env vars:
 4. Enable deployment protection for the preview and keep the first hosted wave to 1-3 testers.
 5. In the Vercel dashboard, open `Settings -> Environments -> Production -> Branch Tracking`, set the Production Branch to `production`, and do not push that branch until launch is approved.
 6. Keep `main` as the integration branch, and create long-lived local `staging` and `production` refs if they do not already exist.
-7. When a `main` commit passes local validation, fast-forward `staging` to that exact commit and push `staging`.
+7. The repo disables Vercel auto-deploys for `main` in `vercel.json`, so `main` can absorb merges without creating a duplicate preview build. Leave `staging`, `production`, and feature branches deployable.
+8. When a `main` commit passes local validation and you want hosted QA, fast-forward `staging` to that exact commit and push `staging`.
    Use `npm run promote:staging` from a clean `main` worktree to automate the push plus fast-forward sequence.
-8. The repo pins the Vercel framework preset in `vercel.json`; if the dashboard still shows `Other`, redeploy after pulling the latest branch so the override takes effect.
-9. Verify the preview deployment metadata and Supabase redirect URLs match the `staging` preview host before testing auth.
-10. Do not push or promote production until the smoke checklist below and the wider `docs/QA_NOTES.md` device checks pass.
+9. The repo pins the Vercel framework preset in `vercel.json`; if the dashboard still shows `Other`, redeploy after pulling the latest branch so the override takes effect.
+10. Verify the preview deployment metadata and Supabase redirect URLs match the `staging` preview host before testing auth.
+11. Do not push or promote production until the smoke checklist below and the wider `docs/QA_NOTES.md` device checks pass.
+
+Recommended local-first flow:
+
+```bash
+npm run validate:local
+```
+
+Pause here after the local gate passes. Continue to hosted QA only when you want to verify Vercel and live-service behavior for that exact commit.
 
 Recommended promotion commands:
 
@@ -166,7 +175,13 @@ Use `docs/QA_NOTES.md` for the broader layout and failure-handling matrix after 
 
 ## 6. Automated Validation
 
-Run these before a release candidate:
+Run the bundled local gate before a release candidate:
+
+```bash
+npm run validate:local
+```
+
+That command expands to:
 
 ```bash
 npm test
@@ -191,5 +206,5 @@ After the live path works, we still need to close the remaining hardening tail:
 
 - Offline behavior is intentionally read-only for the last synced active trip in this milestone.
 - Forced demo mode and the local test-user helper are for development and automated testing, not the primary shipped experience.
-- Provider dashboards and environment variables are enough to activate preview from `staging` after promotion from `main` and hold production for later. The one required branch-tracking toggle currently lives in the Vercel dashboard rather than this repository. MCP servers are not required.
+- Provider dashboards and environment variables are enough to activate preview from `staging` after promotion from `main` and hold production for later. The repo now carries the `main` deployment-disable rule, while the production-branch tracking toggle still lives in the Vercel dashboard. MCP servers are not required.
 - The default hosted-preview tile fallback still uses OpenStreetMap raster tiles, so wider/public rollout should switch to a more durable tile provider before removing preview access limits.

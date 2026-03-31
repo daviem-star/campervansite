@@ -88,11 +88,17 @@ Supabase schema setup lives in `supabase/migrations/20260328_trip_documents.sql`
 
 With Supabase env vars populated, the auth gate should expose magic-link sign-in and the post-login planner. Without them, the app stays on the setup gate until the runtime keys are added.
 
-For day-to-day work, keep feature development on short-lived branches that merge back into `main`. Do not keep a permanent cloud-preview branch; use runtime flags and environment variables to separate local testing from protected preview and production. Before launch, keep Vercel's production branch on a dormant `production` branch, treat `staging` as the canonical hosted QA lane, and fast-forward `staging` only from approved `main` commits.
+For day-to-day work, keep feature development on short-lived branches that merge back into `main`. Do not keep a permanent cloud-preview branch; use runtime flags and environment variables to separate local testing from protected preview and production. Before launch, keep Vercel's production branch on a dormant `production` branch, treat `staging` as the canonical hosted QA lane, and fast-forward `staging` only from approved `main` commits. Vercel should auto-deploy `staging`, `production`, and feature branches, while `main` remains an integration branch that does not create its own preview deployment.
 
 ## Validation
 
-Run the full local validation set before merging:
+Run the default local validation gate before deciding whether to promote to hosted QA:
+
+```bash
+npm run validate:local
+```
+
+`npm run validate:local` runs the deterministic local suite in sequence:
 
 ```bash
 npm test
@@ -101,7 +107,7 @@ npm run build
 npm run test:e2e
 ```
 
-For hosted promotion and smoke:
+If local validation passes and you want hosted QA on the protected Vercel preview, promote the exact approved commit to `staging` and then run hosted smoke:
 
 ```bash
 npm run promote:staging
@@ -117,9 +123,9 @@ npm run smoke:staging -- "<vercel-share-url>"
 3. Add the required env vars locally and in Vercel Preview, including any map tile overrides if you are not using the default OpenStreetMap raster tiles.
 4. Protect the preview deployment, keep the first wave to 1-3 testers, and run the smoke checklist in `docs/FOUNDATION_ACTIVATION.md`.
 5. Record device and smoke-pass results in `docs/QA_NOTES.md`.
-6. Treat a commit on `main` as ready for `staging` promotion only after auth-first entry, starter/import onboarding, save, conflict, offline, route-estimate, and place-search checks pass against live services.
+6. Treat a commit on `main` as ready for optional `staging` promotion only after `npm run validate:local` passes and any additional local review is complete.
 7. In the Vercel dashboard, set `Settings -> Environments -> Production -> Branch Tracking` to the dormant `production` branch before treating `staging` as the canonical hosted QA branch.
-8. Fast-forward or push `staging` to the exact approved `main` commit and run the protected preview smoke there.
+8. Fast-forward or push `staging` to the exact approved `main` commit only when you want hosted QA on the protected preview.
    Prefer `npm run promote:staging`, then `npm run smoke:staging -- "<vercel-share-url>"`.
 9. When launch is approved, fast-forward or push the dormant `production` branch to the exact approved `staging` commit so Vercel can create the first intentional production deployment.
 
