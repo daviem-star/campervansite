@@ -133,6 +133,7 @@ npm run smoke:staging -- "<vercel-share-url>"
 
 - `docs/PRODUCT_PLAN.md`: canonical roadmap and product scope
 - `docs/FOUNDATION_ACTIVATION.md`: hosted service setup and smoke-test runbook
+- `docs/SCALING_CONSIDERATIONS.md`: growth-oriented notes on likely scaling pressure points and what to watch as usage increases
 - `docs/HOSTED_SMOKE_TEST_2026-03-30.md`: detailed record of the first hosted smoke pass, including access, failures, fixes, and rerun procedure
 - `docs/QA_NOTES.md`: manual QA checklist and issue log
 
