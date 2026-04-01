@@ -168,7 +168,7 @@ Run this first on preview, then repeat on desktop plus at least one mobile/table
 8. Place search works in the stop editor after a deliberate submitted lookup, and saving the edited place does not break the itinerary.
 9. Route estimates show live OpenRouteService confidence when the key is valid, and fall back cleanly when the service is unavailable.
 10. If two devices edit the same trip, the stale device shows recovery messaging and reloads the latest version.
-11. If the device loses service after syncing, the app reopens the cached trip in read-only mode and disables `Edit trip`.
+11. If the device loses service after syncing, the app reopens the cached trip in read-only mode and disables the itinerary mode toggle.
 12. Desktop rail switching, itinerary scrolling, map framing, mobile tabs, and the account/status popup all behave correctly after live-service wiring.
 
 Use `docs/QA_NOTES.md` for the broader layout and failure-handling matrix after this core smoke pass.

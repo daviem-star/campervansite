@@ -11,8 +11,8 @@ A Next.js App Router trip planner for campervan travel. The app now ships an aut
   - rename trip
   - delete trip with last-trip guardrails
 - The planner keeps one active trip workspace open at a time.
-- Desktop navigation uses `Trips`, `Itinerary`, `Overview`, and `Today`, with the map persistent beside the planner.
-- Mobile navigation uses `Trips`, `Itinerary`, `Overview`, `Today`, and `Map`.
+- Desktop navigation keeps `Trips` separate from the active-trip views `Overview`, `Itinerary`, and `Today`, with the map persistent beside the planner.
+- Mobile navigation keeps `Trips` as a standalone selector above grouped `Overview`, `Itinerary`, `Today`, and `Map` tabs.
 - `Overview` is trip-only; account and sync controls live in a persistent top-left account/status popup.
 - Signed-in onboarding creates a cloud-backed starter example trip automatically, or offers a one-time import/local-choice flow when legacy browser data exists.
 - Cloud mode includes email magic-link auth, trip CRUD, sync messaging, conflict recovery, and offline read-only reopening of the last synced trip.
@@ -28,7 +28,7 @@ The main remaining gap is hosted activation and live-service validation, not mis
   - `stay`
   - `ferry`
   - `point_of_interest`
-- Default to `View mode`, then explicitly unlock `Edit trip` in `Itinerary` before mutating the trip.
+- Default to `View mode`, then switch to `Edit mode` in `Itinerary` before mutating the trip. Newly created blank trips land directly in itinerary `Edit mode` so stop creation is obvious.
 - Visualize the itinerary on a map with road-following road legs when live routing is available, plus ferry port markers and ferry segments.
 - Show trip-day navigation, today actions, trip overview insights, gap warnings, route insights, and validation warnings.
 - Search for places in the stop editor with a deliberate submitted lookup and preserve separate routing coordinates when route access data is available.

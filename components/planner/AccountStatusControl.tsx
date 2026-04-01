@@ -142,7 +142,7 @@ export default function AccountStatusControl({
         data-testid="account-status-trigger"
         onClick={() => setIsOpen((current) => !current)}
         title={accountLabel}
-        className="group inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50 lg:w-full lg:flex-col lg:justify-center lg:gap-2 lg:rounded-3xl lg:px-2 lg:py-3"
+        className="inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50 lg:w-full lg:flex-col lg:justify-center lg:gap-2 lg:rounded-3xl lg:px-1 lg:py-3"
       >
         <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-slate-950 text-sm font-semibold text-white lg:h-12 lg:w-12">
           {accountInitial}
@@ -154,19 +154,6 @@ export default function AccountStatusControl({
         <span className="min-w-0 lg:hidden">
           <span className="block truncate text-sm font-semibold text-slate-900">{accountLabel}</span>
           <span className="block text-xs text-slate-500">{statusLabel[syncStatus]}</span>
-        </span>
-
-        <span className="hidden h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 transition group-hover:border-slate-300 group-hover:bg-white lg:inline-flex">
-          <svg
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            className={`h-3.5 w-3.5 transition ${isOpen ? "rotate-180" : ""}`}
-            aria-hidden="true"
-          >
-            <path d="m5 7 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
         </span>
       </button>
 

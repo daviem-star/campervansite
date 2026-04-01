@@ -386,7 +386,7 @@ const loadOrCreateStarterTrip = async (
         user,
         tripSummaries: refreshedSummaries,
         notice: createNotice(
-          "Example trip ready. Open Edit trip when you want to change stops or dates.",
+          "Example trip ready. Switch from View mode to Edit mode when you want to change stops or dates.",
           "account",
           "success",
         ),
@@ -405,7 +405,7 @@ const loadOrCreateStarterTrip = async (
       {
         analyticsEvent: "cloud_trip_created",
         notice: createNotice(
-          "Example trip ready. Open Edit trip when you want to change stops or dates.",
+          "Example trip ready. Switch from View mode to Edit mode when you want to change stops or dates.",
           "account",
           "success",
         ),
@@ -542,9 +542,9 @@ const enforceEditMode = (
   }
 
   set({
-    error: `Switch to Edit trip before ${actionLabel}.`,
+    error: `Switch from View mode to Edit mode before ${actionLabel}.`,
     notice: createNotice(
-      "View mode keeps the itinerary locked until you explicitly edit it.",
+      `Switch from View mode to Edit mode before ${actionLabel}.`,
       "inline",
       "warning",
     ),
@@ -820,9 +820,13 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
 
     const notice =
       input.source === "blank"
-        ? createNotice("Blank trip created. Add stops when you are ready to plan.", "account", "success")
+        ? createNotice(
+            "Blank trip created. You are in Edit mode now, so add stops when you are ready to plan.",
+            "account",
+            "success",
+          )
         : createNotice(
-            "Example trip created. Open Edit trip when you want to change stops or dates.",
+            "Example trip created. Switch from View mode to Edit mode when you want to change stops or dates.",
             "account",
             "success",
           );

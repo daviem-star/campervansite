@@ -41,12 +41,12 @@ For each issue, record:
   - Trip save flow works and returns to saved cloud state
   - Stay-place search works with explicit `Search` submission and saved result selection
   - Live route estimates render on the overview panel
-  - Desktop panel switching works across `Itinerary`, `Overview`, and `Today`
+  - Desktop panel switching works across `Trips`, `Overview`, `Itinerary`, and `Today`
   - Same cloud trip loads in a second browser context
   - Stale write conflict reloads the latest trip with recovery messaging
-  - Offline reopen shows the last synced trip as read-only with `Edit trip` disabled
+  - Offline reopen shows the last synced trip as read-only with the itinerary mode toggle disabled
 - Notes:
-  - This hosted smoke pass predates the new `Trips` section and top-left account/status control, so those flows still need a current hosted rerun and fresh evidence.
+  - This hosted smoke pass predates the current separated `Trips` selector, simplified itinerary mode toggle, and tightened top-left account trigger, so those flows still need a current hosted rerun and fresh evidence.
   - Hosted smoke was exercised with `node scripts/preview-smoke.mjs <vercel-share-url>`.
   - The failing hosted search path was repaired by removing nested form markup from `components/planner/StopSearchInput.tsx`.
   - This smoke pass happened before the preview hardening was fast-forwarded into `main`; future hosted passes should be recorded against `staging` commits promoted from `main`.
@@ -73,16 +73,16 @@ For each issue, record:
 - [ ] Legacy local import works once and then drops back into the main planner
 - [ ] `Import local trips` is available from `Trips` when legacy browser data exists and disappears after successful import
 - [x] Stale write conflict reloads the latest trip and shows recovery messaging
-- [x] Last synced trip reopens offline in read-only mode with the global `Edit trip` control disabled
+- [x] Last synced trip reopens offline in read-only mode with the itinerary mode toggle disabled
 - [x] Stop editor place search returns submitted results after pressing `Search` and an edited place can be saved successfully
 - [x] Route estimates succeed when OpenRouteService is configured and fall back gracefully when unavailable
 
 ### Mobile
 
 - [ ] Default tab is `Today`
-- [ ] Signed-in cloud mode exposes tabs for `Trips`, `Itinerary`, `Overview`, `Today`, and `Map`
+- [ ] Signed-in cloud mode exposes a standalone `Trips` control plus grouped `Overview`, `Itinerary`, `Today`, and `Map` tabs
 - [ ] Demo mode or missing cloud config hides `Trips`
-- [ ] Tab switching preserves selection/highlights (`Trips` / `Itinerary` / `Overview` / `Today` / `Map`)
+- [ ] Tab switching preserves selection/highlights (`Trips` / `Overview` / `Itinerary` / `Today` / `Map`)
 - [ ] The tab row remains horizontally usable without crushing labels
 - [ ] Top-left account/status icon opens cleanly and exposes auth/sync controls
 - [ ] Itinerary tab has fixed controls and scrollable itinerary list only
@@ -102,15 +102,15 @@ For each issue, record:
 ### Desktop
 
 - [ ] Authenticated desktop defaults to the `Itinerary` panel with the map visible
-- [ ] Signed-in cloud mode shows the top-left account/status control and `Trips`, `Itinerary`, `Overview`, and `Today` in the left rail
+- [ ] Signed-in cloud mode shows the top-left account/status control, a separate `Trips` selector, and `Overview`, `Itinerary`, and `Today` in the left rail
 - [ ] Demo mode hides `Trips` while keeping the rest of the planner usable
-- [x] Left rail switches cleanly between `Trips`, `Itinerary`, `Overview`, and `Today` when the trip library is available
+- [x] Left rail switches cleanly between `Trips`, `Overview`, `Itinerary`, and `Today` when the trip library is available
 - [ ] Lower itinerary sections remain reachable and their `Edit` actions stay clickable
 - [ ] Itinerary auto-scroll keeps the top toolbar and rail visible instead of shifting the whole planner upward
 - [ ] `Overview` remains trip-only and does not contain auth or sync controls
 - [ ] Top-left account/status popup holds auth, sync, and demo-only reset controls
-- [ ] View mode hides mutation controls until `Edit trip` is enabled
-- [ ] Offline read-only state keeps `Edit trip` disabled and the itinerary non-mutable
+- [ ] View mode hides mutation controls until switching to `Edit mode`
+- [ ] Offline read-only state keeps the itinerary mode toggle disabled and the itinerary non-mutable
 - [ ] First itinerary selection focuses map
 - [ ] Subsequent itinerary selections pan only (zoom preserved)
 - [ ] Map click selects itinerary item without auto-zoom jump

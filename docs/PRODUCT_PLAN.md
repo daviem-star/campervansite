@@ -21,21 +21,24 @@ This is no longer a single-trip-only planner. It is also not a multi-open editor
 
 - Desktop navigation uses:
   - `Trips`
-  - `Itinerary`
   - `Overview`
+  - `Itinerary`
   - `Today`
+- Desktop presents `Trips` as a separate workspace selector above the active-trip views.
 - Desktop keeps the map persistent beside the planner.
 - Mobile navigation uses:
   - `Trips`
-  - `Itinerary`
   - `Overview`
+  - `Itinerary`
   - `Today`
   - `Map`
+- Mobile presents `Trips` separately from the grouped active-trip view tabs.
 - A persistent top-left account/status control is available in the planner shell on all viewports.
 
 ### Panel Responsibilities
 
 - `Trips`
+  - workspace selector
   - trip library
   - active-trip badge
   - new blank trip
@@ -74,7 +77,9 @@ This is no longer a single-trip-only planner. It is also not a multi-open editor
 - Blank trip creation requires:
   - trip name
   - home pin
+- New blank trips land in `Itinerary` in `Edit mode` so stop creation is immediately available.
 - Example trip creation clones the seeded example with a fresh trip id, owner, version, and timestamps.
+- Existing and example trips continue to open view-first.
 - Deleting the active trip automatically loads the most recently updated remaining trip.
 - The last remaining cloud trip cannot be deleted in v1.
 
@@ -123,8 +128,8 @@ The immediate product priority is no longer “build multi-trip.” That work is
 - Verify trust protections still hold after the new IA:
   - `Overview` stays trip-only
   - account/sync controls live in the account/status popup
-  - `View mode` hides mutation controls until `Edit trip`
-  - offline reopen keeps `Edit trip` disabled and the itinerary non-mutable
+  - `View mode` hides mutation controls until switching to `Edit mode`
+  - offline reopen keeps the itinerary mode toggle disabled and the itinerary non-mutable
 
 ### Definition Of Done For This Milestone
 

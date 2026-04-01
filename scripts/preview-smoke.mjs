@@ -24,6 +24,7 @@ const waitForVisible = async (locator, timeout = 30000) => {
 };
 
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const modeToggle = (page) => page.getByTestId("planner-mode-toggle");
 
 const waitForAccountNotice = async (page, pattern, timeout = 30000) => {
   await page.getByRole("button", { name: /Open account and sync/i }).click();
@@ -71,13 +72,17 @@ const gotoPreview = async (page, shareUrl, baseUrl) => {
 };
 
 const ensureEditMode = async (page) => {
-  const editTripButton = page.getByRole("button", { name: /Edit trip/i });
-  if (!(await editTripButton.isVisible().catch(() => false))) {
+  const toggle = modeToggle(page);
+  if (!(await toggle.isVisible().catch(() => false))) {
     await page.getByTestId("desktop-panel-itinerary").click();
   }
-  await waitForVisible(editTripButton);
-  await editTripButton.click();
-  await waitForVisible(page.getByText(/Edit mode is unlocked/i).last());
+  await waitForVisible(toggle);
+  if ((await toggle.textContent())?.match(/Edit mode/i)) {
+    await waitForVisible(page.getByTestId("planner-mode-cancel"));
+    return;
+  }
+  await toggle.click();
+  await waitForVisible(page.getByTestId("planner-mode-cancel"));
 };
 
 const editFirstStopTitle = async (page, title) => {
@@ -206,7 +211,11 @@ const createBlankTrip = async (page, name) => {
   await result.click();
   await modal.getByRole("button", { name: /Create trip/i }).click();
 
-  await waitForVisible(page.getByRole("heading", { name: new RegExp(escapeRegExp(name), "i") }));
+  await waitForVisible(modeToggle(page));
+  if (!((await modeToggle(page).textContent())?.match(/Edit mode/i))) {
+    throw new Error("Blank trip did not land in itinerary edit mode.");
+  }
+  await waitForVisible(page.getByTestId("planner-add-stay"));
   await waitForAccountNotice(page, /Blank trip created/i);
 };
 
@@ -392,7 +401,7 @@ const run = async () => {
     await primeSession(contextA, storageKey, session);
     const pageA = await contextA.newPage();
     await gotoPreview(pageA, shareUrl, baseUrl);
-    await waitForVisible(pageA.getByRole("button", { name: /Edit trip/i }), 45000);
+    await waitForVisible(modeToggle(pageA), 45000);
     results.starterTrip = true;
 
     await verifyAccountPopup(pageA, email, /Example trip ready|Cloud trip loaded/i);
@@ -437,9 +446,7 @@ const run = async () => {
     results.secondContextLoad = true;
 
     await pageA.getByTestId("desktop-panel-itinerary").click();
-    if (await pageA.getByRole("button", { name: /Edit trip/i }).count()) {
-      await ensureEditMode(pageA);
-    }
+    await ensureEditMode(pageA);
     await pageA.getByRole("button", { name: /^Edit$/ }).first().dispatchEvent("click");
     await waitForVisible(pageA.getByRole("heading", { name: /Edit stop/i }));
     const winnerTitle = `Conflict Winner ${Date.now()}`;
@@ -469,7 +476,7 @@ const run = async () => {
     await primeSession(offlineContext, storageKey, session);
     const onlinePage = await offlineContext.newPage();
     await gotoPreview(onlinePage, shareUrl, baseUrl);
-    await waitForVisible(onlinePage.getByRole("button", { name: /Edit trip/i }), 45000);
+    await waitForVisible(modeToggle(onlinePage), 45000);
     await offlineContext.route(/\/api\/trips(\/.*)?$/, (route) => route.abort());
 
     const offlinePage = await offlineContext.newPage();
@@ -482,11 +489,11 @@ const run = async () => {
       offlinePage.getByText(/This trip is read-only until the connection returns\./i).last(),
       30000,
     );
-    const editTripButton = offlinePage.getByRole("button", { name: /Edit trip/i });
-    await waitForVisible(editTripButton, 30000);
-    const disabled = await editTripButton.isDisabled();
+    const modeToggleButton = modeToggle(offlinePage);
+    await waitForVisible(modeToggleButton, 30000);
+    const disabled = await modeToggleButton.isDisabled();
     if (!disabled) {
-      throw new Error("Offline read-only state did not disable Edit trip.");
+      throw new Error("Offline read-only state did not disable the mode toggle.");
     }
     results.offlineReadOnly = true;
     await offlineContext.close();

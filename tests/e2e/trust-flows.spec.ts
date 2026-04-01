@@ -66,6 +66,26 @@ const expectAccountNotice = async (page: Page, pattern: RegExp) => {
   await closeAccountDrawer(page);
 };
 
+const modeToggle = (page: Page) => page.getByTestId("planner-mode-toggle");
+
+const expectViewMode = async (page: Page) => {
+  await expect(modeToggle(page)).toBeVisible();
+  await expect(modeToggle(page)).toContainText(/View mode/i);
+};
+
+const enterEditMode = async (page: Page) => {
+  await expect(modeToggle(page)).toBeVisible();
+
+  if ((await modeToggle(page).textContent())?.match(/Edit mode/i)) {
+    await expect(page.getByTestId("planner-mode-cancel")).toBeVisible();
+    return;
+  }
+
+  await modeToggle(page).click();
+  await expect(modeToggle(page)).toContainText(/Edit mode/i);
+  await expect(page.getByTestId("planner-mode-cancel")).toBeVisible();
+};
+
 test("shows magic-link request UI when auth envs are present and user is signed out", async ({
   page,
 }) => {
@@ -99,10 +119,10 @@ test("local test-user helper signs in and creates a starter trip", async ({ page
   await page.goto("/");
   await page.getByRole("button", { name: /Sign in as test user/i }).click();
 
-  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
+  await expectViewMode(page);
   await expectAccountNotice(page, /Example trip ready|Cloud trip loaded/i);
   await expect(page.getByRole("button", { name: /Send magic link/i })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
+  await expectViewMode(page);
 });
 
 test("creates a starter example trip when a signed-in account has no cloud trip yet", async ({
@@ -114,9 +134,9 @@ test("creates a starter example trip when a signed-in account has no cloud trip 
 
   await page.goto("/");
 
-  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
+  await expectViewMode(page);
   await expectAccountNotice(page, /Example trip ready/i);
-  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
+  await expectViewMode(page);
 });
 
 test("keeps overview trip-only and moves account controls into the account popup", async ({
@@ -148,7 +168,7 @@ test("keeps the desktop account trigger inside the rail and expands below it", a
   await page.goto("/");
 
   const rail = page.getByTestId("planner-rail-column");
-  const trigger = page.getByTestId("account-status-trigger");
+  const trigger = rail.getByTestId("account-status-trigger");
 
   await expect(trigger).toBeVisible();
 
@@ -201,7 +221,9 @@ test("manages trips from the dedicated trips panel", async ({ page }) => {
   await page.getByRole("button", { name: /Inverness, Scotland/i }).click();
   await page.getByRole("button", { name: /Create trip/i }).click();
 
-  await expect(page.getByRole("heading", { name: /North Coast run/i })).toBeVisible();
+  await expect(modeToggle(page)).toContainText(/Edit mode/i);
+  await expect(page.getByTestId("planner-mode-cancel")).toBeVisible();
+  await expect(page.getByTestId("planner-add-stay")).toBeVisible();
   await expectAccountNotice(page, /Blank trip created/i);
 
   await page.getByTestId("desktop-panel-trips").click();
@@ -211,6 +233,8 @@ test("manages trips from the dedicated trips panel", async ({ page }) => {
   await page.getByRole("button", { name: /Create trip/i }).click();
 
   await expect(page.getByRole("heading", { name: /Example copy/i })).toBeVisible();
+  await page.getByTestId("desktop-panel-itinerary").click();
+  await expectViewMode(page);
 
   await page.getByTestId("desktop-panel-trips").click();
 
@@ -230,6 +254,8 @@ test("manages trips from the dedicated trips panel", async ({ page }) => {
 
   await renamedTripCard.getByRole("button", { name: /^Open$/ }).click();
   await expect(page.getByRole("heading", { name: /North Coast renamed/i })).toBeVisible();
+  await page.getByTestId("desktop-panel-itinerary").click();
+  await expectViewMode(page);
 
   await page.getByTestId("desktop-panel-trips").click();
   await expect(page.getByRole("heading", { name: /Manage your trip library/i })).toBeVisible();
@@ -259,11 +285,10 @@ test("loads a signed-in cloud trip and saves an edit", async ({ page }) => {
 
   await page.goto("/");
 
-  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
+  await expectViewMode(page);
   await expectAccountNotice(page, /Cloud trip loaded/i);
 
-  await page.getByRole("button", { name: /Edit trip/i }).click();
-  await expect(page.getByText(/Edit mode is unlocked/i)).toBeVisible();
+  await enterEditMode(page);
   await page.getByRole("button", { name: /^Edit$/ }).first().dispatchEvent("click");
   await expect(page.getByRole("heading", { name: /Edit stop/i })).toBeVisible();
   await page.getByPlaceholder("Stop title").fill("Barra Sands Campsite Updated");
@@ -271,6 +296,25 @@ test("loads a signed-in cloud trip and saves an edit", async ({ page }) => {
 
   await expect(page.getByText(/Barra Sands Campsite Updated/i)).toBeVisible();
   await expectAccountNotice(page, /Cloud trip saved successfully/i);
+});
+
+test("switches between view mode and edit mode without changing trip data", async ({ page }) => {
+  const user = createTestUser("mode-toggle");
+  await primeSignedInSession(page, user);
+
+  await page.goto("/");
+
+  await expectViewMode(page);
+  await expect(page.getByRole("button", { name: /^Edit$/ })).toHaveCount(0);
+
+  await enterEditMode(page);
+  await expect(page.getByRole("button", { name: /^Edit$/ }).first()).toBeVisible();
+
+  await page.getByTestId("planner-mode-cancel").click();
+  await expectViewMode(page);
+  await expect(page.getByTestId("planner-mode-cancel")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Edit$/ })).toHaveCount(0);
+  await expect(page.getByText(/Barra Sands Campsite/i).first()).toBeVisible();
 });
 
 test("shows live and fallback route confidence details in the overview panel", async ({
@@ -562,9 +606,9 @@ test("stores separate routing coordinates for edited places and uses them for ro
   });
 
   await page.goto("/");
-  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
+  await expectViewMode(page);
 
-  await page.getByRole("button", { name: /Edit trip/i }).click();
+  await enterEditMode(page);
   await page.getByRole("button", { name: /^Edit$/ }).nth(1).click();
   await expect(page.getByRole("heading", { name: /Edit stop/i })).toBeVisible();
 
@@ -632,8 +676,8 @@ test("desktop itinerary remains scrollable and lower trip items stay interactive
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto("/");
 
-  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
-  await page.getByRole("button", { name: /Edit trip/i }).click();
+  await expectViewMode(page);
+  await enterEditMode(page);
 
   const scrollRegion = page.getByTestId("desktop-itinerary-scroll-region");
   await expect(scrollRegion).toBeVisible();
@@ -665,7 +709,7 @@ test("desktop itinerary panel aligns with the map frame", async ({ page }) => {
 
   await page.setViewportSize({ width: 1366, height: 900 });
   await page.goto("/");
-  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
+  await expectViewMode(page);
 
   const itineraryBox = await page.getByTestId("desktop-panel-itinerary-region").boundingBox();
   const mapBox = await page.getByTestId("planner-map-panel").boundingBox();
@@ -697,7 +741,7 @@ test("offers a one-time import-or-example choice when a signed-in account has lo
   await expect(page.getByRole("heading", { name: /Choose how this account should start/i })).toBeVisible();
   await page.getByRole("button", { name: /Import local trip/i }).click();
 
-  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
+  await expectViewMode(page);
   await expectAccountNotice(page, /Imported 1 local trip into cloud sync/i);
 });
 
@@ -708,7 +752,7 @@ test("reopens the last synced trip offline in read-only mode", async ({ browser 
 
   await primeSignedInSession(page, user);
   await page.goto("/");
-  await expect(page.getByRole("button", { name: /Edit trip/i })).toBeVisible();
+  await expectViewMode(page);
 
   await context.route(/\/api\/trips(\/.*)?$/, (route) => route.abort());
 
@@ -723,7 +767,7 @@ test("reopens the last synced trip offline in read-only mode", async ({ browser 
   await expect(
     offlinePage.getByText(/This trip is read-only until the connection returns/i).last(),
   ).toBeVisible();
-  await expect(offlinePage.getByRole("button", { name: /Edit trip/i })).toBeDisabled();
+  await expect(offlinePage.getByTestId("planner-mode-toggle")).toBeDisabled();
   await expect(offlinePage.getByRole("button", { name: /^Edit$/ })).toHaveCount(0);
 
   await context.close();
@@ -798,22 +842,22 @@ test("recovers cleanly from a stale write conflict", async ({ browser }) => {
   const pageA = await contextA.newPage();
   await primeSignedInSession(pageA, user);
   await pageA.goto("/");
-  await expect(pageA.getByRole("button", { name: /Edit trip/i })).toBeVisible();
+  await expectViewMode(pageA);
 
   const contextB = await browser.newContext();
   const pageB = await contextB.newPage();
   await primeSignedInSession(pageB, user);
   await pageB.goto("/");
-  await expect(pageB.getByRole("button", { name: /Edit trip/i })).toBeVisible();
+  await expectViewMode(pageB);
 
-  await pageA.getByRole("button", { name: /Edit trip/i }).click();
+  await enterEditMode(pageA);
   await pageA.getByRole("button", { name: /^Edit$/ }).first().dispatchEvent("click");
   await expect(pageA.getByRole("heading", { name: /Edit stop/i })).toBeVisible();
   await pageA.getByPlaceholder("Stop title").fill("Conflict Winner Campsite");
   await pageA.getByRole("button", { name: /Update stop/i }).click();
   await expect(pageA.getByText(/Conflict Winner Campsite/i)).toBeVisible();
 
-  await pageB.getByRole("button", { name: /Edit trip/i }).click();
+  await enterEditMode(pageB);
   await pageB.getByRole("button", { name: /^Edit$/ }).first().dispatchEvent("click");
   await expect(pageB.getByRole("heading", { name: /Edit stop/i })).toBeVisible();
   await pageB.getByPlaceholder("Stop title").fill("Conflict Loser Campsite");
@@ -879,7 +923,7 @@ test("does not refetch route estimates after a non-routing stop edit", async ({ 
   const initialRouteRequestCount = routeRequestCount;
 
   await page.getByTestId("desktop-panel-itinerary").click();
-  await page.getByRole("button", { name: /Edit trip/i }).click();
+  await enterEditMode(page);
   await page.getByRole("button", { name: /^Edit$/ }).first().dispatchEvent("click");
   await expect(page.getByRole("heading", { name: /Edit stop/i })).toBeVisible();
   await page.getByPlaceholder("Stop title").fill("Barra Sands Campsite Renamed");

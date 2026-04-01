@@ -77,8 +77,8 @@ const desktopPanelMeta: Array<{
   label: string;
 }> = [
   { id: "trips", label: "Trips" },
-  { id: "itinerary", label: "Itinerary" },
   { id: "overview", label: "Overview" },
+  { id: "itinerary", label: "Itinerary" },
   { id: "today", label: "Today" },
 ];
 
@@ -87,8 +87,8 @@ const mobilePanelMeta: Array<{
   label: string;
 }> = [
   { id: "trips", label: "Trips" },
-  { id: "itinerary", label: "Itinerary" },
   { id: "overview", label: "Overview" },
+  { id: "itinerary", label: "Itinerary" },
   { id: "today", label: "Today" },
   { id: "map", label: "Map" },
 ];
@@ -220,12 +220,14 @@ export default function PlannerApp() {
   }, [data]);
 
   const isCloudTripLibraryAvailable = authStatus === "signed_in" && mode === "cloud";
-  const desktopPanels = isCloudTripLibraryAvailable
-    ? desktopPanelMeta
-    : desktopPanelMeta.filter((panel) => panel.id !== "trips");
-  const mobilePanels = isCloudTripLibraryAvailable
-    ? mobilePanelMeta
-    : mobilePanelMeta.filter((panel) => panel.id !== "trips");
+  const desktopTripsPanel = isCloudTripLibraryAvailable
+    ? desktopPanelMeta.find((panel) => panel.id === "trips") ?? null
+    : null;
+  const desktopViewPanels = desktopPanelMeta.filter((panel) => panel.id !== "trips");
+  const mobileTripsPanel = isCloudTripLibraryAvailable
+    ? mobilePanelMeta.find((panel) => panel.id === "trips") ?? null
+    : null;
+  const mobileViewPanels = mobilePanelMeta.filter((panel) => panel.id !== "trips");
 
   useEffect(() => {
     if (!isCloudTripLibraryAvailable) {
@@ -435,6 +437,27 @@ export default function PlannerApp() {
     setMobileTab("overview");
   };
 
+  const showItineraryPanel = (selectionVersion?: number) => {
+    if (
+      typeof selectionVersion === "number" &&
+      panelSelectionVersionRef.current !== selectionVersion
+    ) {
+      return;
+    }
+
+    if (isDesktopViewport) {
+      setDesktopPanel("itinerary");
+      return;
+    }
+
+    setMobileTab("itinerary");
+  };
+
+  const exitEditMode = () => {
+    setEditor(defaultEditorState);
+    setPlannerInteractionMode("view");
+  };
+
   const onCreateStop = async (stop: NewTripStop) => {
     await addStop(stop);
   };
@@ -502,7 +525,13 @@ export default function PlannerApp() {
       const didCreate = !nextState.error && nextActiveTripId !== previousActiveTripId;
 
       if (didCreate) {
-        showOverviewPanel(selectionVersion);
+        if (input.source === "blank") {
+          showItineraryPanel(selectionVersion);
+          setEditor(defaultEditorState);
+          setPlannerInteractionMode("edit");
+        } else {
+          showOverviewPanel(selectionVersion);
+        }
       }
 
       return didCreate;
@@ -662,49 +691,52 @@ export default function PlannerApp() {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-sm font-semibold text-slate-900">Itinerary</h3>
-              <span
-                className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
-                  plannerInteractionMode === "edit"
-                    ? "border-slate-900 bg-slate-900 text-white"
-                    : "border-slate-200 bg-slate-50 text-slate-700"
-                }`}
-              >
-                {plannerInteractionMode === "edit" ? "Edit mode" : "View mode"}
-              </span>
             </div>
             <p className="mt-2 text-xs text-slate-500">
               Grouped by campsite stays and the travel days around them.
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              if (plannerInteractionMode === "edit") {
-                setEditor(defaultEditorState);
-                setPlannerInteractionMode("view");
-                return;
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              data-testid="planner-mode-toggle"
+              aria-pressed={plannerInteractionMode === "edit"}
+              title={
+                isOfflineReadOnly
+                  ? "View mode stays locked while offline. Reconnect before switching to Edit mode."
+                  : plannerInteractionMode === "edit"
+                    ? "Edit mode is active. Use Cancel to return to view-only review."
+                    : "View mode is active. Click to switch to Edit mode and change this itinerary."
               }
+              onClick={() => {
+                if (plannerInteractionMode === "view") {
+                  setPlannerInteractionMode("edit");
+                }
+              }}
+              disabled={isOfflineReadOnly}
+              className={`rounded-2xl border px-4 py-2 text-sm font-semibold transition ${
+                isOfflineReadOnly
+                  ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+                  : plannerInteractionMode === "edit"
+                    ? "cursor-default border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-900 bg-slate-900 text-white hover:bg-slate-800"
+              }`}
+            >
+              {plannerInteractionMode === "edit" ? "Edit mode" : "View mode"}
+            </button>
 
-              setPlannerInteractionMode("edit");
-            }}
-            disabled={isOfflineReadOnly}
-            className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
-              isOfflineReadOnly
-                ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400"
-                : plannerInteractionMode === "edit"
-                  ? "border border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
-                  : "bg-slate-950 text-white hover:bg-slate-800"
-            }`}
-          >
-            {plannerInteractionMode === "edit" ? "Finish editing" : "Edit trip"}
-          </button>
-        </div>
-
-        <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-600">
-          {canEditTrip
-            ? "Edit mode is unlocked. Add, update, and remove itinerary items from this view."
-            : "View mode is active. Use Edit trip here to unlock changes without accidentally altering the route."}
+            {plannerInteractionMode === "edit" ? (
+              <button
+                type="button"
+                data-testid="planner-mode-cancel"
+                onClick={exitEditMode}
+                className="rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {isOfflineReadOnly ? (
@@ -736,6 +768,7 @@ export default function PlannerApp() {
                     initialStop: null,
                   })
                 }
+                data-testid={`planner-add-${type}`}
                 className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${tone}`}
               >
                 {label}
@@ -861,7 +894,7 @@ export default function PlannerApp() {
             <div className="rounded-3xl p-2 lg:flex lg:h-full lg:min-h-0 lg:gap-3">
               <div
                 data-testid="planner-rail-column"
-                className="hidden w-[90px] flex-none lg:flex lg:flex-col lg:gap-3"
+                className="hidden w-[104px] flex-none lg:flex lg:flex-col lg:gap-3"
               >
                 <AccountStatusControl
                   authStatus={authStatus}
@@ -878,9 +911,45 @@ export default function PlannerApp() {
                   onResetSeedAlignedToToday={resetToSeedAlignedToToday}
                 />
 
+                {desktopTripsPanel ? (
+                  <button
+                    type="button"
+                    data-testid="desktop-panel-trips"
+                    onClick={() => selectDesktopPanel(desktopTripsPanel.id)}
+                    className={`rounded-3xl border p-3 text-left shadow-sm transition ${
+                      desktopPanel === desktopTripsPanel.id
+                        ? "border-slate-950 bg-slate-950 text-white"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                    title={desktopTripsPanel.label}
+                  >
+                    <div className="flex flex-col items-center gap-2 text-center">
+                      {panelIcon(desktopTripsPanel.id)}
+                      <div>
+                        <span className="block text-[11px] font-semibold">
+                          {desktopTripsPanel.label}
+                        </span>
+                        <span
+                          className={`block text-[10px] ${
+                            desktopPanel === desktopTripsPanel.id
+                              ? "text-white/70"
+                              : "text-slate-500"
+                          }`}
+                        >
+                          Workspace
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                ) : null}
+
                 <nav className="flex-1 rounded-3xl border border-slate-200 bg-white p-2 shadow-sm">
-                  <div className="flex h-full flex-col gap-2">
-                    {desktopPanels.map((panel) => {
+                  <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    Active trip
+                  </p>
+
+                  <div className="mt-2 flex h-full flex-col gap-2">
+                    {desktopViewPanels.map((panel) => {
                       const active = desktopPanel === panel.id;
                       return (
                         <button
@@ -926,8 +995,25 @@ export default function PlannerApp() {
                   {renderSharedNotices()}
 
                   <div className="rounded-2xl border border-slate-200 bg-white p-2">
+                    {mobileTripsPanel ? (
+                      <div className="mb-2">
+                        <button
+                          type="button"
+                          data-testid="mobile-panel-trips"
+                          onClick={() => selectMobileTab(mobileTripsPanel.id)}
+                          className={`w-full rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                            mobileTab === mobileTripsPanel.id
+                              ? "bg-slate-900 text-white"
+                              : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                          }`}
+                        >
+                          {mobileTripsPanel.label}
+                        </button>
+                      </div>
+                    ) : null}
+
                     <div className="flex gap-2 overflow-x-auto pb-1">
-                      {mobilePanels.map((panel) => (
+                      {mobileViewPanels.map((panel) => (
                         <button
                           key={panel.id}
                           type="button"
