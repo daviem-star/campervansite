@@ -4,6 +4,13 @@ import { decodeE2EAccessToken, isServerE2EAuthBypassEnabled } from "@/lib/e2eAut
 import { createServerSupabaseAuthClient } from "@/lib/supabase";
 import { SessionUser } from "@/types/trip";
 
+export type RequestAuthMode = "e2e" | "supabase";
+
+export type AuthenticatedRequest = {
+  authMode: RequestAuthMode;
+  user: SessionUser;
+};
+
 export const readBearerToken = (request: NextRequest): string | null => {
   const header = request.headers.get("authorization");
   if (!header || !header.startsWith("Bearer ")) {
@@ -13,14 +20,22 @@ export const readBearerToken = (request: NextRequest): string | null => {
   return header.slice("Bearer ".length).trim() || null;
 };
 
-export const getAuthenticatedUser = async (request: NextRequest): Promise<SessionUser | null> => {
+export const getAuthenticatedRequest = async (
+  request: NextRequest,
+): Promise<AuthenticatedRequest | null> => {
   const token = readBearerToken(request);
   if (!token) {
     return null;
   }
 
   if (isServerE2EAuthBypassEnabled()) {
-    return decodeE2EAccessToken(token);
+    const e2eUser = decodeE2EAccessToken(token);
+    if (e2eUser) {
+      return {
+        authMode: "e2e",
+        user: e2eUser,
+      };
+    }
   }
 
   const client = createServerSupabaseAuthClient();
@@ -34,7 +49,15 @@ export const getAuthenticatedUser = async (request: NextRequest): Promise<Sessio
   }
 
   return {
-    id: data.user.id,
-    email: data.user.email ?? null,
+    authMode: "supabase",
+    user: {
+      id: data.user.id,
+      email: data.user.email ?? null,
+    },
   };
+};
+
+export const getAuthenticatedUser = async (request: NextRequest): Promise<SessionUser | null> => {
+  const authenticatedRequest = await getAuthenticatedRequest(request);
+  return authenticatedRequest?.user ?? null;
 };

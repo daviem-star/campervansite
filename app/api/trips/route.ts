@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getAuthenticatedUser } from "@/lib/apiAuth";
+import { getAuthenticatedRequest } from "@/lib/apiAuth";
 import { createE2ETrip, listE2ETrips } from "@/lib/e2eTripStore";
-import { isServerE2EAuthBypassEnabled } from "@/lib/e2eAuth";
 import { createBlankTrip, createExampleTrip } from "@/lib/tripFactories";
 import {
   rowToTrip,
@@ -70,12 +69,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const user = await getAuthenticatedUser(request);
-  if (!user) {
+  const authenticatedRequest = await getAuthenticatedRequest(request);
+  if (!authenticatedRequest) {
     return NextResponse.json({ error: "Unauthenticated." }, { status: 401 });
   }
+  const { authMode, user } = authenticatedRequest;
 
-  if (isServerE2EAuthBypassEnabled()) {
+  if (authMode === "e2e") {
     return NextResponse.json({ trips: listE2ETrips(user) });
   }
 
@@ -110,10 +110,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const user = await getAuthenticatedUser(request);
-  if (!user) {
+  const authenticatedRequest = await getAuthenticatedRequest(request);
+  if (!authenticatedRequest) {
     return NextResponse.json({ error: "Unauthenticated." }, { status: 401 });
   }
+  const { authMode, user } = authenticatedRequest;
 
   const body = (await request.json().catch(() => null)) as CreateTripBody | null;
 
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (isServerE2EAuthBypassEnabled()) {
+  if (authMode === "e2e") {
     return NextResponse.json({ trip: createE2ETrip(user, trip) });
   }
 

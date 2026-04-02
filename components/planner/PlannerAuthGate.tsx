@@ -49,10 +49,10 @@ export default function PlannerAuthGate({
         <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
           <div className="max-w-2xl">
             <PlannerBrandBadge className="mb-5" />
-            <h1 className="text-4xl font-semibold tracking-tight text-slate-950">
+            <h1 className="planner-title-hero text-slate-950">
               Sign in first, then plan from the full trip workspace.
             </h1>
-            <p className="mt-4 text-base leading-7 text-slate-600">
+            <p className="planner-copy mt-4 text-slate-600">
               The planner is now private by default. Once you sign in, the same trip can open on
               desktop before departure and on tablet or mobile while travelling.
             </p>
@@ -64,8 +64,8 @@ export default function PlannerAuthGate({
                 ["Travel review", "Reopen the last synced trip offline in read-only mode."],
               ].map(([title, body]) => (
                 <div key={title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-sm font-semibold text-slate-900">{title}</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">{body}</p>
+                  <p className="planner-title-sm text-slate-900">{title}</p>
+                  <p className="planner-copy mt-2 text-slate-600">{body}</p>
                 </div>
               ))}
             </div>
@@ -73,17 +73,17 @@ export default function PlannerAuthGate({
         </section>
 
         <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-          <h2 className="text-xl font-semibold text-slate-950">
+          <h2 className="planner-title-xl text-slate-950">
             {authStatus === "disabled" ? "Planner setup required" : "Continue with magic link"}
           </h2>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
+          <p className="planner-copy mt-3 text-slate-600">
             {authStatus === "disabled"
               ? "Supabase is not configured in this environment yet, so sign-in is unavailable until the runtime keys are added."
               : "Enter your email address and we’ll send a magic link to open the planner on this device."}
           </p>
 
           {error ? (
-            <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <p className="planner-copy mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
               {error}
             </p>
           ) : null}
@@ -91,7 +91,7 @@ export default function PlannerAuthGate({
           {notice ? (
             <p
               data-testid="auth-notice"
-              className={`mt-4 rounded-2xl border px-4 py-3 text-sm ${noticeToneClass[notice.tone]}`}
+              className={`planner-copy mt-4 rounded-2xl border px-4 py-3 ${noticeToneClass[notice.tone]}`}
             >
               {notice.text}
             </p>
@@ -120,14 +120,12 @@ export default function PlannerAuthGate({
 
               {showLocalTestSignIn ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4">
-                  <p className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
-                    Local dev only
-                  </p>
-                  <p className="mt-2 text-sm text-slate-600">
+                  <p className="planner-eyebrow text-slate-500">Local dev only</p>
+                  <p className="planner-copy mt-2 text-slate-600">
                     Skip email delivery and open the planner with the local test account.
                   </p>
                   {!localTestSignInReady ? (
-                    <p className="mt-2 text-xs text-amber-700">
+                    <p className="planner-meta mt-2 text-amber-700">
                       Enable the E2E auth bypass env flags to use local test sign-in.
                     </p>
                   ) : null}
@@ -143,7 +141,7 @@ export default function PlannerAuthGate({
               ) : null}
             </form>
           ) : (
-            <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
+            <div className="planner-copy mt-6 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-slate-600">
               Add the Supabase keys to `.env.local`, restart the app, and this sign-in form will
               become available here.
             </div>

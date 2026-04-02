@@ -74,6 +74,7 @@ const e2eAuthListeners = new Set<
 const getPublicUrl = (): string => process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const getAnonKey = (): string => process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const getServiceRoleKey = (): string => process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+const hasPublicSupabaseConfig = (): boolean => Boolean(getPublicUrl() && getAnonKey());
 
 const readStoredE2ESession = (): BrowserAuthSession | null => {
   if (typeof window === "undefined") {
@@ -165,6 +166,66 @@ const createBrowserE2EAuthClient = (): BrowserAuthClient => ({
   },
 });
 
+const createRealBrowserAuthClient = (): BrowserAuthClient =>
+  createClient<BrowserDatabase>(getPublicUrl(), getAnonKey(), {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+    },
+  }) as unknown as BrowserAuthClient;
+
+const createBrowserHybridAuthClient = (): BrowserAuthClient => {
+  const realClient = createRealBrowserAuthClient();
+
+  return {
+    auth: {
+      getSession: async () => {
+        const e2eSession = readStoredE2ESession();
+        if (e2eSession) {
+          return {
+            data: {
+              session: e2eSession,
+            },
+          };
+        }
+
+        return await realClient.auth.getSession();
+      },
+      signInWithOtp: async (params) => await realClient.auth.signInWithOtp(params),
+      signOut: async () => {
+        const e2eSession = readStoredE2ESession();
+        const { data } = await realClient.auth.getSession();
+
+        if (e2eSession && !data.session) {
+          writeStoredE2ESession(null);
+          e2eAuthListeners.forEach((listener) => listener("SIGNED_OUT", null));
+        }
+
+        return await realClient.auth.signOut();
+      },
+      onAuthStateChange: (callback) => {
+        e2eAuthListeners.add(callback);
+
+        const realSubscription = realClient.auth.onAuthStateChange((event, session) => {
+          callback(event, session as BrowserAuthSession | null);
+        });
+
+        return {
+          data: {
+            subscription: {
+              unsubscribe: () => {
+                e2eAuthListeners.delete(callback);
+                realSubscription.data.subscription.unsubscribe();
+              },
+            },
+          },
+        };
+      },
+    },
+  };
+};
+
 export const emitBrowserE2ESignIn = (user: BrowserAuthUser, accessToken: string) => {
   const session: BrowserAuthSession = {
     access_token: accessToken,
@@ -176,16 +237,12 @@ export const emitBrowserE2ESignIn = (user: BrowserAuthUser, accessToken: string)
 };
 
 export const isSupabaseConfigured = (): boolean => {
-  return (
-    Boolean(getPublicUrl() && getAnonKey()) ||
-    isBrowserE2EAuthBypassEnabled() ||
-    isServerE2EAuthBypassEnabled()
-  );
+  return hasPublicSupabaseConfig() || isBrowserE2EAuthBypassEnabled() || isServerE2EAuthBypassEnabled();
 };
 
 export const isSupabaseServerConfigured = (): boolean => {
   return (
-    Boolean(getPublicUrl() && getAnonKey() && getServiceRoleKey()) || isServerE2EAuthBypassEnabled()
+    Boolean(hasPublicSupabaseConfig() && getServiceRoleKey()) || isServerE2EAuthBypassEnabled()
   );
 };
 
@@ -195,16 +252,12 @@ export const getBrowserSupabaseClient = (): BrowserAuthClient | null => {
   }
 
   if (!browserClient) {
-    if (isBrowserE2EAuthBypassEnabled()) {
+    if (hasPublicSupabaseConfig() && isBrowserE2EAuthBypassEnabled()) {
+      browserClient = createBrowserHybridAuthClient();
+    } else if (isBrowserE2EAuthBypassEnabled()) {
       browserClient = createBrowserE2EAuthClient();
     } else {
-      browserClient = createClient<BrowserDatabase>(getPublicUrl(), getAnonKey(), {
-        auth: {
-          autoRefreshToken: true,
-          persistSession: true,
-          detectSessionInUrl: true,
-        },
-      }) as unknown as BrowserAuthClient;
+      browserClient = createRealBrowserAuthClient();
     }
   }
 

@@ -17,7 +17,7 @@ type TripsPanelProps = {
 };
 
 const actionButtonClass =
-  "rounded-2xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50";
+  "rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50";
 
 export default function TripsPanel({
   trips,
@@ -32,16 +32,13 @@ export default function TripsPanel({
   onDeleteTrip,
 }: TripsPanelProps) {
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm lg:flex lg:h-full lg:min-h-0 lg:flex-col">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <section className="overflow-hidden rounded-[24px] border border-slate-200/80 bg-white lg:flex lg:h-full lg:min-h-0 lg:flex-col">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 px-4 py-4 sm:px-5 sm:py-5">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-            Trips
-          </p>
-          <h2 className="mt-2 text-xl font-semibold text-slate-950">Manage your trip library</h2>
-          <p className="mt-2 text-sm text-slate-600">
-            Open another trip, rename it, or start a fresh plan without leaving the current
-            workspace model.
+          <p className="planner-eyebrow text-teal-700">Trip library</p>
+          <h2 className="planner-title-lg mt-2 text-slate-950">Manage your trips</h2>
+          <p className="planner-copy mt-2 max-w-2xl text-slate-600">
+            Open, rename, or start a fresh plan without leaving the planner.
           </p>
         </div>
 
@@ -49,14 +46,14 @@ export default function TripsPanel({
           type="button"
           onClick={onCreateTrip}
           disabled={isWorking || isOfflineReadOnly}
-          className="rounded-2xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+          className="rounded-xl bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-400"
         >
           New trip
         </button>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-4 py-3.5 sm:px-5">
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
           {trips.length} {trips.length === 1 ? "trip" : "trips"}
         </span>
 
@@ -73,7 +70,7 @@ export default function TripsPanel({
       </div>
 
       {isOfflineReadOnly ? (
-        <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <p className="planner-copy mx-4 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 sm:mx-5">
           Trip switching and trip management stay locked while the planner is using the cached
           offline copy.
         </p>
@@ -81,10 +78,10 @@ export default function TripsPanel({
 
       <div
         data-testid="trips-scroll-region"
-        className="mt-4 space-y-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1"
+        className="divide-y divide-slate-200 lg:min-h-0 lg:flex-1 lg:overflow-y-auto"
       >
         {trips.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-5 py-6 text-sm text-slate-600">
+          <div className="planner-copy m-4 rounded-[18px] border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-slate-600 sm:m-5">
             No cloud trips are available yet.
           </div>
         ) : null}
@@ -97,39 +94,39 @@ export default function TripsPanel({
             <article
               key={trip.id}
               data-testid={`trip-summary-${trip.id}`}
-              className={`rounded-3xl border p-4 transition ${
+              className={`px-4 py-4 transition sm:px-5 ${
                 isActive
-                  ? "border-slate-950 bg-slate-950 text-white shadow-lg shadow-slate-950/10"
-                  : "border-slate-200 bg-white text-slate-900 shadow-sm"
+                  ? "bg-teal-50/80 text-slate-950"
+                  : "bg-white text-slate-900"
               }`}
             >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-lg font-semibold">{trip.name}</h3>
+                    <h3 className="planner-title-md">{trip.name}</h3>
                     {isActive ? (
-                      <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                      <span className="rounded-full border border-teal-200 bg-white px-2.5 py-0.5 text-[11px] font-semibold text-teal-700">
                         Open now
                       </span>
                     ) : null}
                   </div>
-                  <p className={`mt-2 text-sm ${isActive ? "text-white/75" : "text-slate-600"}`}>
+                  <p className="planner-copy mt-2 text-slate-600">
                     Updated {formatDateTime(trip.updatedAt)}
                   </p>
-                  <p className={`mt-1 text-xs ${isActive ? "text-white/60" : "text-slate-500"}`}>
+                  <p className="planner-meta mt-1 text-slate-500">
                     Version {trip.version}
                     {trip.lastSyncedAt ? ` · Last synced ${formatDateTime(trip.lastSyncedAt)}` : ""}
                   </p>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 xl:justify-end">
                   <button
                     type="button"
                     onClick={() => void onOpenTrip(trip.id)}
                     disabled={isWorking || isOfflineReadOnly || isActive}
                     className={`${actionButtonClass} ${
                       isActive
-                        ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
+                        ? "border-slate-200 bg-white text-slate-400"
                         : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
                     }`}
                   >
@@ -141,7 +138,7 @@ export default function TripsPanel({
                     disabled={isWorking || isOfflineReadOnly}
                     className={`${actionButtonClass} ${
                       isActive
-                        ? "border-white/20 bg-white/10 text-white hover:bg-white/15"
+                        ? "border-teal-200 bg-white text-teal-700 hover:bg-teal-50"
                         : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
                     }`}
                   >
@@ -153,7 +150,7 @@ export default function TripsPanel({
                     disabled={isWorking || isOfflineReadOnly || isOnlyTrip}
                     className={`${actionButtonClass} ${
                       isActive
-                        ? "border-rose-300/40 bg-rose-400/10 text-rose-100 hover:bg-rose-400/20"
+                        ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
                         : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
                     }`}
                   >
@@ -163,7 +160,7 @@ export default function TripsPanel({
               </div>
 
               {isOnlyTrip ? (
-                <p className={`mt-3 text-xs ${isActive ? "text-white/60" : "text-slate-500"}`}>
+                <p className="planner-meta mt-3 text-slate-500">
                   Create another trip before deleting this one.
                 </p>
               ) : null}

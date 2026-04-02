@@ -14,27 +14,32 @@ const typePill = {
 
 export default function TodayActionsPanel({ actions }: TodayActionsPanelProps) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-900">Today&apos;s actions</h3>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+    <section className="rounded-[24px] border border-slate-200/80 bg-white px-4 py-4 sm:px-5 sm:py-5">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <p className="planner-eyebrow text-teal-700">Today&apos;s actions</p>
+          <p className="planner-copy mt-2 text-slate-600">
+            Time-critical steps and ferry checkpoints for the selected itinerary.
+          </p>
+        </div>
+        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
           {actions.length}
         </span>
       </div>
 
       {actions.length === 0 ? (
-        <p className="text-sm text-slate-500">No time-critical actions due today.</p>
+        <p className="planner-copy text-slate-500">No time-critical actions due today.</p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {actions.map((action) => (
             <li
               key={action.id}
-              className={`rounded-xl border px-3 py-2 ${
-                action.overdue ? "border-rose-200 bg-rose-50" : "border-slate-200 bg-slate-50"
+              className={`rounded-[18px] border px-3.5 py-3.5 ${
+                action.overdue ? "border-rose-200 bg-rose-50/90" : "border-slate-200 bg-slate-50/70"
               }`}
             >
               <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-slate-900">{action.label}</span>
+                <span className="planner-title-sm text-slate-900">{action.label}</span>
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] ${
                     typePill[action.type]
@@ -44,11 +49,11 @@ export default function TodayActionsPanel({ actions }: TodayActionsPanelProps) {
                 </span>
               </div>
               {action.type === "stay_checkout" ? (
-                <p className={`text-xs ${action.overdue ? "text-rose-700" : "text-slate-600"}`}>
+                <p className={`planner-copy-sm ${action.overdue ? "text-rose-700" : "text-slate-600"}`}>
                   Checkout by {formatTime(action.dueAt)}
                 </p>
               ) : (
-                <div className={`space-y-0.5 text-xs ${action.overdue ? "text-rose-700" : "text-slate-600"}`}>
+                <div className={`planner-copy-sm space-y-0.5 ${action.overdue ? "text-rose-700" : "text-slate-600"}`}>
                   <p>Departure: {action.departureAt ? formatTime(action.departureAt) : "--:--"}</p>
                   <p>Latest check-in: {formatTime(action.dueAt)}</p>
                 </div>

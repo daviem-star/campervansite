@@ -15,6 +15,7 @@ type AccountStatusControlProps = {
   syncStatus: SyncStatus;
   isOfflineReadOnly: boolean;
   notice: PlannerNotice | null;
+  variant?: "default" | "rail";
   onSignIn: (email: string) => Promise<void>;
   onSignInAsTestUser: () => Promise<void>;
   onSignOut: () => Promise<void>;
@@ -34,7 +35,7 @@ const statusTone = {
 const statusLabel: Record<SyncStatus, string> = {
   idle: "Demo mode",
   saving: "Saving",
-  saved: "Saved",
+  saved: "Cloud mode",
   offline: "Offline",
   error: "Needs attention",
 };
@@ -42,7 +43,7 @@ const statusLabel: Record<SyncStatus, string> = {
 const statusDot = {
   idle: "bg-slate-400",
   saving: "bg-sky-500",
-  saved: "bg-emerald-500",
+  saved: "bg-teal-500",
   offline: "bg-amber-500",
   error: "bg-rose-500",
 } as const;
@@ -63,6 +64,7 @@ export default function AccountStatusControl({
   syncStatus,
   isOfflineReadOnly,
   notice,
+  variant = "default",
   onSignIn,
   onSignInAsTestUser,
   onSignOut,
@@ -126,12 +128,34 @@ export default function AccountStatusControl({
   const syncDetails =
     authStatus === "signed_in"
       ? mode === "cloud"
-        ? "Cloud sync is active. Routine load and save updates appear here instead of as planner banners."
+        ? "Cloud sync is active for this account and trip library."
         : "This planner is still using demo data. Demo changes stay on this device until you create a cloud trip."
       : authStatus === "signed_out"
         ? "Sign in to keep the same trip available across devices while you are online."
-        : "Planner access is waiting on environment configuration in this workspace.";
+      : "Planner access is waiting on environment configuration in this workspace.";
   const accountInitial = userEmail?.charAt(0).toUpperCase() ?? (mode === "demo" ? "D" : "A");
+  const isRail = variant === "rail";
+  const displayedStatusLabel =
+    syncStatus === "saving" || syncStatus === "offline" || syncStatus === "error"
+      ? statusLabel[syncStatus]
+      : mode === "cloud"
+        ? "Cloud mode"
+        : "Demo mode";
+  const displayedStatusTone =
+    syncStatus === "saving" || syncStatus === "offline" || syncStatus === "error"
+      ? statusTone[syncStatus]
+      : mode === "cloud"
+        ? "border-teal-200 bg-teal-50 text-teal-700"
+        : statusTone.idle;
+  const displayedStatusDot =
+    syncStatus === "saving" || syncStatus === "offline" || syncStatus === "error"
+      ? statusDot[syncStatus]
+      : mode === "cloud"
+        ? statusDot.saved
+        : statusDot.idle;
+  const panelClassName = isRail
+    ? "fixed inset-y-0 left-0 z-40 w-[min(24rem,92vw)] overflow-y-auto border-r border-slate-200 bg-white p-5 shadow-2xl lg:absolute lg:bottom-[calc(100%+0.75rem)] lg:left-0 lg:top-auto lg:inset-y-auto lg:max-h-[min(78vh,44rem)] lg:w-[23rem] lg:overflow-y-auto lg:rounded-[28px] lg:border lg:shadow-[0_24px_60px_rgba(15,23,42,0.16)]"
+    : "fixed inset-y-0 left-0 z-40 w-[min(24rem,92vw)] overflow-y-auto border-r border-slate-200 bg-white p-5 shadow-2xl lg:absolute lg:left-0 lg:top-[calc(100%+0.75rem)] lg:inset-y-auto lg:max-h-[min(78vh,44rem)] lg:w-[23rem] lg:overflow-y-auto lg:rounded-[28px] lg:border lg:shadow-[0_24px_60px_rgba(15,23,42,0.16)]";
 
   return (
     <div ref={containerRef} className="relative z-30 lg:w-full">
@@ -142,19 +166,35 @@ export default function AccountStatusControl({
         data-testid="account-status-trigger"
         onClick={() => setIsOpen((current) => !current)}
         title={accountLabel}
-        className="inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50 lg:w-full lg:flex-col lg:justify-center lg:gap-2 lg:rounded-3xl lg:px-1 lg:py-3"
+        className={
+          isRail
+            ? "inline-flex w-full items-center gap-3 rounded-[18px] border border-slate-200 bg-white px-3 py-2.5 text-left transition hover:border-slate-300 hover:bg-slate-50"
+            : "inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-slate-300 hover:bg-slate-50 lg:w-full lg:flex-col lg:justify-center lg:gap-2 lg:rounded-3xl lg:px-1 lg:py-3"
+        }
       >
-        <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-slate-950 text-sm font-semibold text-white lg:h-12 lg:w-12">
+        <span
+          className={`relative flex items-center justify-center bg-slate-950 text-sm font-semibold text-white ${
+            isRail ? "h-9 w-9 rounded-xl" : "h-10 w-10 rounded-full lg:h-12 lg:w-12"
+          }`}
+        >
           {accountInitial}
           <span
-            className={`absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-white ${statusDot[syncStatus]}`}
+            className={`absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-white ${displayedStatusDot}`}
           />
         </span>
 
-        <span className="min-w-0 lg:hidden">
-          <span className="block truncate text-sm font-semibold text-slate-900">{accountLabel}</span>
-          <span className="block text-xs text-slate-500">{statusLabel[syncStatus]}</span>
+        <span className={`min-w-0 ${isRail ? "flex-1" : "lg:hidden"}`}>
+          <span className="planner-title-sm block truncate text-slate-900">{accountLabel}</span>
+          <span className="planner-meta block text-slate-500">{displayedStatusLabel}</span>
         </span>
+
+        {isRail ? (
+          <span
+            className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${displayedStatusTone}`}
+          >
+            {displayedStatusLabel}
+          </span>
+        ) : null}
       </button>
 
       {isOpen ? (
@@ -163,15 +203,13 @@ export default function AccountStatusControl({
 
           <div
             data-testid="account-status-panel"
-            className="fixed inset-y-0 left-0 z-40 w-[min(24rem,92vw)] overflow-y-auto border-r border-slate-200 bg-white p-5 shadow-2xl lg:absolute lg:left-0 lg:top-[calc(100%+0.75rem)] lg:inset-y-auto lg:max-h-[min(78vh,44rem)] lg:w-[22rem] lg:overflow-y-auto lg:rounded-3xl lg:border lg:shadow-xl"
+            className={panelClassName}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                  Account and sync
-                </p>
-                <h2 className="mt-2 text-lg font-semibold text-slate-950">{accountLabel}</h2>
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="planner-eyebrow text-slate-500">Account and sync</p>
+                <h2 className="planner-title-lg mt-2 text-slate-950">{accountLabel}</h2>
+                <p className="planner-copy mt-1 text-slate-600">
                   {authStatus === "signed_in"
                     ? mode === "cloud"
                       ? "Cloud mode is active for this account."
@@ -195,9 +233,9 @@ export default function AccountStatusControl({
 
             <div className="mt-5 flex flex-wrap items-center gap-2">
               <span
-                className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusTone[syncStatus]}`}
+                className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold ${displayedStatusTone}`}
               >
-                {statusLabel[syncStatus]}
+                {displayedStatusLabel}
               </span>
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
                 {mode === "cloud" ? "Cloud mode" : "Demo mode"}
@@ -205,21 +243,19 @@ export default function AccountStatusControl({
             </div>
 
             {isOfflineReadOnly ? (
-              <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <p className="planner-copy mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
                 The last synced trip is available to review, but edits and trip management stay
                 locked until the connection returns.
               </p>
             ) : null}
 
             <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                Sync details
-              </p>
-              <p className="mt-2 text-sm text-slate-600">{syncDetails}</p>
+              <p className="planner-eyebrow text-slate-500">Sync details</p>
+              <p className="planner-copy mt-2 text-slate-600">{syncDetails}</p>
               {notice ? (
                 <p
                   data-testid="account-notice"
-                  className={`mt-3 rounded-2xl border px-3 py-2 text-sm ${noticeTone[notice.tone]}`}
+                  className={`planner-copy mt-3 rounded-2xl border px-3 py-2 ${noticeTone[notice.tone]}`}
                 >
                   {notice.text}
                 </p>
@@ -230,8 +266,8 @@ export default function AccountStatusControl({
               {authStatus === "signed_in" ? (
                 <>
                   <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-sm font-semibold text-slate-900">Account</p>
-                    <p className="mt-1 break-all text-sm text-slate-600">
+                    <p className="planner-title-sm text-slate-900">Account</p>
+                    <p className="planner-copy mt-1 break-all text-slate-600">
                       {userEmail ?? "Signed-in account"}
                     </p>
                   </div>
@@ -261,8 +297,8 @@ export default function AccountStatusControl({
               {authStatus === "signed_out" ? (
                 <div className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-4">
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">Sign in</p>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <p className="planner-title-sm text-slate-900">Sign in</p>
+                    <p className="planner-copy mt-1 text-slate-600">
                       Send a magic link to this device so the planner can open cloud mode.
                     </p>
                   </div>
@@ -288,14 +324,12 @@ export default function AccountStatusControl({
 
               {authStatus === "signed_out" && showLocalTestSignIn ? (
                 <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                    Local dev only
-                  </p>
-                  <p className="mt-2 text-sm text-slate-600">
+                  <p className="planner-eyebrow text-slate-500">Local dev only</p>
+                  <p className="planner-copy mt-2 text-slate-600">
                     Use the built-in test account to exercise signed-in cloud flows without email.
                   </p>
                   {!localTestSignInReady ? (
-                    <p className="mt-2 text-xs text-amber-700">
+                    <p className="planner-meta mt-2 text-amber-700">
                       Enable the E2E auth bypass env flags to use local test sign-in.
                     </p>
                   ) : null}
@@ -311,7 +345,7 @@ export default function AccountStatusControl({
               ) : null}
 
               {authStatus === "disabled" ? (
-                <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                <p className="planner-copy rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-600">
                   Cloud sync is unavailable in this environment right now, so the planner stays in
                   demo mode.
                 </p>
@@ -320,8 +354,8 @@ export default function AccountStatusControl({
               {mode === "demo" ? (
                 <div className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-4">
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">Demo tools</p>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <p className="planner-title-sm text-slate-900">Demo tools</p>
+                    <p className="planner-copy mt-1 text-slate-600">
                       Keep the seeded itinerary handy while we are testing locally.
                     </p>
                   </div>

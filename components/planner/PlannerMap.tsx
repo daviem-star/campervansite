@@ -908,8 +908,8 @@ export default function PlannerMap({
       {mapError ? (
         <div className="flex h-full w-full items-center justify-center bg-slate-100 p-6" aria-label="Trip map unavailable">
           <div className="max-w-sm rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
-            <p className="text-sm font-semibold text-slate-900">Map unavailable</p>
-            <p className="mt-2 text-sm text-slate-600">{mapError}</p>
+            <p className="planner-title-sm text-slate-900">Map unavailable</p>
+            <p className="planner-copy mt-2 text-slate-600">{mapError}</p>
           </div>
         </div>
       ) : (

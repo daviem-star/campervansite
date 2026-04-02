@@ -31,6 +31,7 @@ The pre-launch release model is one app codebase with short-lived feature branch
   - `E2E_AUTH_BYPASS`
   - `NEXT_PUBLIC_LOCAL_TEST_SIGN_IN`
   - `NEXT_PUBLIC_OPENROUTESERVICE_DEBUG`
+- The E2E auth flags enable explicit local test-user and E2E flows. They can coexist with real Supabase magic-link auth and do not replace cloud-backed sign-in.
 - Optional hosted-preview tile configuration:
   - `NEXT_PUBLIC_MAP_TILE_URL_TEMPLATE`
   - `NEXT_PUBLIC_MAP_TILE_ATTRIBUTION`

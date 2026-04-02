@@ -26,7 +26,7 @@ type AccountPanelProps = {
 const syncLabel: Record<SyncStatus, string> = {
   idle: "Demo mode",
   saving: "Saving",
-  saved: "Saved",
+  saved: "Cloud mode",
   offline: "Offline",
   error: "Needs attention",
 };
@@ -34,7 +34,7 @@ const syncLabel: Record<SyncStatus, string> = {
 const syncTone: Record<SyncStatus, string> = {
   idle: "border-slate-200 bg-slate-100 text-slate-700",
   saving: "border-sky-200 bg-sky-50 text-sky-700",
-  saved: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  saved: "border-teal-200 bg-teal-50 text-teal-700",
   offline: "border-amber-200 bg-amber-50 text-amber-800",
   error: "border-rose-200 bg-rose-50 text-rose-700",
 };
@@ -57,6 +57,18 @@ export default function AccountPanel({
   const [isWorking, setIsWorking] = useState(false);
   const showLocalTestSignIn = isLocalTestSignInEnabled();
   const localTestSignInReady = canUseLocalTestSignIn();
+  const displayedStatusLabel =
+    syncStatus === "saving" || syncStatus === "offline" || syncStatus === "error"
+      ? syncLabel[syncStatus]
+      : mode === "cloud"
+        ? "Cloud mode"
+        : "Demo mode";
+  const displayedStatusTone =
+    syncStatus === "saving" || syncStatus === "offline" || syncStatus === "error"
+      ? syncTone[syncStatus]
+      : mode === "cloud"
+        ? syncTone.saved
+        : syncTone.idle;
 
   const submitMagicLink = async (event: FormEvent) => {
     event.preventDefault();
@@ -86,9 +98,9 @@ export default function AccountPanel({
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-sm font-semibold text-slate-900">Account and sync</h2>
             <span
-              className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${syncTone[syncStatus]}`}
+              className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${displayedStatusTone}`}
             >
-              {syncLabel[syncStatus]}
+              {displayedStatusLabel}
             </span>
             {mode === "demo" ? (
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">

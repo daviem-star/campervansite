@@ -11,7 +11,7 @@ A Next.js App Router trip planner for campervan travel. The app now ships an aut
   - rename trip
   - delete trip with last-trip guardrails
 - The planner keeps one active trip workspace open at a time.
-- Desktop navigation keeps `Trips` separate from the active-trip views `Overview`, `Itinerary`, and `Today`, with the map persistent beside the planner.
+- Desktop navigation now uses an integrated left rail plus a flatter dashboard frame, while still keeping `Trips` separate from the active-trip views `Overview`, `Itinerary`, and `Today` and preserving the persistent map beside the planner.
 - Mobile navigation keeps `Trips` as a standalone selector above grouped `Overview`, `Itinerary`, `Today`, and `Map` tabs.
 - `Overview` is trip-only; account and sync controls live in a persistent top-left account/status popup.
 - Signed-in onboarding creates a cloud-backed starter example trip automatically, or offers a one-time import/local-choice flow when legacy browser data exists.
@@ -29,7 +29,7 @@ The main remaining gap is hosted activation and live-service validation, not mis
   - `ferry`
   - `point_of_interest`
 - Default to `View mode`, then switch to `Edit mode` in `Itinerary` before mutating the trip. Newly created blank trips land directly in itinerary `Edit mode` so stop creation is obvious.
-- Visualize the itinerary on a map with road-following road legs when live routing is available, plus ferry port markers and ferry segments.
+- Visualize the itinerary on an inline route map within the `Itinerary` view, with road-following road legs when live routing is available, plus ferry port markers and ferry segments.
 - Show trip-day navigation, today actions, trip overview insights, gap warnings, route insights, and validation warnings.
 - Search for places in the stop editor with a deliberate submitted lookup and preserve separate routing coordinates when route access data is available.
 - Store campsite metadata such as booking status, hookups, hardstanding, amenities, phone, and website.
@@ -63,6 +63,8 @@ Optional local-only and test flags are also documented in `.env.example`:
 - `NEXT_PUBLIC_OPENROUTESERVICE_DEBUG`
 - `NEXT_PUBLIC_MAP_TILE_URL_TEMPLATE`
 - `NEXT_PUBLIC_MAP_TILE_ATTRIBUTION`
+
+`NEXT_PUBLIC_E2E_AUTH_BYPASS` and `E2E_AUTH_BYPASS` enable the explicit local test-user and E2E routes without replacing real Supabase magic-link auth. Local development can keep both enabled at the same time.
 
 Supabase schema setup lives in `supabase/migrations/20260328_trip_documents.sql`.
 

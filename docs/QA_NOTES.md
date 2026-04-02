@@ -82,10 +82,10 @@ For each issue, record:
 - [ ] Default tab is `Today`
 - [ ] Signed-in cloud mode exposes a standalone `Trips` control plus grouped `Overview`, `Itinerary`, `Today`, and `Map` tabs
 - [ ] Demo mode or missing cloud config hides `Trips`
-- [ ] Tab switching preserves selection/highlights (`Trips` / `Overview` / `Itinerary` / `Today` / `Map`)
+- [ ] Tab switching preserves selection/highlights (`Trips` / `Overview` / `Itinerary` / `Today`)
 - [ ] The tab row remains horizontally usable without crushing labels
 - [ ] Top-left account/status icon opens cleanly and exposes auth/sync controls
-- [ ] Itinerary tab has fixed controls and scrollable itinerary list only
+- [ ] Itinerary tab keeps fixed controls with the inline map above the scrollable itinerary list
 - [ ] `Overview` is trip-only and does not contain account or sync controls
 - [ ] Day chip selection scrolls to the correct itinerary section
 - [ ] Map interactions select and highlight itinerary items
@@ -93,7 +93,7 @@ For each issue, record:
 
 ### Tablet
 
-- [ ] Split layout aligns itinerary pane top and map top
+- [ ] Inline itinerary map aligns cleanly inside the itinerary panel
 - [ ] Itinerary list scroll behavior works as expected
 - [ ] Day selection + auto-scroll works
 - [ ] Map/list sync works in both directions
@@ -101,7 +101,7 @@ For each issue, record:
 
 ### Desktop
 
-- [ ] Authenticated desktop defaults to the `Itinerary` panel with the map visible
+- [ ] Authenticated desktop defaults to the `Itinerary` panel with the map visible inside that panel
 - [ ] Signed-in cloud mode shows the top-left account/status control, a separate `Trips` selector, and `Overview`, `Itinerary`, and `Today` in the left rail
 - [ ] Demo mode hides `Trips` while keeping the rest of the planner usable
 - [x] Left rail switches cleanly between `Trips`, `Overview`, `Itinerary`, and `Today` when the trip library is available

@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getAuthenticatedUser } from "@/lib/apiAuth";
+import { getAuthenticatedRequest } from "@/lib/apiAuth";
 import {
   deleteE2ETrip,
   loadE2ETrip,
   renameE2ETrip,
   saveE2ETrip,
 } from "@/lib/e2eTripStore";
-import { isServerE2EAuthBypassEnabled } from "@/lib/e2eAuth";
 import { normalizeTrip } from "@/lib/tripData";
 import {
   rowToTrip,
@@ -66,15 +65,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const user = await getAuthenticatedUser(request);
-  if (!user) {
+  const authenticatedRequest = await getAuthenticatedRequest(request);
+  if (!authenticatedRequest) {
     return NextResponse.json({ error: "Unauthenticated." }, { status: 401 });
   }
+  const { authMode, user } = authenticatedRequest;
 
   const { tripId } = await context.params;
 
   try {
-    if (isServerE2EAuthBypassEnabled()) {
+    if (authMode === "e2e") {
       const trip = loadE2ETrip(user, tripId);
       if (!trip) {
         return NextResponse.json({ error: "Trip not found." }, { status: 404 });
@@ -105,10 +105,11 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const user = await getAuthenticatedUser(request);
-  if (!user) {
+  const authenticatedRequest = await getAuthenticatedRequest(request);
+  if (!authenticatedRequest) {
     return NextResponse.json({ error: "Unauthenticated." }, { status: 401 });
   }
+  const { authMode, user } = authenticatedRequest;
 
   const { tripId } = await context.params;
   const body = (await request.json().catch(() => null)) as SaveTripBody | null;
@@ -122,7 +123,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   }
 
   try {
-    if (isServerE2EAuthBypassEnabled()) {
+    if (authMode === "e2e") {
       const result = saveE2ETrip(user, body.trip, body.expectedVersion);
 
       if (!result.ok) {
@@ -186,10 +187,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const user = await getAuthenticatedUser(request);
-  if (!user) {
+  const authenticatedRequest = await getAuthenticatedRequest(request);
+  if (!authenticatedRequest) {
     return NextResponse.json({ error: "Unauthenticated." }, { status: 401 });
   }
+  const { authMode, user } = authenticatedRequest;
 
   const { tripId } = await context.params;
   const body = (await request.json().catch(() => null)) as RenameTripBody | null;
@@ -200,7 +202,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   try {
-    if (isServerE2EAuthBypassEnabled()) {
+    if (authMode === "e2e") {
       const trip = renameE2ETrip(user, tripId, nextName);
       if (!trip) {
         return NextResponse.json({ error: "Trip not found." }, { status: 404 });
@@ -265,15 +267,16 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const user = await getAuthenticatedUser(request);
-  if (!user) {
+  const authenticatedRequest = await getAuthenticatedRequest(request);
+  if (!authenticatedRequest) {
     return NextResponse.json({ error: "Unauthenticated." }, { status: 401 });
   }
+  const { authMode, user } = authenticatedRequest;
 
   const { tripId } = await context.params;
 
   try {
-    if (isServerE2EAuthBypassEnabled()) {
+    if (authMode === "e2e") {
       const result = deleteE2ETrip(user, tripId);
       if (!result.ok) {
         return NextResponse.json({ error: result.error ?? "Unable to delete trip." }, { status: 400 });

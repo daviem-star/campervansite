@@ -26,9 +26,9 @@ type ItinerarySectionsProps = {
 };
 
 const dayChipClass =
-  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition";
+  "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition";
 
-const stopRowSelectedClass = "ring-2 ring-sky-300 border-sky-300 bg-sky-50/70";
+const stopRowSelectedClass = "border-teal-300 bg-teal-50/70 ring-2 ring-teal-200";
 
 const scrollItemWithinContainer = (element: HTMLElement | null) => {
   if (!element) {
@@ -74,8 +74,8 @@ function DateChip({
       }}
       className={`${dayChipClass} ${
         active
-          ? "border-sky-300 bg-sky-100 text-sky-900"
-          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+          ? "border-teal-300 bg-teal-50 text-teal-900"
+          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
       }`}
       title={formatDateOnly(date)}
     >
@@ -166,13 +166,11 @@ function PoiRows({
   }
 
   return (
-    <div className="mt-3 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+    <div className="mt-3 space-y-3 rounded-[22px] border border-slate-200 bg-slate-50/80 p-3">
       {groupedByDate.map(([date, datePois]) => (
         <div key={date} className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">
-              Points of interest
-            </p>
+            <p className="planner-eyebrow text-slate-500">Points of interest</p>
             <DateChip date={date} active={selectedDate === date} onClick={onSelectDate} />
           </div>
 
@@ -191,7 +189,7 @@ function PoiRows({
                     exactSelected
                       ? stopRowSelectedClass
                       : daySelected
-                        ? "border-sky-200 bg-sky-50/30"
+                        ? "border-teal-200 bg-teal-50/40"
                         : "border-slate-200 hover:border-slate-300"
                   }`}
                 >
@@ -201,10 +199,10 @@ function PoiRows({
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100 text-orange-700">
                           <StopTypeIcon kind="point_of_interest" className="h-4 w-4" />
                         </span>
-                        <p className="text-sm font-semibold text-slate-900">{poi.title}</p>
+                        <p className="planner-title-sm text-slate-900">{poi.title}</p>
                       </div>
-                      <p className="mt-1 text-xs text-slate-600">{poi.place.label}</p>
-                      {poi.notes ? <p className="mt-1 text-xs text-slate-500">{poi.notes}</p> : null}
+                      <p className="planner-meta mt-1 text-slate-600">{poi.place.label}</p>
+                      {poi.notes ? <p className="planner-meta mt-1 text-slate-500">{poi.notes}</p> : null}
                     </div>
 
                     <ItemActions
@@ -272,7 +270,7 @@ export default function ItinerarySections({
 
   if (sections.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500">
+      <div className="planner-copy rounded-[24px] border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-slate-500">
         No itinerary sections yet. Add a campsite, ferry, or POI to start planning.
       </div>
     );
@@ -290,18 +288,18 @@ export default function ItinerarySections({
             <section
               key={section.id}
               ref={registerSectionRef(section.id)}
-              className={`rounded-2xl border bg-white p-3 shadow-sm transition ${
+              className={`rounded-[24px] border bg-slate-50/65 p-4 transition ${
                 staySelected
                   ? stopRowSelectedClass
                   : daySelected
-                    ? "border-sky-200 bg-sky-50/20"
+                    ? "border-teal-200 bg-teal-50/30"
                     : "border-slate-200"
               }`}
             >
               <div
                 ref={registerItemRef(section.stay.id)}
                 onClick={() => onSelectEntity({ kind: "stay", stopId: section.stay.id })}
-                className="cursor-pointer rounded-xl border border-transparent p-1 transition hover:bg-slate-50"
+                className="cursor-pointer rounded-2xl border border-transparent p-1 transition hover:bg-white/80"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -310,12 +308,14 @@ export default function ItinerarySections({
                         <StopTypeIcon kind="stay" className="h-4 w-4" />
                       </span>
                       <div>
-                        <p className="text-sm font-semibold text-slate-900">{section.stay.title}</p>
-                        <p className="text-xs text-slate-600">{section.stay.place.label}</p>
+                        <p className="planner-title-sm text-slate-900">{section.stay.title}</p>
+                        <p className="planner-meta text-slate-600">{section.stay.place.label}</p>
                       </div>
                     </div>
-                    <p className="mt-2 text-xs text-slate-500">{stayWindowLabel(section.stay)}</p>
-                    <p className="mt-1 text-xs font-medium text-slate-600">
+                    <p className="planner-meta mt-2 text-slate-500">
+                      {stayWindowLabel(section.stay)}
+                    </p>
+                    <p className="planner-copy-sm mt-1 font-medium text-slate-600">
                       {formatDateOnly(dateOnlyFromIso(section.stay.checkInAt))} -{" "}
                       {formatDateOnly(dateOnlyFromIso(section.stay.checkOutAt))}
                     </p>
@@ -335,19 +335,21 @@ export default function ItinerarySections({
                       ) : null}
                     </div>
                     {section.stay.amenitiesSummary ? (
-                      <p className="mt-1 text-xs text-slate-500">{section.stay.amenitiesSummary}</p>
+                      <p className="planner-meta mt-1 text-slate-500">
+                        {section.stay.amenitiesSummary}
+                      </p>
                     ) : null}
                     {section.stay.notes ? (
-                      <p className="mt-1 text-xs text-slate-500">{section.stay.notes}</p>
+                      <p className="planner-meta mt-1 text-slate-500">{section.stay.notes}</p>
                     ) : null}
                   </div>
 
-                    <ItemActions
-                      canMutate={canMutate}
-                      isOfflineReadOnly={isOfflineReadOnly}
-                      onEdit={() => onEdit(section.stay)}
-                      onDelete={() => onDelete(section.stay)}
-                    />
+                  <ItemActions
+                    canMutate={canMutate}
+                    isOfflineReadOnly={isOfflineReadOnly}
+                    onEdit={() => onEdit(section.stay)}
+                    onDelete={() => onDelete(section.stay)}
+                  />
                 </div>
               </div>
 
@@ -363,12 +365,12 @@ export default function ItinerarySections({
                 selectedEntity={selectedEntity}
                 onSelectDate={onSelectDate}
                 onSelectEntity={onSelectEntity}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                  registerItemRef={registerItemRef}
-                  canMutate={canMutate}
-                  isOfflineReadOnly={isOfflineReadOnly}
-                />
+                onEdit={onEdit}
+                onDelete={onDelete}
+                registerItemRef={registerItemRef}
+                canMutate={canMutate}
+                isOfflineReadOnly={isOfflineReadOnly}
+              />
             </section>
           );
         }
@@ -379,11 +381,11 @@ export default function ItinerarySections({
             <section
               key={section.id}
               ref={registerSectionRef(section.id)}
-              className={`rounded-2xl border bg-white p-3 shadow-sm transition ${
+              className={`rounded-[24px] border bg-slate-50/65 p-4 transition ${
                 exactSelected
                   ? stopRowSelectedClass
                   : daySelected
-                    ? "border-sky-200 bg-sky-50/20"
+                    ? "border-teal-200 bg-teal-50/30"
                     : "border-slate-200"
               }`}
             >
@@ -399,14 +401,16 @@ export default function ItinerarySections({
                         <StopTypeIcon kind="ferry" className="h-4 w-4" />
                       </span>
                       <div>
-                        <p className="text-sm font-semibold text-slate-900">{section.ferry.title}</p>
-                        <p className="text-xs text-slate-600">
+                        <p className="planner-title-sm text-slate-900">{section.ferry.title}</p>
+                        <p className="planner-meta text-slate-600">
                           {section.ferry.departurePort.label} to {section.ferry.arrivalPort.label}
                         </p>
                       </div>
                     </div>
-                    <p className="mt-2 text-xs text-slate-500">{ferryWindowLabel(section.ferry)}</p>
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="planner-meta mt-2 text-slate-500">
+                      {ferryWindowLabel(section.ferry)}
+                    </p>
+                    <p className="planner-meta mt-1 text-slate-500">
                       Check-in by {formatDateTime(section.ferry.checkInBy)}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
@@ -427,7 +431,7 @@ export default function ItinerarySections({
                       ) : null}
                     </div>
                     {section.ferry.notes ? (
-                      <p className="mt-1 text-xs text-slate-500">{section.ferry.notes}</p>
+                      <p className="planner-meta mt-1 text-slate-500">{section.ferry.notes}</p>
                     ) : null}
                   </div>
 
@@ -457,11 +461,11 @@ export default function ItinerarySections({
           <section
             key={section.id}
             ref={registerSectionRef(section.id)}
-            className={`rounded-2xl border bg-white p-3 shadow-sm transition ${
+            className={`rounded-[24px] border bg-slate-50/65 p-4 transition ${
               exactSelected
                 ? stopRowSelectedClass
                 : daySelected
-                  ? "border-sky-200 bg-sky-50/20"
+                  ? "border-teal-200 bg-teal-50/30"
                   : "border-slate-200"
             }`}
           >
@@ -477,23 +481,27 @@ export default function ItinerarySections({
                       <StopTypeIcon kind="point_of_interest" className="h-4 w-4" />
                     </span>
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">{section.poi.title}</p>
-                      <p className="text-xs text-slate-600">{section.poi.place.label}</p>
+                      <p className="planner-title-sm text-slate-900">{section.poi.title}</p>
+                      <p className="planner-meta text-slate-600">{section.poi.place.label}</p>
                     </div>
                   </div>
                   {section.poi.notes ? (
-                    <p className="mt-2 text-xs text-slate-500">{section.poi.notes}</p>
+                    <p className="planner-meta mt-2 text-slate-500">{section.poi.notes}</p>
                   ) : null}
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
-                  <DateChip date={section.poi.visitDate} active={selectedDate === section.poi.visitDate} onClick={onSelectDate} />
-                    <ItemActions
-                      canMutate={canMutate}
-                      isOfflineReadOnly={isOfflineReadOnly}
-                      onEdit={() => onEdit(section.poi)}
-                      onDelete={() => onDelete(section.poi)}
-                    />
+                  <DateChip
+                    date={section.poi.visitDate}
+                    active={selectedDate === section.poi.visitDate}
+                    onClick={onSelectDate}
+                  />
+                  <ItemActions
+                    canMutate={canMutate}
+                    isOfflineReadOnly={isOfflineReadOnly}
+                    onEdit={() => onEdit(section.poi)}
+                    onDelete={() => onDelete(section.poi)}
+                  />
                 </div>
               </div>
             </div>

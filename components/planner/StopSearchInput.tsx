@@ -103,9 +103,7 @@ export default function StopSearchInput({
 
   return (
     <div ref={containerRef} className="relative">
-      <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-        {label}
-      </label>
+      <label className="planner-eyebrow mb-1 block text-slate-500">{label}</label>
       <div className="flex items-start gap-2">
         <input
           value={query}
@@ -138,37 +136,37 @@ export default function StopSearchInput({
       </div>
 
       {selectedLabel && query === selectedLabel ? (
-        <p className="mt-1 text-xs text-emerald-600">Selected</p>
+        <p className="planner-meta mt-1 text-emerald-600">Selected</p>
       ) : null}
 
       {isOpen ? (
         <div className="absolute z-20 mt-2 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
           {isLoading ? (
-            <p className="px-3 py-2 text-xs text-slate-500">Searching...</p>
+            <p className="planner-meta px-3 py-2 text-slate-500">Searching...</p>
           ) : null}
 
           {!isLoading && isSelectingResult ? (
-            <p className="px-3 py-2 text-xs text-slate-500">Saving nearby road access...</p>
+            <p className="planner-meta px-3 py-2 text-slate-500">Saving nearby road access...</p>
           ) : null}
 
           {!isLoading && error ? (
-            <p className="px-3 py-2 text-xs text-rose-500">{error}</p>
+            <p className="planner-meta px-3 py-2 text-rose-500">{error}</p>
           ) : null}
 
           {!isLoading && !error && !hasSearchableQuery ? (
-            <p className="px-3 py-2 text-xs text-slate-500">
+            <p className="planner-meta px-3 py-2 text-slate-500">
               Type at least 3 characters, then press Search.
             </p>
           ) : null}
 
           {!isLoading && !error && hasSearchableQuery && !showingSubmittedResults ? (
-            <p className="px-3 py-2 text-xs text-slate-500">
+            <p className="planner-meta px-3 py-2 text-slate-500">
               Press Search to look up this place.
             </p>
           ) : null}
 
           {!isLoading && !error && showingSubmittedResults && results.length === 0 ? (
-            <p className="px-3 py-2 text-xs text-slate-500">No matching locations found.</p>
+            <p className="planner-meta px-3 py-2 text-slate-500">No matching locations found.</p>
           ) : null}
 
           {!isLoading && !error && showingSubmittedResults

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getAuthenticatedUser } from "@/lib/apiAuth";
+import { getAuthenticatedRequest } from "@/lib/apiAuth";
 import { importE2ETrips } from "@/lib/e2eTripStore";
-import { isServerE2EAuthBypassEnabled } from "@/lib/e2eAuth";
 import { normalizeAppData } from "@/lib/tripData";
 import {
   rowToTripSummary,
@@ -44,14 +43,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const user = await getAuthenticatedUser(request);
-  if (!user) {
+  const authenticatedRequest = await getAuthenticatedRequest(request);
+  if (!authenticatedRequest) {
     return NextResponse.json({ error: "Unauthenticated." }, { status: 401 });
   }
+  const { authMode, user } = authenticatedRequest;
 
   const body = (await request.json().catch(() => null)) as ImportBody | null;
 
-  if (isServerE2EAuthBypassEnabled()) {
+  if (authMode === "e2e") {
     const trips = importE2ETrips(user, body?.data);
 
     if (trips.length === 0) {

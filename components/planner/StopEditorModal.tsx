@@ -395,7 +395,7 @@ export default function StopEditorModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-8">
       <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-900">{dialogTitle}</h3>
+          <h3 className="planner-title-lg text-slate-900">{dialogTitle}</h3>
           <button
             type="button"
             onClick={onClose}
