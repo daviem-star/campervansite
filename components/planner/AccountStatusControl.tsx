@@ -2,6 +2,11 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 
+import {
+  plannerNoticeToneClass,
+  plannerSyncDotClass,
+  plannerSyncToneClass,
+} from "@/components/planner/plannerTheme";
 import { canUseLocalTestSignIn, isLocalTestSignInEnabled } from "@/lib/runtimeFlags";
 import { PlannerNotice, SyncStatus } from "@/types/trip";
 
@@ -24,14 +29,6 @@ type AccountStatusControlProps = {
   onResetSeedAlignedToToday: () => Promise<void>;
 };
 
-const statusTone = {
-  idle: "border-slate-200 bg-slate-100 text-slate-700",
-  saving: "border-sky-200 bg-sky-50 text-sky-700",
-  saved: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  offline: "border-amber-200 bg-amber-50 text-amber-800",
-  error: "border-rose-200 bg-rose-50 text-rose-700",
-} as const;
-
 const statusLabel: Record<SyncStatus, string> = {
   idle: "Demo mode",
   saving: "Saving",
@@ -39,20 +36,6 @@ const statusLabel: Record<SyncStatus, string> = {
   offline: "Offline",
   error: "Needs attention",
 };
-
-const statusDot = {
-  idle: "bg-slate-400",
-  saving: "bg-sky-500",
-  saved: "bg-teal-500",
-  offline: "bg-amber-500",
-  error: "bg-rose-500",
-} as const;
-
-const noticeTone = {
-  info: "border-sky-200 bg-sky-50 text-sky-800",
-  success: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  warning: "border-amber-200 bg-amber-50 text-amber-800",
-} as const;
 
 const buttonClass =
   "rounded-2xl border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60";
@@ -143,19 +126,19 @@ export default function AccountStatusControl({
         : "Demo mode";
   const displayedStatusTone =
     syncStatus === "saving" || syncStatus === "offline" || syncStatus === "error"
-      ? statusTone[syncStatus]
+      ? plannerSyncToneClass[syncStatus]
       : mode === "cloud"
-        ? "border-teal-200 bg-teal-50 text-teal-700"
-        : statusTone.idle;
+        ? plannerSyncToneClass.saved
+        : plannerSyncToneClass.idle;
   const displayedStatusDot =
     syncStatus === "saving" || syncStatus === "offline" || syncStatus === "error"
-      ? statusDot[syncStatus]
+      ? plannerSyncDotClass[syncStatus]
       : mode === "cloud"
-        ? statusDot.saved
-        : statusDot.idle;
+        ? plannerSyncDotClass.saved
+        : plannerSyncDotClass.idle;
   const panelClassName = isRail
-    ? "fixed inset-y-0 left-0 z-40 w-[min(24rem,92vw)] overflow-y-auto border-r border-slate-200 bg-white p-5 shadow-2xl lg:absolute lg:bottom-[calc(100%+0.75rem)] lg:left-0 lg:top-auto lg:inset-y-auto lg:max-h-[min(78vh,44rem)] lg:w-[23rem] lg:overflow-y-auto lg:rounded-[28px] lg:border lg:shadow-[0_24px_60px_rgba(15,23,42,0.16)]"
-    : "fixed inset-y-0 left-0 z-40 w-[min(24rem,92vw)] overflow-y-auto border-r border-slate-200 bg-white p-5 shadow-2xl lg:absolute lg:left-0 lg:top-[calc(100%+0.75rem)] lg:inset-y-auto lg:max-h-[min(78vh,44rem)] lg:w-[23rem] lg:overflow-y-auto lg:rounded-[28px] lg:border lg:shadow-[0_24px_60px_rgba(15,23,42,0.16)]";
+    ? "fixed inset-y-0 left-0 z-40 w-[min(24rem,92vw)] overflow-y-auto border-r border-app-border bg-app-surface p-5 shadow-2xl lg:absolute lg:bottom-[calc(100%+0.75rem)] lg:left-0 lg:top-auto lg:inset-y-auto lg:max-h-[min(78vh,44rem)] lg:w-[23rem] lg:overflow-y-auto lg:rounded-[28px] lg:border lg:shadow-[0_24px_60px_rgb(var(--color-app-overlay)_/_0.16)]"
+    : "fixed inset-y-0 left-0 z-40 w-[min(24rem,92vw)] overflow-y-auto border-r border-app-border bg-app-surface p-5 shadow-2xl lg:absolute lg:left-0 lg:top-[calc(100%+0.75rem)] lg:inset-y-auto lg:max-h-[min(78vh,44rem)] lg:w-[23rem] lg:overflow-y-auto lg:rounded-[28px] lg:border lg:shadow-[0_24px_60px_rgb(var(--color-app-overlay)_/_0.16)]";
 
   return (
     <div ref={containerRef} className="relative z-30 lg:w-full">
@@ -168,24 +151,24 @@ export default function AccountStatusControl({
         title={accountLabel}
         className={
           isRail
-            ? "inline-flex w-full items-center gap-3 rounded-[18px] border border-slate-200 bg-white px-3 py-2.5 text-left transition hover:border-slate-300 hover:bg-slate-50"
-            : "inline-flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left transition hover:border-slate-300 hover:bg-slate-50 lg:w-full lg:flex-col lg:justify-center lg:gap-2 lg:rounded-3xl lg:px-1 lg:py-3"
+            ? "inline-flex w-full items-center gap-3 rounded-[18px] border border-app-border bg-app-surface px-3 py-2.5 text-left transition hover:border-brand-primary/18 hover:bg-app-surface-muted"
+            : "inline-flex items-center gap-3 rounded-2xl border border-app-border bg-app-surface px-3 py-2 text-left transition hover:border-brand-primary/18 hover:bg-app-surface-muted lg:w-full lg:flex-col lg:justify-center lg:gap-2 lg:rounded-3xl lg:px-1 lg:py-3"
         }
       >
         <span
-          className={`relative flex items-center justify-center bg-slate-950 text-sm font-semibold text-white ${
+          className={`relative flex items-center justify-center bg-brand-primary text-sm font-semibold text-brand-on-primary ${
             isRail ? "h-9 w-9 rounded-xl" : "h-10 w-10 rounded-full lg:h-12 lg:w-12"
           }`}
         >
           {accountInitial}
           <span
-            className={`absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-white ${displayedStatusDot}`}
+            className={`absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-app-surface ${displayedStatusDot}`}
           />
         </span>
 
         <span className={`min-w-0 ${isRail ? "flex-1" : "lg:hidden"}`}>
-          <span className="planner-title-sm block truncate text-slate-900">{accountLabel}</span>
-          <span className="planner-meta block text-slate-500">{displayedStatusLabel}</span>
+          <span className="planner-title-sm block truncate text-app-text">{accountLabel}</span>
+          <span className="planner-meta block text-app-muted">{displayedStatusLabel}</span>
         </span>
 
         {isRail ? (
@@ -199,7 +182,7 @@ export default function AccountStatusControl({
 
       {isOpen ? (
         <>
-          <div className="fixed inset-0 z-30 bg-slate-900/30 lg:hidden" />
+          <div className="fixed inset-0 z-30 bg-app-overlay/30 lg:hidden" />
 
           <div
             data-testid="account-status-panel"
@@ -207,9 +190,9 @@ export default function AccountStatusControl({
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="planner-eyebrow text-slate-500">Account and sync</p>
-                <h2 className="planner-title-lg mt-2 text-slate-950">{accountLabel}</h2>
-                <p className="planner-copy mt-1 text-slate-600">
+                <p className="planner-eyebrow text-app-muted">Account and sync</p>
+                <h2 className="planner-title-lg mt-2 text-app-text">{accountLabel}</h2>
+                <p className="planner-copy mt-1 text-app-muted">
                   {authStatus === "signed_in"
                     ? mode === "cloud"
                       ? "Cloud mode is active for this account."
@@ -225,7 +208,7 @@ export default function AccountStatusControl({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100"
+                className="planner-button-secondary rounded-xl border px-3 py-1.5 text-sm transition"
               >
                 Close
               </button>
@@ -237,25 +220,25 @@ export default function AccountStatusControl({
               >
                 {displayedStatusLabel}
               </span>
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+              <span className="planner-pill rounded-full border px-2.5 py-0.5 text-xs font-semibold">
                 {mode === "cloud" ? "Cloud mode" : "Demo mode"}
               </span>
             </div>
 
             {isOfflineReadOnly ? (
-              <p className="planner-copy mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+              <p className="planner-copy tone-warning mt-4 rounded-2xl border px-4 py-3">
                 The last synced trip is available to review, but edits and trip management stay
                 locked until the connection returns.
               </p>
             ) : null}
 
-            <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
-              <p className="planner-eyebrow text-slate-500">Sync details</p>
-              <p className="planner-copy mt-2 text-slate-600">{syncDetails}</p>
+            <div className="mt-5 rounded-3xl border border-app-border bg-app-surface-muted p-4">
+              <p className="planner-eyebrow text-app-muted">Sync details</p>
+              <p className="planner-copy mt-2 text-app-muted">{syncDetails}</p>
               {notice ? (
                 <p
                   data-testid="account-notice"
-                  className={`planner-copy mt-3 rounded-2xl border px-3 py-2 ${noticeTone[notice.tone]}`}
+                  className={`planner-copy mt-3 rounded-2xl border px-3 py-2 ${plannerNoticeToneClass[notice.tone]}`}
                 >
                   {notice.text}
                 </p>
@@ -265,9 +248,9 @@ export default function AccountStatusControl({
             <div className="mt-5 space-y-4">
               {authStatus === "signed_in" ? (
                 <>
-                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="planner-title-sm text-slate-900">Account</p>
-                    <p className="planner-copy mt-1 break-all text-slate-600">
+                  <div className="rounded-3xl border border-app-border bg-app-surface-muted p-4">
+                    <p className="planner-title-sm text-app-text">Account</p>
+                    <p className="planner-copy mt-1 break-all text-app-muted">
                       {userEmail ?? "Signed-in account"}
                     </p>
                   </div>
@@ -276,7 +259,7 @@ export default function AccountStatusControl({
                     type="button"
                     onClick={() => void runAction(onSignOut)}
                     disabled={isWorking}
-                    className={`${buttonClass} border-slate-300 text-slate-700 hover:bg-slate-100`}
+                    className={`${buttonClass} planner-button-secondary`}
                   >
                     Sign out
                   </button>
@@ -288,17 +271,17 @@ export default function AccountStatusControl({
                   type="button"
                   onClick={() => void runAction(onCreateCloudTripFromCurrent)}
                   disabled={isWorking}
-                  className={`${buttonClass} border-slate-950 bg-slate-950 text-white hover:bg-slate-800`}
+                  className={`${buttonClass} planner-button-primary`}
                 >
                   Create cloud trip
                 </button>
               ) : null}
 
               {authStatus === "signed_out" ? (
-                <div className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                <div className="space-y-3 rounded-3xl border border-app-border bg-app-surface-muted p-4">
                   <div>
-                    <p className="planner-title-sm text-slate-900">Sign in</p>
-                    <p className="planner-copy mt-1 text-slate-600">
+                    <p className="planner-title-sm text-app-text">Sign in</p>
+                    <p className="planner-copy mt-1 text-app-muted">
                       Send a magic link to this device so the planner can open cloud mode.
                     </p>
                   </div>
@@ -309,12 +292,12 @@ export default function AccountStatusControl({
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
                       placeholder="you@example.com"
-                      className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+                      className="planner-input w-full rounded-2xl border px-4 py-3 text-sm"
                     />
                     <button
                       type="submit"
                       disabled={isWorking}
-                      className="w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                      className="planner-button-primary w-full rounded-2xl border px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed"
                     >
                       {isWorking ? "Sending..." : "Send magic link"}
                     </button>
@@ -323,13 +306,13 @@ export default function AccountStatusControl({
               ) : null}
 
               {authStatus === "signed_out" && showLocalTestSignIn ? (
-                <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-4">
-                  <p className="planner-eyebrow text-slate-500">Local dev only</p>
-                  <p className="planner-copy mt-2 text-slate-600">
+                <div className="rounded-3xl border border-dashed border-app-border bg-app-surface p-4">
+                  <p className="planner-eyebrow text-app-muted">Local dev only</p>
+                  <p className="planner-copy mt-2 text-app-muted">
                     Use the built-in test account to exercise signed-in cloud flows without email.
                   </p>
                   {!localTestSignInReady ? (
-                    <p className="planner-meta mt-2 text-amber-700">
+                    <p className="planner-meta mt-2 text-state-warning">
                       Enable the E2E auth bypass env flags to use local test sign-in.
                     </p>
                   ) : null}
@@ -337,7 +320,7 @@ export default function AccountStatusControl({
                     type="button"
                     onClick={() => void runAction(onSignInAsTestUser)}
                     disabled={isWorking || !localTestSignInReady}
-                    className="mt-3 rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="planner-button-secondary mt-3 rounded-2xl border px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Sign in as test user
                   </button>
@@ -345,17 +328,17 @@ export default function AccountStatusControl({
               ) : null}
 
               {authStatus === "disabled" ? (
-                <p className="planner-copy rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-600">
+                <p className="planner-copy rounded-2xl border border-app-border bg-app-surface-muted px-4 py-3 text-app-muted">
                   Cloud sync is unavailable in this environment right now, so the planner stays in
                   demo mode.
                 </p>
               ) : null}
 
               {mode === "demo" ? (
-                <div className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                <div className="space-y-3 rounded-3xl border border-app-border bg-app-surface-muted p-4">
                   <div>
-                    <p className="planner-title-sm text-slate-900">Demo tools</p>
-                    <p className="planner-copy mt-1 text-slate-600">
+                    <p className="planner-title-sm text-app-text">Demo tools</p>
+                    <p className="planner-copy mt-1 text-app-muted">
                       Keep the seeded itinerary handy while we are testing locally.
                     </p>
                   </div>
@@ -364,7 +347,7 @@ export default function AccountStatusControl({
                     type="button"
                     onClick={() => void runAction(onResetSeed)}
                     disabled={isWorking}
-                    className={`${buttonClass} w-full border-slate-300 text-slate-700 hover:bg-slate-100`}
+                    className={`${buttonClass} planner-button-secondary w-full`}
                   >
                     Reset seed data
                   </button>
@@ -373,7 +356,7 @@ export default function AccountStatusControl({
                     type="button"
                     onClick={() => void runAction(onResetSeedAlignedToToday)}
                     disabled={isWorking}
-                    className={`${buttonClass} w-full border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100`}
+                    className={`${buttonClass} planner-button-support w-full`}
                   >
                     Make trip happen now
                   </button>

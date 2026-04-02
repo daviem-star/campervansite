@@ -1,24 +1,19 @@
 "use client";
 
+import { plannerValidationToneClass } from "@/components/planner/plannerTheme";
 import { ValidationWarning } from "@/types/trip";
 
 type ValidationWarningsPanelProps = {
   warnings: ValidationWarning[];
 };
 
-const severityTone = {
-  high: "border-rose-200 bg-rose-50 text-rose-800",
-  medium: "border-amber-200 bg-amber-50 text-amber-800",
-  low: "border-slate-200 bg-slate-50 text-slate-700",
-} as const;
-
 export default function ValidationWarningsPanel({
   warnings,
 }: ValidationWarningsPanelProps) {
   if (warnings.length === 0) {
     return (
-      <section className="rounded-[24px] border border-emerald-200 bg-emerald-50/80 px-4 py-4 text-emerald-900 sm:px-5 sm:py-5">
-        <p className="planner-eyebrow text-emerald-700">Planning warnings</p>
+      <section className="tone-success rounded-[24px] border px-4 py-4 sm:px-5 sm:py-5">
+        <p className="planner-eyebrow text-state-success">Planning warnings</p>
         <p className="planner-copy mt-3 font-medium">
           Route realism and itinerary validation look healthy for the current plan.
         </p>
@@ -27,15 +22,15 @@ export default function ValidationWarningsPanel({
   }
 
   return (
-    <section className="rounded-[24px] border border-slate-200/80 bg-white px-4 py-4 sm:px-5 sm:py-5">
+    <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <p className="planner-eyebrow text-amber-700">Planning warnings</p>
-          <p className="planner-copy mt-2 text-slate-600">
+          <p className="planner-eyebrow planner-section-label-accent">Planning warnings</p>
+          <p className="planner-copy mt-2 text-app-muted">
             Review anything that could affect timing, coverage, or trip confidence.
           </p>
         </div>
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+        <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
           {warnings.length}
         </span>
       </div>
@@ -44,7 +39,7 @@ export default function ValidationWarningsPanel({
         {warnings.map((warning) => (
           <li
             key={warning.id}
-            className={`rounded-[18px] border px-3.5 py-3 ${severityTone[warning.severity]}`}
+            className={`rounded-[18px] border px-3.5 py-3 ${plannerValidationToneClass[warning.severity]}`}
           >
             <div className="flex items-center justify-between gap-3">
               <p className="planner-title-sm">{warning.label}</p>

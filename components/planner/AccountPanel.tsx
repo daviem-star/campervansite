@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 
+import { plannerSyncToneClass } from "@/components/planner/plannerTheme";
 import { canUseLocalTestSignIn, isLocalTestSignInEnabled } from "@/lib/runtimeFlags";
 import { SyncStatus } from "@/types/trip";
 
@@ -31,14 +32,6 @@ const syncLabel: Record<SyncStatus, string> = {
   error: "Needs attention",
 };
 
-const syncTone: Record<SyncStatus, string> = {
-  idle: "border-slate-200 bg-slate-100 text-slate-700",
-  saving: "border-sky-200 bg-sky-50 text-sky-700",
-  saved: "border-teal-200 bg-teal-50 text-teal-700",
-  offline: "border-amber-200 bg-amber-50 text-amber-800",
-  error: "border-rose-200 bg-rose-50 text-rose-700",
-};
-
 export default function AccountPanel({
   authStatus,
   mode,
@@ -65,10 +58,10 @@ export default function AccountPanel({
         : "Demo mode";
   const displayedStatusTone =
     syncStatus === "saving" || syncStatus === "offline" || syncStatus === "error"
-      ? syncTone[syncStatus]
+      ? plannerSyncToneClass[syncStatus]
       : mode === "cloud"
-        ? syncTone.saved
-        : syncTone.idle;
+        ? plannerSyncToneClass.saved
+        : plannerSyncToneClass.idle;
 
   const submitMagicLink = async (event: FormEvent) => {
     event.preventDefault();
@@ -92,24 +85,24 @@ export default function AccountPanel({
   };
 
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-3xl border border-app-border bg-app-surface p-4 shadow-sm">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-sm font-semibold text-slate-900">Account and sync</h2>
+            <h2 className="text-sm font-semibold text-app-text">Account and sync</h2>
             <span
               className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${displayedStatusTone}`}
             >
               {displayedStatusLabel}
             </span>
             {mode === "demo" ? (
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+              <span className="planner-pill rounded-full border px-2.5 py-0.5 text-[11px] font-semibold">
                 Demo trip
               </span>
             ) : null}
           </div>
 
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-app-muted">
             {authStatus === "disabled"
               ? "Cloud sync is not configured in this environment yet, so the planner is running in demo mode."
               : authStatus === "checking"
@@ -124,13 +117,13 @@ export default function AccountPanel({
           </p>
 
           {isOfflineReadOnly ? (
-            <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+            <p className="tone-warning mt-2 rounded-xl border px-3 py-2 text-xs font-medium">
               You can review the last synced trip offline, but edits are disabled until you reconnect.
             </p>
           ) : null}
 
           {statusMessage ? (
-            <p className="mt-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-medium text-sky-800">
+            <p className="tone-info mt-2 rounded-xl border px-3 py-2 text-xs font-medium">
               {statusMessage}
             </p>
           ) : null}
@@ -144,7 +137,7 @@ export default function AccountPanel({
                   type="button"
                   onClick={() => void runAction(onCreateCloudTripFromCurrent)}
                   disabled={isWorking}
-                  className="rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  className="planner-button-primary rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed"
                 >
                   Create cloud trip
                 </button>
@@ -155,7 +148,7 @@ export default function AccountPanel({
                   type="button"
                   onClick={() => void runAction(onImportLegacy)}
                   disabled={isWorking}
-                  className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="tone-info rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Import local trips
                 </button>
@@ -165,7 +158,7 @@ export default function AccountPanel({
                 type="button"
                 onClick={() => void runAction(onSignOut)}
                 disabled={isWorking}
-                className="rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="planner-button-secondary rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Sign out
               </button>
@@ -182,27 +175,27 @@ export default function AccountPanel({
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@example.com"
-              className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+              className="planner-input flex-1 rounded-xl border px-3 py-2 text-sm"
             />
             <button
               type="submit"
               disabled={isWorking}
-              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+              className="planner-button-primary rounded-xl border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed"
             >
               {isWorking ? "Sending..." : "Send magic link"}
             </button>
           </form>
 
           {showLocalTestSignIn ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4">
-              <p className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
+            <div className="rounded-2xl border border-dashed border-app-border bg-app-surface-muted px-4 py-4">
+              <p className="text-xs font-medium uppercase tracking-[0.12em] text-app-muted">
                 Local dev only
               </p>
-              <p className="mt-2 text-sm text-slate-600">
+              <p className="mt-2 text-sm text-app-muted">
                 Use the built-in test account to open signed-in planner flows without sending email.
               </p>
               {!localTestSignInReady ? (
-                <p className="mt-2 text-xs text-amber-700">
+                <p className="mt-2 text-xs text-state-warning">
                   Enable the E2E auth bypass env flags to use local test sign-in.
                 </p>
               ) : null}
@@ -210,7 +203,7 @@ export default function AccountPanel({
                 type="button"
                 onClick={() => void runAction(onSignInAsTestUser)}
                 disabled={isWorking || !localTestSignInReady}
-                className="mt-3 rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="planner-button-secondary mt-3 rounded-xl border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Sign in as test user
               </button>

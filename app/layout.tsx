@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 
+import { rootThemeAttributes } from "@/lib/theme";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -27,7 +29,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      data-brand={rootThemeAttributes["data-brand"]}
+      data-theme={rootThemeAttributes["data-theme"]}
+    >
       <body>{children}</body>
     </html>
   );

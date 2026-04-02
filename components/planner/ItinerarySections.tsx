@@ -28,7 +28,7 @@ type ItinerarySectionsProps = {
 const dayChipClass =
   "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition";
 
-const stopRowSelectedClass = "border-teal-300 bg-teal-50/70 ring-2 ring-teal-200";
+const stopRowSelectedClass = "planner-selected";
 
 const scrollItemWithinContainer = (element: HTMLElement | null) => {
   if (!element) {
@@ -74,8 +74,8 @@ function DateChip({
       }}
       className={`${dayChipClass} ${
         active
-          ? "border-teal-300 bg-teal-50 text-teal-900"
-          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+          ? "planner-pill-active"
+          : "border-app-border bg-app-surface text-app-muted hover:border-brand-primary/18 hover:bg-app-surface-muted"
       }`}
       title={formatDateOnly(date)}
     >
@@ -98,7 +98,7 @@ function ItemActions({
 }) {
   if (isOfflineReadOnly) {
     return (
-      <span className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+      <span className="tone-warning rounded-lg border px-2.5 py-1 text-xs font-semibold">
         Offline read-only
       </span>
     );
@@ -113,14 +113,14 @@ function ItemActions({
       <button
         type="button"
         onClick={onEdit}
-        className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+        className="planner-button-secondary rounded-lg border px-2.5 py-1 text-xs font-semibold transition"
       >
         Edit
       </button>
       <button
         type="button"
         onClick={onDelete}
-        className="rounded-lg border border-rose-200 px-2.5 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
+        className="planner-button-danger rounded-lg border px-2.5 py-1 text-xs font-semibold transition"
       >
         Delete
       </button>
@@ -166,11 +166,11 @@ function PoiRows({
   }
 
   return (
-    <div className="mt-3 space-y-3 rounded-[22px] border border-slate-200 bg-slate-50/80 p-3">
+    <div className="mt-3 space-y-3 rounded-[22px] border border-app-border bg-app-surface-muted/80 p-3">
       {groupedByDate.map(([date, datePois]) => (
         <div key={date} className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="planner-eyebrow text-slate-500">Points of interest</p>
+            <p className="planner-eyebrow text-app-muted">Points of interest</p>
             <DateChip date={date} active={selectedDate === date} onClick={onSelectDate} />
           </div>
 
@@ -185,24 +185,24 @@ function PoiRows({
                   key={poi.id}
                   ref={registerItemRef(poi.id)}
                   onClick={() => onSelectEntity({ kind: "point_of_interest", stopId: poi.id })}
-                  className={`cursor-pointer rounded-xl border bg-white p-3 transition ${
+                  className={`cursor-pointer rounded-xl border bg-app-surface p-3 transition ${
                     exactSelected
                       ? stopRowSelectedClass
                       : daySelected
-                        ? "border-teal-200 bg-teal-50/40"
-                        : "border-slate-200 hover:border-slate-300"
+                        ? "planner-selected-soft"
+                        : "border-app-border hover:border-brand-primary/18"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100 text-orange-700">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-secondary/16 text-brand-secondary-variant">
                           <StopTypeIcon kind="point_of_interest" className="h-4 w-4" />
                         </span>
-                        <p className="planner-title-sm text-slate-900">{poi.title}</p>
+                        <p className="planner-title-sm text-app-text">{poi.title}</p>
                       </div>
-                      <p className="planner-meta mt-1 text-slate-600">{poi.place.label}</p>
-                      {poi.notes ? <p className="planner-meta mt-1 text-slate-500">{poi.notes}</p> : null}
+                      <p className="planner-meta mt-1 text-app-muted">{poi.place.label}</p>
+                      {poi.notes ? <p className="planner-meta mt-1 text-app-muted">{poi.notes}</p> : null}
                     </div>
 
                     <ItemActions
@@ -270,7 +270,7 @@ export default function ItinerarySections({
 
   if (sections.length === 0) {
     return (
-      <div className="planner-copy rounded-[24px] border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-slate-500">
+      <div className="planner-copy rounded-[24px] border border-dashed border-app-border bg-app-surface px-4 py-8 text-center text-app-muted">
         No itinerary sections yet. Add a campsite, ferry, or POI to start planning.
       </div>
     );
@@ -288,59 +288,59 @@ export default function ItinerarySections({
             <section
               key={section.id}
               ref={registerSectionRef(section.id)}
-              className={`rounded-[24px] border bg-slate-50/65 p-4 transition ${
+              className={`rounded-[24px] border bg-app-surface-muted/65 p-4 transition ${
                 staySelected
                   ? stopRowSelectedClass
                   : daySelected
-                    ? "border-teal-200 bg-teal-50/30"
-                    : "border-slate-200"
+                    ? "planner-selected-soft"
+                    : "border-app-border"
               }`}
             >
               <div
                 ref={registerItemRef(section.stay.id)}
                 onClick={() => onSelectEntity({ kind: "stay", stopId: section.stay.id })}
-                className="cursor-pointer rounded-2xl border border-transparent p-1 transition hover:bg-white/80"
+                className="cursor-pointer rounded-2xl border border-transparent p-1 transition hover:bg-app-surface/80"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-support/18 text-brand-primary">
                         <StopTypeIcon kind="stay" className="h-4 w-4" />
                       </span>
                       <div>
-                        <p className="planner-title-sm text-slate-900">{section.stay.title}</p>
-                        <p className="planner-meta text-slate-600">{section.stay.place.label}</p>
+                        <p className="planner-title-sm text-app-text">{section.stay.title}</p>
+                        <p className="planner-meta text-app-muted">{section.stay.place.label}</p>
                       </div>
                     </div>
-                    <p className="planner-meta mt-2 text-slate-500">
+                    <p className="planner-meta mt-2 text-app-muted">
                       {stayWindowLabel(section.stay)}
                     </p>
-                    <p className="planner-copy-sm mt-1 font-medium text-slate-600">
+                    <p className="planner-copy-sm mt-1 font-medium text-app-muted">
                       {formatDateOnly(dateOnlyFromIso(section.stay.checkInAt))} -{" "}
                       {formatDateOnly(dateOnlyFromIso(section.stay.checkOutAt))}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
-                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                      <span className="planner-pill rounded-full border px-2 py-0.5 text-[11px] font-semibold">
                         {section.stay.bookingStatus ?? "planned"}
                       </span>
                       {section.stay.hookup ? (
-                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                        <span className="rounded-full border border-brand-support/35 bg-brand-support/18 px-2 py-0.5 text-[11px] font-semibold text-brand-primary">
                           Hookup
                         </span>
                       ) : null}
                       {section.stay.hardstanding ? (
-                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                        <span className="planner-pill rounded-full border px-2 py-0.5 text-[11px] font-semibold">
                           Hardstanding
                         </span>
                       ) : null}
                     </div>
                     {section.stay.amenitiesSummary ? (
-                      <p className="planner-meta mt-1 text-slate-500">
+                      <p className="planner-meta mt-1 text-app-muted">
                         {section.stay.amenitiesSummary}
                       </p>
                     ) : null}
                     {section.stay.notes ? (
-                      <p className="planner-meta mt-1 text-slate-500">{section.stay.notes}</p>
+                      <p className="planner-meta mt-1 text-app-muted">{section.stay.notes}</p>
                     ) : null}
                   </div>
 
@@ -381,12 +381,12 @@ export default function ItinerarySections({
             <section
               key={section.id}
               ref={registerSectionRef(section.id)}
-              className={`rounded-[24px] border bg-slate-50/65 p-4 transition ${
+              className={`rounded-[24px] border bg-app-surface-muted/65 p-4 transition ${
                 exactSelected
                   ? stopRowSelectedClass
                   : daySelected
-                    ? "border-teal-200 bg-teal-50/30"
-                    : "border-slate-200"
+                    ? "planner-selected-soft"
+                    : "border-app-border"
               }`}
             >
               <div
@@ -397,41 +397,41 @@ export default function ItinerarySections({
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-100 text-cyan-700">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-state-info-surface text-state-info">
                         <StopTypeIcon kind="ferry" className="h-4 w-4" />
                       </span>
                       <div>
-                        <p className="planner-title-sm text-slate-900">{section.ferry.title}</p>
-                        <p className="planner-meta text-slate-600">
+                        <p className="planner-title-sm text-app-text">{section.ferry.title}</p>
+                        <p className="planner-meta text-app-muted">
                           {section.ferry.departurePort.label} to {section.ferry.arrivalPort.label}
                         </p>
                       </div>
                     </div>
-                    <p className="planner-meta mt-2 text-slate-500">
+                    <p className="planner-meta mt-2 text-app-muted">
                       {ferryWindowLabel(section.ferry)}
                     </p>
-                    <p className="planner-meta mt-1 text-slate-500">
+                    <p className="planner-meta mt-1 text-app-muted">
                       Check-in by {formatDateTime(section.ferry.checkInBy)}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {section.ferry.operator ? (
-                        <span className="rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[11px] font-semibold text-cyan-700">
+                        <span className="rounded-full border border-state-info-border bg-state-info-surface px-2 py-0.5 text-[11px] font-semibold text-state-info">
                           {section.ferry.operator}
                         </span>
                       ) : null}
                       {section.ferry.bookingRef ? (
-                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                        <span className="planner-pill rounded-full border px-2 py-0.5 text-[11px] font-semibold">
                           Ref {section.ferry.bookingRef}
                         </span>
                       ) : null}
                       {section.ferry.vehicleDetails?.vehicleType ? (
-                        <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                        <span className="planner-pill rounded-full border px-2 py-0.5 text-[11px] font-semibold">
                           {section.ferry.vehicleDetails.vehicleType}
                         </span>
                       ) : null}
                     </div>
                     {section.ferry.notes ? (
-                      <p className="planner-meta mt-1 text-slate-500">{section.ferry.notes}</p>
+                      <p className="planner-meta mt-1 text-app-muted">{section.ferry.notes}</p>
                     ) : null}
                   </div>
 
@@ -461,12 +461,12 @@ export default function ItinerarySections({
           <section
             key={section.id}
             ref={registerSectionRef(section.id)}
-            className={`rounded-[24px] border bg-slate-50/65 p-4 transition ${
+            className={`rounded-[24px] border bg-app-surface-muted/65 p-4 transition ${
               exactSelected
                 ? stopRowSelectedClass
                 : daySelected
-                  ? "border-teal-200 bg-teal-50/30"
-                  : "border-slate-200"
+                  ? "planner-selected-soft"
+                  : "border-app-border"
             }`}
           >
             <div
@@ -477,16 +477,16 @@ export default function ItinerarySections({
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-orange-700">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-secondary/16 text-brand-secondary-variant">
                       <StopTypeIcon kind="point_of_interest" className="h-4 w-4" />
                     </span>
                     <div>
-                      <p className="planner-title-sm text-slate-900">{section.poi.title}</p>
-                      <p className="planner-meta text-slate-600">{section.poi.place.label}</p>
+                      <p className="planner-title-sm text-app-text">{section.poi.title}</p>
+                      <p className="planner-meta text-app-muted">{section.poi.place.label}</p>
                     </div>
                   </div>
                   {section.poi.notes ? (
-                    <p className="planner-meta mt-2 text-slate-500">{section.poi.notes}</p>
+                    <p className="planner-meta mt-2 text-app-muted">{section.poi.notes}</p>
                   ) : null}
                 </div>
 

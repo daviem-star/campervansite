@@ -34,9 +34,9 @@ type StopTimelineProps = {
 };
 
 const typeStyle = {
-  stay: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  ferry: "border-cyan-200 bg-cyan-50 text-cyan-700",
-  point_of_interest: "border-orange-200 bg-orange-50 text-orange-700",
+  stay: "border-brand-support/35 bg-brand-support/18 text-brand-primary",
+  ferry: "border-state-info-border bg-state-info-surface text-state-info",
+  point_of_interest: "border-brand-secondary/35 bg-brand-secondary/16 text-brand-secondary-variant",
 } as const;
 
 function SortableStopItem({
@@ -65,16 +65,16 @@ function SortableStopItem({
     <article
       ref={setNodeRef}
       style={style}
-      className={`rounded-2xl border bg-white p-3 shadow-sm transition ${
-        isDragging ? "border-slate-400 shadow-lg" : "border-slate-200"
-      } ${isOnSelectedDay ? "ring-2 ring-sky-200" : "opacity-80"}`}
+      className={`rounded-2xl border bg-app-surface p-3 shadow-sm transition ${
+        isDragging ? "border-brand-primary/40 shadow-lg" : "border-app-border"
+      } ${isOnSelectedDay ? "ring-2 ring-brand-primary/20" : "opacity-80"}`}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <button
             type="button"
             aria-label={`Drag ${stop.title}`}
-            className="cursor-grab rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-500 active:cursor-grabbing"
+            className="cursor-grab rounded-md border border-app-border px-2 py-1 text-xs text-app-muted active:cursor-grabbing"
             {...attributes}
             {...listeners}
           >
@@ -89,26 +89,26 @@ function SortableStopItem({
           </span>
         </div>
 
-        <span className="text-xs font-medium text-slate-500">{getPrimaryDateForStop(stop)}</span>
+        <span className="text-xs font-medium text-app-muted">{getPrimaryDateForStop(stop)}</span>
       </div>
 
-      <h4 className="text-sm font-semibold text-slate-900">{stop.title}</h4>
-      <p className="mt-1 text-xs text-slate-600">{getStopSubtitle(stop)}</p>
+      <h4 className="text-sm font-semibold text-app-text">{stop.title}</h4>
+      <p className="mt-1 text-xs text-app-muted">{getStopSubtitle(stop)}</p>
 
-      {stop.notes ? <p className="mt-2 text-xs text-slate-500">{stop.notes}</p> : null}
+      {stop.notes ? <p className="mt-2 text-xs text-app-muted">{stop.notes}</p> : null}
 
       <div className="mt-3 flex items-center justify-end gap-2">
         <button
           type="button"
           onClick={() => onEdit(stop)}
-          className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+          className="planner-button-secondary rounded-lg border px-2.5 py-1 text-xs font-semibold transition"
         >
           Edit
         </button>
         <button
           type="button"
           onClick={() => onDelete(stop)}
-          className="rounded-lg border border-rose-200 px-2.5 py-1 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
+          className="planner-button-danger rounded-lg border px-2.5 py-1 text-xs font-semibold transition"
         >
           Delete
         </button>
@@ -142,7 +142,7 @@ export default function StopTimeline({
 
   if (stops.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500">
+      <div className="rounded-2xl border border-dashed border-app-border bg-app-surface px-4 py-8 text-center text-sm text-app-muted">
         No itinerary stops yet. Add your first stop to get started.
       </div>
     );

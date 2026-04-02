@@ -139,6 +139,12 @@ npm run smoke:staging -- "<vercel-share-url>"
 - `docs/HOSTED_SMOKE_TEST_2026-03-30.md`: detailed record of the first hosted smoke pass, including access, failures, fixes, and rerun procedure
 - `docs/QA_NOTES.md`: manual QA checklist and issue log
 
+## Theme Contract
+
+- Root theming now lives on the HTML element through `data-brand` and `data-theme`, with defaults exported from `lib/theme.ts`.
+- Global theme tokens are defined in `app/globals.css` for both light and dark modes under the same semantic contract.
+- Planner components should use semantic Tailwind color aliases such as `app.*`, `brand.*`, and `state.*` rather than hard-coded palette utilities so future palette tests stay localized.
+
 ## Roadmap
 
 The live roadmap now sits in [docs/PRODUCT_PLAN.md](docs/PRODUCT_PLAN.md). In short:

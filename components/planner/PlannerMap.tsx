@@ -61,8 +61,25 @@ type PlannerMapProps = {
 };
 
 const routeChipToneClass = {
-  neutral: "border-slate-200 bg-white/95 text-slate-700",
-  warning: "border-amber-200 bg-amber-50/95 text-amber-900",
+  neutral: "border-app-border bg-app-surface/95 text-app-muted",
+  warning: "border-brand-secondary/30 bg-brand-secondary/14 text-brand-secondary-variant",
+} as const;
+
+const MAP_PALETTE = {
+  routeLive: "#163B25",
+  routeFallback: "#C97512",
+  ferry: "#406174",
+  ferrySelected: "#163B25",
+  home: "#0E3527",
+  stay: "#6A8B2C",
+  poi: "#F49727",
+  ferryPort: "#406174",
+  default: "#163B25",
+  selectedFill: "rgba(22, 59, 37, 0.16)",
+  selectedStroke: "#163B25",
+  label: "#1C241D",
+  labelMuted: "#5C6458",
+  labelHalo: "#FFFDF7",
 } as const;
 
 const isSameEntity = (markerOrSegment: { stopId?: string; entityKind?: StopType }, selected: SelectedEntity) => {
@@ -85,7 +102,8 @@ const escapeHtml = (value: string): string =>
     .replaceAll("'", "&#39;");
 
 const popupIconSvg = (kind: StopType): string => {
-  const color = kind === "stay" ? "#047857" : kind === "ferry" ? "#0e7490" : "#c2410c";
+  const color =
+    kind === "stay" ? MAP_PALETTE.stay : kind === "ferry" ? MAP_PALETTE.ferry : MAP_PALETTE.poi;
 
   if (kind === "stay") {
     return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 18h16" stroke="${color}" stroke-width="1.8" stroke-linecap="round"/><path d="M6 18V10.8c0-.4.3-.8.8-.8h2.5c.3 0 .6-.1.8-.4l1.3-1.8c.3-.4.9-.4 1.2 0l1.3 1.8c.2.3.5.4.8.4h2.5c.5 0 .8.4.8.8V18" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -128,7 +146,7 @@ const getSegmentGeometrySignature = (segment: MapSegment): string => {
 const buildPopupHtml = (trip: Trip, selectedEntity: Exclude<SelectedEntity, null>): string => {
   const stop = findStopById(trip, selectedEntity.stopId);
   if (!stop) {
-    return `<div style="padding:8px;font:12px sans-serif;color:#334155;">Item not found.</div>`;
+    return `<div style="padding:8px;font:12px sans-serif;color:${MAP_PALETTE.labelMuted};">Item not found.</div>`;
   }
 
   if (stop.type === "stay") {
@@ -137,16 +155,16 @@ const buildPopupHtml = (trip: Trip, selectedEntity: Exclude<SelectedEntity, null
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
           ${popupIconSvg("stay")}
           <div>
-            <div style="font-weight:700;color:#0f172a;">${escapeHtml(stop.title)}</div>
-            <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">${entityLabel("stay")}</div>
+            <div style="font-weight:700;color:${MAP_PALETTE.label};">${escapeHtml(stop.title)}</div>
+            <div style="font-size:11px;color:${MAP_PALETTE.labelMuted};text-transform:uppercase;letter-spacing:.04em;">${entityLabel("stay")}</div>
           </div>
         </div>
-        <div style="font-size:12px;color:#334155;line-height:1.35;">${escapeHtml(stop.place.label)}</div>
-        <div style="margin-top:6px;font-size:12px;color:#475569;">Check-in: ${escapeHtml(formatDateTime(stop.checkInAt))}</div>
-        <div style="font-size:12px;color:#475569;">Check-out: ${escapeHtml(formatDateTime(stop.checkOutAt))}</div>
+        <div style="font-size:12px;color:${MAP_PALETTE.label};line-height:1.35;">${escapeHtml(stop.place.label)}</div>
+        <div style="margin-top:6px;font-size:12px;color:${MAP_PALETTE.labelMuted};">Check-in: ${escapeHtml(formatDateTime(stop.checkInAt))}</div>
+        <div style="font-size:12px;color:${MAP_PALETTE.labelMuted};">Check-out: ${escapeHtml(formatDateTime(stop.checkOutAt))}</div>
         ${
           stop.notes
-            ? `<div style="margin-top:4px;font-size:12px;color:#64748b;">Notes: ${escapeHtml(stop.notes)}</div>`
+            ? `<div style="margin-top:4px;font-size:12px;color:${MAP_PALETTE.labelMuted};">Notes: ${escapeHtml(stop.notes)}</div>`
             : ""
         }
       </div>`;
@@ -158,17 +176,17 @@ const buildPopupHtml = (trip: Trip, selectedEntity: Exclude<SelectedEntity, null
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
           ${popupIconSvg("ferry")}
           <div>
-            <div style="font-weight:700;color:#0f172a;">${escapeHtml(stop.title)}</div>
-            <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">${entityLabel("ferry")}</div>
+            <div style="font-weight:700;color:${MAP_PALETTE.label};">${escapeHtml(stop.title)}</div>
+            <div style="font-size:11px;color:${MAP_PALETTE.labelMuted};text-transform:uppercase;letter-spacing:.04em;">${entityLabel("ferry")}</div>
           </div>
         </div>
-        <div style="font-size:12px;color:#334155;line-height:1.35;">${escapeHtml(stop.departurePort.label)} to ${escapeHtml(stop.arrivalPort.label)}</div>
-        <div style="margin-top:6px;font-size:12px;color:#475569;">Departure: ${escapeHtml(formatDateTime(stop.departureAt))}</div>
-        <div style="font-size:12px;color:#475569;">Arrival: ${escapeHtml(formatDateTime(stop.arrivalAt))}</div>
-        <div style="font-size:12px;color:#475569;">Check-in by: ${escapeHtml(formatDateTime(stop.checkInBy))}</div>
+        <div style="font-size:12px;color:${MAP_PALETTE.label};line-height:1.35;">${escapeHtml(stop.departurePort.label)} to ${escapeHtml(stop.arrivalPort.label)}</div>
+        <div style="margin-top:6px;font-size:12px;color:${MAP_PALETTE.labelMuted};">Departure: ${escapeHtml(formatDateTime(stop.departureAt))}</div>
+        <div style="font-size:12px;color:${MAP_PALETTE.labelMuted};">Arrival: ${escapeHtml(formatDateTime(stop.arrivalAt))}</div>
+        <div style="font-size:12px;color:${MAP_PALETTE.labelMuted};">Check-in by: ${escapeHtml(formatDateTime(stop.checkInBy))}</div>
         ${
           stop.notes
-            ? `<div style="margin-top:4px;font-size:12px;color:#64748b;">Notes: ${escapeHtml(stop.notes)}</div>`
+            ? `<div style="margin-top:4px;font-size:12px;color:${MAP_PALETTE.labelMuted};">Notes: ${escapeHtml(stop.notes)}</div>`
             : ""
         }
       </div>`;
@@ -179,15 +197,15 @@ const buildPopupHtml = (trip: Trip, selectedEntity: Exclude<SelectedEntity, null
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
         ${popupIconSvg("point_of_interest")}
         <div>
-          <div style="font-weight:700;color:#0f172a;">${escapeHtml(stop.title)}</div>
-          <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">${entityLabel("point_of_interest")}</div>
+          <div style="font-weight:700;color:${MAP_PALETTE.label};">${escapeHtml(stop.title)}</div>
+          <div style="font-size:11px;color:${MAP_PALETTE.labelMuted};text-transform:uppercase;letter-spacing:.04em;">${entityLabel("point_of_interest")}</div>
         </div>
       </div>
-      <div style="font-size:12px;color:#334155;line-height:1.35;">${escapeHtml(stop.place.label)}</div>
-      <div style="margin-top:6px;font-size:12px;color:#475569;">Visit date: ${escapeHtml(formatDateOnly(stop.visitDate))}</div>
+      <div style="font-size:12px;color:${MAP_PALETTE.label};line-height:1.35;">${escapeHtml(stop.place.label)}</div>
+      <div style="margin-top:6px;font-size:12px;color:${MAP_PALETTE.labelMuted};">Visit date: ${escapeHtml(formatDateOnly(stop.visitDate))}</div>
       ${
         stop.notes
-          ? `<div style="margin-top:4px;font-size:12px;color:#64748b;">Notes: ${escapeHtml(stop.notes)}</div>`
+          ? `<div style="margin-top:4px;font-size:12px;color:${MAP_PALETTE.labelMuted};">Notes: ${escapeHtml(stop.notes)}</div>`
           : ""
       }
     </div>`;
@@ -550,7 +568,7 @@ export default function PlannerMap({
           ["==", ["get", "routeStatus"], "live"],
         ],
         paint: {
-          "line-color": "#64748b",
+          "line-color": MAP_PALETTE.routeLive,
           "line-width": 2.5,
           "line-opacity": 0.65,
         },
@@ -566,7 +584,7 @@ export default function PlannerMap({
           ["==", ["get", "routeStatus"], "fallback"],
         ],
         paint: {
-          "line-color": "#d97706",
+          "line-color": MAP_PALETTE.routeFallback,
           "line-width": 3,
           "line-dasharray": [1.5, 1.5],
           "line-opacity": 0.9,
@@ -579,7 +597,7 @@ export default function PlannerMap({
         source: "segments",
         filter: ["==", ["get", "type"], "ferry"],
         paint: {
-          "line-color": "#0891b2",
+          "line-color": MAP_PALETTE.ferry,
           "line-width": 3.5,
           "line-dasharray": [2, 2],
           "line-opacity": 0.9,
@@ -592,7 +610,7 @@ export default function PlannerMap({
         source: "segments",
         filter: ["all", ["==", ["get", "type"], "ferry"], ["==", ["get", "isSelected"], true]],
         paint: {
-          "line-color": "#0369a1",
+          "line-color": MAP_PALETTE.ferrySelected,
           "line-width": 6,
           "line-dasharray": [2, 1.5],
           "line-opacity": 0.95,
@@ -605,7 +623,7 @@ export default function PlannerMap({
         source: "segments",
         filter: ["==", ["get", "type"], "ferry"],
         paint: {
-          "line-color": "#000000",
+          "line-color": MAP_PALETTE.default,
           "line-opacity": 0,
           "line-width": 12,
         },
@@ -629,17 +647,17 @@ export default function PlannerMap({
             "match",
             ["get", "role"],
             "home",
-            "#111827",
+            MAP_PALETTE.home,
             "stay",
-            "#16a34a",
+            MAP_PALETTE.stay,
             "poi",
-            "#f97316",
+            MAP_PALETTE.poi,
             "ferry_port",
-            "#0ea5e9",
-            "#6366f1",
+            MAP_PALETTE.ferryPort,
+            MAP_PALETTE.default,
           ],
           "circle-stroke-width": 2,
-          "circle-stroke-color": "#ffffff",
+          "circle-stroke-color": MAP_PALETTE.labelHalo,
         },
       });
 
@@ -658,8 +676,8 @@ export default function PlannerMap({
             12,
             10,
           ],
-          "circle-color": "rgba(14,165,233,0.18)",
-          "circle-stroke-color": "#0284c7",
+          "circle-color": MAP_PALETTE.selectedFill,
+          "circle-stroke-color": MAP_PALETTE.selectedStroke,
           "circle-stroke-width": 2,
         },
       });
@@ -670,7 +688,7 @@ export default function PlannerMap({
         source: "markers",
         paint: {
           "circle-radius": 14,
-          "circle-color": "#000000",
+          "circle-color": MAP_PALETTE.default,
           "circle-opacity": 0,
         },
       });
@@ -688,8 +706,8 @@ export default function PlannerMap({
           "text-max-width": 12,
         },
         paint: {
-          "text-color": "#1f2937",
-          "text-halo-color": "#ffffff",
+          "text-color": MAP_PALETTE.label,
+          "text-halo-color": MAP_PALETTE.labelHalo,
           "text-halo-width": 1,
         },
       });
@@ -906,10 +924,10 @@ export default function PlannerMap({
   return (
     <div data-testid="planner-map-panel" className={`relative overflow-hidden ${className ?? ""}`}>
       {mapError ? (
-        <div className="flex h-full w-full items-center justify-center bg-slate-100 p-6" aria-label="Trip map unavailable">
-          <div className="max-w-sm rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
-            <p className="planner-title-sm text-slate-900">Map unavailable</p>
-            <p className="planner-copy mt-2 text-slate-600">{mapError}</p>
+        <div className="flex h-full w-full items-center justify-center bg-app-surface-muted p-6" aria-label="Trip map unavailable">
+          <div className="max-w-sm rounded-2xl border border-app-border bg-app-surface p-5 text-center shadow-sm">
+            <p className="planner-title-sm text-app-text">Map unavailable</p>
+            <p className="planner-copy mt-2 text-app-muted">{mapError}</p>
           </div>
         </div>
       ) : (
@@ -918,7 +936,7 @@ export default function PlannerMap({
 
       <div className="pointer-events-none absolute left-3 right-3 top-3 z-10 flex items-start justify-between gap-3">
         <div className="pointer-events-auto flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/95 p-2 shadow-sm backdrop-blur">
+          <div className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface/95 p-2 shadow-sm backdrop-blur">
             <button
               type="button"
               onClick={() => {
@@ -929,7 +947,7 @@ export default function PlannerMap({
                   popupRef.current = null;
                 }
               }}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+              className="planner-button-secondary rounded-lg border px-3 py-1.5 text-xs font-semibold transition"
             >
               Reset Map
             </button>
@@ -947,8 +965,8 @@ export default function PlannerMap({
         </div>
 
         {currentSelectionTitle ? (
-          <div className="pointer-events-auto rounded-xl border border-sky-200 bg-white/95 px-3 py-2 text-xs text-slate-700 shadow-sm backdrop-blur">
-            <p className="font-semibold text-slate-900">Selected</p>
+          <div className="pointer-events-auto rounded-xl border border-brand-primary/22 bg-app-surface/95 px-3 py-2 text-xs text-app-muted shadow-sm backdrop-blur">
+            <p className="font-semibold text-app-text">Selected</p>
             <p>{currentSelectionTitle}</p>
           </div>
         ) : null}

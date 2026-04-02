@@ -103,7 +103,7 @@ export default function StopSearchInput({
 
   return (
     <div ref={containerRef} className="relative">
-      <label className="planner-eyebrow mb-1 block text-slate-500">{label}</label>
+      <label className="planner-eyebrow mb-1 block text-app-muted">{label}</label>
       <div className="flex items-start gap-2">
         <input
           value={query}
@@ -121,7 +121,7 @@ export default function StopSearchInput({
             }
           }}
           placeholder={placeholder}
-          className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none"
+          className="planner-input w-full rounded-xl border px-3 py-2 text-sm"
         />
         <button
           type="button"
@@ -129,44 +129,44 @@ export default function StopSearchInput({
             void onSearch();
           }}
           disabled={isLoading || Boolean(isSelectingResult)}
-          className="rounded-xl bg-slate-950 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="planner-button-primary rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed"
         >
           Search
         </button>
       </div>
 
       {selectedLabel && query === selectedLabel ? (
-        <p className="planner-meta mt-1 text-emerald-600">Selected</p>
+        <p className="planner-meta mt-1 text-brand-primary">Selected</p>
       ) : null}
 
       {isOpen ? (
-        <div className="absolute z-20 mt-2 max-h-48 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+        <div className="absolute z-20 mt-2 max-h-48 w-full overflow-y-auto rounded-xl border border-app-border bg-app-surface shadow-xl">
           {isLoading ? (
-            <p className="planner-meta px-3 py-2 text-slate-500">Searching...</p>
+            <p className="planner-meta px-3 py-2 text-app-muted">Searching...</p>
           ) : null}
 
           {!isLoading && isSelectingResult ? (
-            <p className="planner-meta px-3 py-2 text-slate-500">Saving nearby road access...</p>
+            <p className="planner-meta px-3 py-2 text-app-muted">Saving nearby road access...</p>
           ) : null}
 
           {!isLoading && error ? (
-            <p className="planner-meta px-3 py-2 text-rose-500">{error}</p>
+            <p className="planner-meta px-3 py-2 text-state-error">{error}</p>
           ) : null}
 
           {!isLoading && !error && !hasSearchableQuery ? (
-            <p className="planner-meta px-3 py-2 text-slate-500">
+            <p className="planner-meta px-3 py-2 text-app-muted">
               Type at least 3 characters, then press Search.
             </p>
           ) : null}
 
           {!isLoading && !error && hasSearchableQuery && !showingSubmittedResults ? (
-            <p className="planner-meta px-3 py-2 text-slate-500">
+            <p className="planner-meta px-3 py-2 text-app-muted">
               Press Search to look up this place.
             </p>
           ) : null}
 
           {!isLoading && !error && showingSubmittedResults && results.length === 0 ? (
-            <p className="planner-meta px-3 py-2 text-slate-500">No matching locations found.</p>
+            <p className="planner-meta px-3 py-2 text-app-muted">No matching locations found.</p>
           ) : null}
 
           {!isLoading && !error && showingSubmittedResults
@@ -178,7 +178,7 @@ export default function StopSearchInput({
                     void onSelectResult(result);
                   }}
                   disabled={Boolean(isSelectingResult)}
-                  className="block w-full border-b border-slate-100 px-3 py-2 text-left text-xs text-slate-700 transition hover:bg-slate-50"
+                  className="block w-full border-b border-app-border/60 px-3 py-2 text-left text-xs text-app-text transition hover:bg-app-surface-muted"
                 >
                   {result.label}
                 </button>

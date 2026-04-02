@@ -11,6 +11,7 @@ import ItinerarySections from "@/components/planner/ItinerarySections";
 import PlannerAuthGate from "@/components/planner/PlannerAuthGate";
 import PlannerBrandBadge from "@/components/planner/PlannerBrandBadge";
 import PlannerMap from "@/components/planner/PlannerMap";
+import { plannerNoticeToneClass } from "@/components/planner/plannerTheme";
 import StopEditorModal from "@/components/planner/StopEditorModal";
 import TodayActionsPanel from "@/components/planner/TodayActionsPanel";
 import TravelInsightsPanel from "@/components/planner/TravelInsightsPanel";
@@ -97,17 +98,7 @@ const mobilePanelMeta: Array<{
   { id: "today", label: "Today" },
 ];
 
-const noticeToneClass = {
-  info: "border-sky-200 bg-sky-50 text-sky-800",
-  success: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  warning: "border-amber-200 bg-amber-50 text-amber-800",
-} as const;
-
-const saveFeedbackToneClass: Record<PlannerNoticeTone, string> = {
-  info: "border-sky-200 bg-sky-50 text-sky-700",
-  success: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  warning: "border-amber-200 bg-amber-50 text-amber-800",
-};
+const saveFeedbackToneClass: Record<PlannerNoticeTone, string> = plannerNoticeToneClass;
 
 const cloneTrip = (trip: Trip): Trip => structuredClone(trip);
 
@@ -793,14 +784,14 @@ export default function PlannerApp() {
   const renderSharedNotices = () => (
     <>
       {error ? (
-        <div className="rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="tone-warning rounded-[24px] border px-4 py-3 text-sm">
           {error}
         </div>
       ) : null}
       {inlineNotice ? (
         <div
           data-testid="planner-inline-notice"
-          className={`rounded-[24px] border px-4 py-3 text-sm ${noticeToneClass[inlineNotice.tone]}`}
+          className={`rounded-[24px] border px-4 py-3 text-sm ${plannerNoticeToneClass[inlineNotice.tone]}`}
         >
           {inlineNotice.text}
         </div>
@@ -846,27 +837,27 @@ export default function PlannerApp() {
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(280px,0.92fr)]">
         <TodayActionsPanel actions={todayActions} />
 
-        <section className="rounded-[24px] border border-slate-200/80 bg-white px-4 py-4 sm:px-5 sm:py-5">
-          <p className="planner-eyebrow text-teal-700">Daily snapshot</p>
+        <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
+          <p className="planner-eyebrow planner-section-label">Daily snapshot</p>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            <div className="rounded-[18px] border border-slate-200 bg-slate-50/80 px-3.5 py-3.5">
-              <p className="planner-eyebrow text-slate-500">Selected date</p>
-              <p className="planner-title-lg mt-2 text-slate-950">
+            <div className="rounded-[18px] border border-app-border bg-app-surface-muted/80 px-3.5 py-3.5">
+              <p className="planner-eyebrow text-app-muted">Selected date</p>
+              <p className="planner-title-lg mt-2 text-app-text">
                 {formatDateOnly(effectiveSelectedDate)}
               </p>
             </div>
-            <div className="rounded-[18px] border border-slate-200 bg-slate-50/80 px-3.5 py-3.5">
-              <p className="planner-eyebrow text-slate-500">Campsites</p>
-              <p className="planner-metric mt-2 text-slate-950">{stayCount}</p>
+            <div className="rounded-[18px] border border-app-border bg-app-surface-muted/80 px-3.5 py-3.5">
+              <p className="planner-eyebrow text-app-muted">Campsites</p>
+              <p className="planner-metric mt-2 text-app-text">{stayCount}</p>
             </div>
-            <div className="rounded-[18px] border border-slate-200 bg-slate-50/80 px-3.5 py-3.5">
-              <p className="planner-eyebrow text-slate-500">Stops in plan</p>
-              <p className="planner-metric mt-2 text-slate-950">{stopCount}</p>
+            <div className="rounded-[18px] border border-app-border bg-app-surface-muted/80 px-3.5 py-3.5">
+              <p className="planner-eyebrow text-app-muted">Stops in plan</p>
+              <p className="planner-metric mt-2 text-app-text">{stopCount}</p>
             </div>
-            <div className="rounded-[18px] border border-slate-200 bg-slate-50/80 px-3.5 py-3.5">
-              <p className="planner-eyebrow text-slate-500">Live road legs</p>
-              <p className="planner-metric mt-2 text-slate-950">{routeMapSummary.liveRoadLegs}</p>
+            <div className="rounded-[18px] border border-app-border bg-app-surface-muted/80 px-3.5 py-3.5">
+              <p className="planner-eyebrow text-app-muted">Live road legs</p>
+              <p className="planner-metric mt-2 text-app-text">{routeMapSummary.liveRoadLegs}</p>
             </div>
           </div>
         </section>
@@ -939,23 +930,23 @@ export default function PlannerApp() {
       className="lg:flex lg:h-full lg:min-h-0 lg:flex-1 lg:flex-col"
     >
       <section
-        className={`overflow-hidden rounded-[24px] border bg-white transition-[border-color,box-shadow] duration-200 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col ${
+        className={`overflow-hidden rounded-[24px] border bg-app-surface transition-[border-color,box-shadow] duration-200 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col ${
           plannerInteractionMode === "edit"
-            ? "border-teal-300 shadow-[0_0_0_1px_rgba(13,148,136,0.24),0_0_0_14px_rgba(20,184,166,0.12),0_28px_60px_rgba(15,23,42,0.08)]"
-            : "border-slate-200/80"
+            ? "planner-selected"
+            : "border-app-border/80"
         }`}
       >
-        <div className="border-b border-slate-200 px-4 py-4 sm:px-5 sm:py-5">
+        <div className="border-b border-app-border px-4 py-4 sm:px-5 sm:py-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="planner-eyebrow text-teal-700">Itinerary</p>
-              <h2 className="planner-title-lg mt-2 text-slate-950">Stops and travel flow</h2>
+              <p className="planner-eyebrow planner-section-label">Itinerary</p>
+              <h2 className="planner-title-lg mt-2 text-app-text">Stops and travel flow</h2>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span
                   className={`rounded-full border px-3 py-1 text-xs font-semibold ${
                     plannerInteractionMode === "edit"
-                      ? "border-teal-200 bg-teal-50 text-teal-800"
-                      : "border-slate-200 bg-slate-50 text-slate-700"
+                      ? "planner-pill-active"
+                      : "planner-pill"
                   }`}
                 >
                   {plannerInteractionMode === "edit" ? "Edit mode active" : "View mode active"}
@@ -990,10 +981,10 @@ export default function PlannerApp() {
                 disabled={isOfflineReadOnly || plannerInteractionMode === "edit"}
                 className={`rounded-xl border px-3.5 py-2 text-sm font-semibold transition ${
                   isOfflineReadOnly
-                    ? "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+                    ? "cursor-not-allowed border-app-border bg-app-surface-muted text-app-muted"
                     : plannerInteractionMode === "edit"
-                      ? "cursor-default border-slate-200 bg-slate-100 text-slate-400"
-                      : "border-slate-950 bg-slate-950 text-white hover:bg-slate-800"
+                      ? "cursor-default border-app-border bg-app-surface-muted text-app-muted"
+                      : "planner-button-primary"
                 }`}
               >
                 Edit mode
@@ -1009,7 +1000,7 @@ export default function PlannerApp() {
                   data-testid="planner-mode-save"
                   onClick={() => void handleSaveItinerary()}
                   disabled={!hasDraftChanges || isSavingDraft}
-                  className="rounded-xl border border-teal-700 bg-teal-700 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-200 disabled:text-slate-500"
+                  className="planner-button-primary rounded-xl border px-3.5 py-2 text-sm font-semibold transition disabled:cursor-not-allowed"
                 >
                   {isSavingDraft ? "Saving..." : "Save"}
                 </button>
@@ -1019,7 +1010,7 @@ export default function PlannerApp() {
                   data-testid="planner-mode-cancel"
                   onClick={exitEditMode}
                   disabled={isSavingDraft}
-                  className="rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="planner-button-secondary rounded-xl border px-3.5 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Cancel
                 </button>
@@ -1028,16 +1019,16 @@ export default function PlannerApp() {
           </div>
 
           {isOfflineReadOnly ? (
-            <p className="planner-copy-sm mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 font-medium text-amber-800">
+            <p className="planner-copy-sm tone-warning mt-4 rounded-xl border px-3 py-2 font-medium">
               The cached trip is available to review while offline, but editing stays locked until
               you reconnect.
             </p>
           ) : null}
 
-          <div className="mt-4 rounded-[20px] border border-slate-200 bg-slate-50/70 p-3.5 sm:p-4">
+          <div className="mt-4 rounded-[20px] border border-app-border bg-app-surface-muted/70 p-3.5 sm:p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="planner-title-sm text-slate-900">Trip days</h3>
-              <span className="planner-meta text-slate-500">
+              <h3 className="planner-title-sm text-app-text">Trip days</h3>
+              <span className="planner-meta text-app-muted">
                 {tripDays.length} {tripDays.length === 1 ? "day" : "days"}
               </span>
             </div>
@@ -1051,12 +1042,12 @@ export default function PlannerApp() {
           {canEditTrip ? (
             <div className="mt-4 flex flex-wrap gap-2">
               {([
-                ["stay", "+ Stay", "border-emerald-300 bg-emerald-50 text-emerald-700"],
-                ["ferry", "+ Ferry", "border-cyan-300 bg-cyan-50 text-cyan-700"],
+                ["stay", "+ Stay", "border border-brand-support/35 bg-brand-support/18 text-brand-primary"],
+                ["ferry", "+ Ferry", "border border-state-info-border bg-state-info-surface text-state-info"],
                 [
                   "point_of_interest",
                   "+ POI",
-                  "border-orange-300 bg-orange-50 text-orange-700",
+                  "border border-brand-secondary/35 bg-brand-secondary/16 text-brand-secondary-variant",
                 ],
               ] as const).map(([type, label, tone]) => (
                 <button
@@ -1072,20 +1063,20 @@ export default function PlannerApp() {
             </div>
           ) : null}
 
-          <div className="mt-4 rounded-[20px] border border-slate-200 bg-slate-50/70 p-3.5 sm:p-4">
+          <div className="mt-4 rounded-[20px] border border-app-border bg-app-surface-muted/70 p-3.5 sm:p-4">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <div className="flex flex-wrap gap-2">
-                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+                <span className="planner-pill rounded-full border bg-app-surface px-3 py-1 text-xs font-semibold">
                   {routeMapSummary.totalRoadLegs} road legs
                 </span>
-                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                <span className="rounded-full border border-brand-support/35 bg-brand-support/18 px-3 py-1 text-xs font-semibold text-brand-primary">
                   {routeMapSummary.liveRoadLegs} live
                 </span>
-                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
+                <span className="tone-warning rounded-full border px-3 py-1 text-xs font-semibold">
                   {routeMapSummary.fallbackRoadLegs} fallback
                 </span>
                 {routeMapSummary.pendingRoadLegs > 0 ? (
-                  <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
+                  <span className="tone-info rounded-full border px-3 py-1 text-xs font-semibold">
                     {routeMapSummary.pendingRoadLegs} pending
                   </span>
                 ) : null}
@@ -1140,14 +1131,14 @@ export default function PlannerApp() {
       selectionOrigin={selectionOrigin}
       onSelectEntity={onSelectEntityFromMap}
       isVisible={isVisible}
-      className="h-full w-full rounded-[18px] border border-slate-200 bg-white"
+      className="h-full w-full rounded-[18px] border border-app-border bg-app-surface"
     />
   );
 
   if (isLoading && !activeTrip && authStatus === "checking") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
-        <p className="planner-copy text-slate-600">Loading trip planner...</p>
+      <div className="flex min-h-screen items-center justify-center bg-app-bg px-4 py-10">
+        <p className="planner-copy text-app-muted">Loading trip planner...</p>
       </div>
     );
   }
@@ -1166,7 +1157,7 @@ export default function PlannerApp() {
 
   if (!activeTrip && authStatus === "signed_in" && firstTripSetup === "choose_source") {
     return (
-      <div className="min-h-screen bg-slate-100 px-4 py-10">
+      <div className="min-h-screen bg-app-bg px-4 py-10">
         <div className="mx-auto max-w-3xl space-y-4">
           {renderSharedNotices()}
           <FirstTripSetupPanel
@@ -1182,21 +1173,21 @@ export default function PlannerApp() {
 
   if (isLoading && !activeTrip) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
-        <p className="planner-copy text-slate-600">Preparing your trip workspace...</p>
+      <div className="flex min-h-screen items-center justify-center bg-app-bg px-4 py-10">
+        <p className="planner-copy text-app-muted">Preparing your trip workspace...</p>
       </div>
     );
   }
 
   if (!activeTrip) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
-          <p className="planner-copy text-slate-700">{error ?? "No trip loaded."}</p>
+      <div className="flex min-h-screen items-center justify-center bg-app-bg px-4 py-10">
+        <div className="rounded-2xl border border-app-border bg-app-surface p-6 text-center shadow-sm">
+          <p className="planner-copy text-app-text">{error ?? "No trip loaded."}</p>
           <button
             type="button"
             onClick={() => void initialize()}
-            className="mt-3 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+            className="planner-button-primary mt-3 rounded-xl border px-4 py-2 text-sm font-semibold"
           >
             Reload
           </button>
@@ -1207,17 +1198,17 @@ export default function PlannerApp() {
 
   return (
     <>
-      <div className="min-h-screen bg-[var(--bg)] p-3 sm:p-4 lg:h-[100dvh] lg:overflow-hidden lg:p-5">
-        <div className="mx-auto h-full w-full max-w-[1660px] overflow-hidden rounded-[30px] border border-slate-200/80 bg-white/85 shadow-[0_28px_80px_rgba(15,23,42,0.08)] backdrop-blur-sm">
+      <div className="min-h-screen bg-app-bg p-3 sm:p-4 lg:h-[100dvh] lg:overflow-hidden lg:p-5">
+        <div className="mx-auto h-full w-full max-w-[1660px] overflow-hidden rounded-[30px] border border-app-border/80 bg-app-surface/85 shadow-[0_28px_80px_rgb(var(--color-app-overlay)_/_0.08)] backdrop-blur-sm">
           <div className="flex h-full flex-col lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)]">
-            <div className="hidden lg:flex lg:items-center lg:border-r lg:border-b lg:border-slate-200 lg:bg-slate-50/65 lg:px-4 lg:py-4">
+            <div className="hidden lg:flex lg:items-center lg:border-r lg:border-b lg:border-app-border lg:bg-app-surface-muted/65 lg:px-4 lg:py-4">
               <PlannerBrandBadge compact variant="rail" />
             </div>
 
-            <header className="hidden lg:flex lg:items-center lg:justify-between lg:gap-6 lg:border-b lg:border-slate-200 lg:px-6 lg:py-4">
+            <header className="hidden lg:flex lg:items-center lg:justify-between lg:gap-6 lg:border-b lg:border-app-border lg:px-6 lg:py-4">
               <div className="min-w-0 flex flex-wrap items-center gap-3">
-                <h1 className="planner-title-xl text-slate-950">{activePanelMeta.label}</h1>
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
+                <h1 className="planner-title-xl text-app-text">{activePanelMeta.label}</h1>
+                <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
                   {activePanelSummary}
                 </span>
               </div>
@@ -1225,7 +1216,7 @@ export default function PlannerApp() {
 
             <aside
               data-testid="planner-rail-column"
-              className="hidden lg:flex lg:min-h-0 lg:flex-col lg:border-r lg:border-slate-200 lg:bg-slate-50/65"
+              className="hidden lg:flex lg:min-h-0 lg:flex-col lg:border-r lg:border-app-border lg:bg-app-surface-muted/65"
             >
               <nav className="flex-1 overflow-y-auto px-3 py-4">
                 <div className="space-y-1">
@@ -1240,8 +1231,8 @@ export default function PlannerApp() {
                         onClick={() => selectDesktopPanel(panel.id)}
                         className={`flex w-full items-center gap-3 rounded-[18px] border px-3.5 py-3 text-left text-sm font-medium transition ${
                           active
-                            ? "border-slate-200 bg-white text-teal-800 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
-                            : "border-transparent text-slate-700 hover:border-slate-200 hover:bg-white hover:text-slate-950"
+                            ? "border-app-border bg-app-surface text-brand-primary shadow-[0_1px_2px_rgb(var(--color-app-overlay)_/_0.04)]"
+                            : "border-transparent text-app-muted hover:border-app-border hover:bg-app-surface hover:text-app-text"
                         }`}
                         title={panel.label}
                       >
@@ -1253,7 +1244,7 @@ export default function PlannerApp() {
                 </div>
               </nav>
 
-              <div className="border-t border-slate-200 px-3 py-4">
+              <div className="border-t border-app-border px-3 py-4">
                 <AccountStatusControl
                   authStatus={authStatus}
                   mode={mode}
@@ -1273,7 +1264,7 @@ export default function PlannerApp() {
             </aside>
 
             <div className="min-h-0 flex-1 lg:hidden">
-              <div className="border-b border-slate-200 px-4 py-4">
+              <div className="border-b border-app-border px-4 py-4">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <PlannerBrandBadge compact variant="rail" />
@@ -1300,7 +1291,7 @@ export default function PlannerApp() {
                 <div className="space-y-4 p-4 sm:p-5">
                   {renderSharedNotices()}
 
-                  <div className="rounded-[20px] border border-slate-200 bg-white p-2">
+                  <div className="rounded-[20px] border border-app-border bg-app-surface p-2">
                     {mobileTripsPanel ? (
                       <div className="mb-2">
                         <button
@@ -1309,8 +1300,8 @@ export default function PlannerApp() {
                           onClick={() => selectMobileTab(mobileTripsPanel.id)}
                           className={`w-full rounded-[16px] px-3 py-2 text-sm font-semibold transition ${
                             mobileTab === mobileTripsPanel.id
-                              ? "border border-slate-200 bg-slate-950 text-white"
-                              : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                              ? "border border-brand-primary bg-brand-primary text-brand-on-primary"
+                              : "border border-app-border bg-app-surface-muted text-app-muted hover:bg-app-surface"
                           }`}
                         >
                           {mobileTripsPanel.label}
@@ -1327,8 +1318,8 @@ export default function PlannerApp() {
                           onClick={() => selectMobileTab(panel.id)}
                           className={`shrink-0 rounded-[16px] px-3 py-2 text-sm font-semibold transition ${
                             mobileTab === panel.id
-                              ? "border border-slate-200 bg-slate-950 text-white"
-                              : "border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                              ? "border border-brand-primary bg-brand-primary text-brand-on-primary"
+                              : "border border-app-border bg-app-surface-muted text-app-muted hover:bg-app-surface"
                           }`}
                         >
                           {panel.label}
