@@ -14,50 +14,46 @@ The product model is now:
 - trust-first behaviour for auth, sync, conflicts, and offline reopening
 
 This is no longer a single-trip-only planner. It is also not a multi-open editor. The product centers on one selected trip at a time, with a dedicated `Trips` section to create, switch, rename, delete, and import trips.
+The current shell now presents that through a dashboard-first nested workflow rather than separate app-level `Overview` and `Itinerary` destinations.
 
 ## Current Product State
 
 ### Information Architecture
 
-- Desktop navigation uses:
-  - `Trips`
-  - `Overview`
-  - `Itinerary`
-  - `Today`
-- Desktop presents `Trips` as a separate workspace selector above the active-trip views.
-- Desktop keeps the map persistent beside the planner.
-- Mobile navigation uses:
-  - `Trips`
-  - `Overview`
-  - `Itinerary`
-  - `Today`
-  - `Map`
-- Mobile presents `Trips` separately from the grouped active-trip view tabs.
+- Desktop and mobile both default to `Dashboard`.
+- The left rail is app-level only and currently keeps a single planner destination:
+  - `Dashboard`
+- `Dashboard` owns the trip library plus a side-by-side trip detail preview.
+- Opening a trip creates a nested in-app flow:
+  - `Dashboard`
+  - `Trip Overview`
+  - `Trip Itinerary`
+- Nested trip screens use breadcrumb context, top tabs for `Overview` and `Itinerary`, and a back action that returns through visited screens.
 - A persistent top-left account/status control is available in the planner shell on all viewports.
+- `Today` remains available as an operational status control rather than a rail destination.
 
 ### Panel Responsibilities
 
-- `Trips`
-  - workspace selector
+- `Dashboard`
   - trip library
-  - active-trip badge
+  - preview-first trip selection
+  - selected-trip detail panel
   - new blank trip
   - new example trip
   - open/switch trip
   - rename trip
   - delete trip
   - import local trips
+- `Trip Overview`
+  - loaded trip summary
+  - travel insights
+  - severity-grouped warnings
 - `Itinerary`
   - day strip
   - edit lock
   - stop create/edit/delete
-- `Overview`
-  - selected trip summary
-  - travel insights
-  - validation warnings
-  - gap warnings
 - `Today`
-  - selected trip travel-day actions
+  - selected trip travel-day actions from the status control
 - Account/status popup
   - auth state
   - account identity
@@ -90,7 +86,7 @@ This is no longer a single-trip-only planner. It is also not a multi-open editor
   - localhost with the E2E bypass path
   - hosted preview/production
 - Demo mode remains single-trip.
-- The `Trips` section is hidden in demo mode.
+- The cloud trip library is hidden in demo mode, but `Dashboard` still remains the planner landing screen.
 
 ### Trust And Quality Foundations Already In Code
 
@@ -113,20 +109,23 @@ The immediate product priority is no longer “build multi-trip.” That work is
 ### Highest-Priority Validation Work
 
 - Verify hosted auth and cloud persistence against real Supabase configuration.
-- Verify multi-trip flows on live preview:
+- Verify dashboard-first multi-trip flows on live preview:
   - create blank trip
   - create example trip
-  - switch trip
+  - preview a trip from Dashboard
+  - open a trip into Overview
+  - switch between Overview and Itinerary
+  - back out to Dashboard
   - rename trip
   - delete non-active trip
-  - delete active trip with fallback load
   - last-trip delete blocked
 - Verify the onboarding trust path:
   - starter example creation
   - legacy import chooser
   - legacy import returning cleanly into the planner
 - Verify trust protections still hold after the new IA:
-  - `Overview` stays trip-only
+  - `Dashboard` stays the app-level landing screen
+  - `Overview` stays trip-only inside the nested trip workspace
   - account/sync controls live in the account/status popup
   - `View mode` hides mutation controls until switching to `Edit mode`
   - offline reopen keeps the itinerary mode toggle disabled and the itinerary non-mutable
@@ -134,7 +133,7 @@ The immediate product priority is no longer “build multi-trip.” That work is
 ### Definition Of Done For This Milestone
 
 - Protected preview is live against real Supabase and OpenRouteService configuration.
-- The hosted smoke checklist passes for the new `Trips` shell and account/status control.
+- The hosted smoke checklist passes for the dashboard-first shell and account/status control.
 - `docs/QA_NOTES.md` records device and smoke results for the current planner IA.
 - `README.md`, `docs/PRODUCT_PLAN.md`, and `docs/FOUNDATION_ACTIVATION.md` all describe the same product honestly without duplicated roadmap drift.
 

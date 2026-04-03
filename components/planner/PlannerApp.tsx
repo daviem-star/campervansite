@@ -3,9 +3,9 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 
 import AccountStatusControl from "@/components/planner/AccountStatusControl";
+import DashboardTripDetailsPanel from "@/components/planner/DashboardTripDetailsPanel";
 import DayStrip from "@/components/planner/DayStrip";
 import FirstTripSetupPanel from "@/components/planner/FirstTripSetupPanel";
-import GapWarnings from "@/components/planner/GapWarnings";
 import ItinerarySections from "@/components/planner/ItinerarySections";
 import PlannerAuthGate from "@/components/planner/PlannerAuthGate";
 import PlannerBrandBadge from "@/components/planner/PlannerBrandBadge";
@@ -19,6 +19,15 @@ import TripRenameModal from "@/components/planner/TripRenameModal";
 import TripsPanel from "@/components/planner/TripsPanel";
 import ValidationWarningsPanel from "@/components/planner/ValidationWarningsPanel";
 import { nowIso, todayDateInTimezone } from "@/lib/date";
+import {
+  createPlannerScreenStack,
+  getCurrentPlannerScreen,
+  isTripPlannerScreen,
+  PlannerScreen,
+  PlannerScreenEntry,
+  popPlannerScreen,
+  pushPlannerScreen,
+} from "@/lib/plannerNavigation";
 import { readCachedRouteEstimateSet, writeCachedRouteEstimateSet } from "@/lib/routeEstimateCache";
 import {
   buildTripTravelLegPayload,
@@ -29,7 +38,6 @@ import { getExampleTripDefaultName } from "@/lib/tripFactories";
 import {
   formatTripDateRange,
   getCostSummary,
-  getGapWarnings,
   getItinerarySections,
   getMapData,
   getSelectedEntityPrimaryDate,
@@ -48,6 +56,7 @@ import {
   Trip,
   TripStop,
   TripSummary,
+  ValidationWarning,
 } from "@/types/trip";
 
 type EditorState = {
@@ -57,8 +66,6 @@ type EditorState = {
   initialStop: TripStop | null;
 };
 
-type MobileTab = "trips" | "itinerary" | "overview";
-type DesktopPanel = "trips" | "itinerary" | "overview";
 type SelectionOrigin = "itinerary" | "map" | "system";
 type RouteInsightsState = "fresh" | "stale" | "unavailable";
 type RoutePanelState = {
@@ -89,67 +96,22 @@ const defaultRoutePanelState: RoutePanelState = {
   statusMessage: null,
 };
 
-const desktopPanelMeta: Array<{
-  id: DesktopPanel;
-  label: string;
-}> = [
-  { id: "trips", label: "Dashboard" },
-  { id: "overview", label: "Overview" },
-  { id: "itinerary", label: "Itinerary" },
-];
-
-const mobilePanelMeta: Array<{
-  id: MobileTab;
-  label: string;
-}> = [
-  { id: "trips", label: "Dashboard" },
-  { id: "overview", label: "Overview" },
-  { id: "itinerary", label: "Itinerary" },
-];
-
 const saveFeedbackToneClass: Record<PlannerNoticeTone, string> = plannerNoticeToneClass;
+const plannerScreenLabels: Record<PlannerScreen, string> = {
+  dashboard: "Dashboard",
+  "trip-overview": "Overview",
+  "trip-itinerary": "Itinerary",
+};
+const defaultExpandedWarningSeverities: ValidationWarning["severity"][] = ["high", "medium"];
 
 const cloneTrip = (trip: Trip): Trip => structuredClone(trip);
 
-const panelIcon = (panel: DesktopPanel) => {
-  if (panel === "trips") {
-    return (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <rect x="4" y="5" width="16" height="14" rx="2.2" />
-        <path d="M8 9h8" strokeLinecap="round" />
-        <path d="M8 13h5" strokeLinecap="round" />
-      </svg>
-    );
-  }
-
-  if (panel === "itinerary") {
-    return (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path d="M6 5h12" strokeLinecap="round" />
-        <path d="M6 12h12" strokeLinecap="round" />
-        <path d="M6 19h12" strokeLinecap="round" />
-        <circle cx="4.5" cy="5" r="1" fill="currentColor" stroke="none" />
-        <circle cx="4.5" cy="12" r="1" fill="currentColor" stroke="none" />
-        <circle cx="4.5" cy="19" r="1" fill="currentColor" stroke="none" />
-      </svg>
-    );
-  }
-
-  if (panel === "overview") {
-    return (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-        <rect x="4" y="4" width="7" height="7" rx="1.6" />
-        <rect x="13" y="4" width="7" height="4" rx="1.4" />
-        <rect x="13" y="10" width="7" height="10" rx="1.6" />
-        <rect x="4" y="13" width="7" height="7" rx="1.6" />
-      </svg>
-    );
-  }
-
+const dashboardIcon = () => {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <circle cx="12" cy="12" r="7" />
-      <path d="M12 8v4l2.5 2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="4" y="5" width="16" height="14" rx="2.2" />
+      <path d="M8 9h8" strokeLinecap="round" />
+      <path d="M8 13h5" strokeLinecap="round" />
     </svg>
   );
 };
@@ -192,9 +154,9 @@ export default function PlannerApp() {
   const [selectedEntity, setSelectedEntity] = useState<SelectedEntity>(null);
   const [selectionOrigin, setSelectionOrigin] = useState<SelectionOrigin>("system");
   const [editor, setEditor] = useState<EditorState>(defaultEditorState);
-  const [mobileTab, setMobileTab] = useState<MobileTab>("trips");
-  const [desktopPanel, setDesktopPanel] = useState<DesktopPanel>("trips");
-  const [isDesktopViewport, setIsDesktopViewport] = useState(false);
+  const [screenStack, setScreenStack] = useState<PlannerScreenEntry[]>(() =>
+    createPlannerScreenStack(),
+  );
   const [loadedRoutePanel, setLoadedRoutePanel] = useState<RoutePanelState>(defaultRoutePanelState);
   const [previewRoutePanel, setPreviewRoutePanel] = useState<RoutePanelState>(defaultRoutePanelState);
   const [isTripCreateOpen, setIsTripCreateOpen] = useState(false);
@@ -210,22 +172,8 @@ export default function PlannerApp() {
     tone: PlannerNoticeTone;
     text: string;
   } | null>(null);
-  const panelSelectionVersionRef = useRef(0);
   const loadedRouteRefreshCounterRef = useRef(0);
   const previewRouteRefreshCounterRef = useRef(0);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const mediaQuery = window.matchMedia("(min-width: 1024px)");
-    const onChange = () => setIsDesktopViewport(mediaQuery.matches);
-
-    onChange();
-    mediaQuery.addEventListener("change", onChange);
-    return () => mediaQuery.removeEventListener("change", onChange);
-  }, []);
 
   useEffect(() => {
     void initialize();
@@ -241,28 +189,13 @@ export default function PlannerApp() {
   const displayTrip = plannerInteractionMode === "edit" && draftTrip ? draftTrip : loadedTrip;
   const previewTrip = previewTripId ? tripCache[previewTripId] ?? null : null;
   const activeTrip = activeTripId ? tripCache[activeTripId] ?? null : null;
+  const currentScreenEntry = useMemo(
+    () => getCurrentPlannerScreen(screenStack),
+    [screenStack],
+  );
+  const isTripScreen = isTripPlannerScreen(currentScreenEntry.screen);
 
   const isCloudTripLibraryAvailable = authStatus === "signed_in" && mode === "cloud";
-  const desktopTripsPanel = desktopPanelMeta.find((panel) => panel.id === "trips") ?? null;
-  const desktopViewPanels = desktopPanelMeta.filter((panel) => panel.id !== "trips");
-  const desktopRailPanels = desktopTripsPanel
-    ? [desktopTripsPanel, ...desktopViewPanels]
-    : desktopViewPanels;
-  const mobileTripsPanel = mobilePanelMeta.find((panel) => panel.id === "trips") ?? null;
-  const mobileViewPanels = mobilePanelMeta.filter((panel) => panel.id !== "trips");
-  const mobilePanels = mobileTripsPanel ? [mobileTripsPanel, ...mobileViewPanels] : mobileViewPanels;
-
-  useEffect(() => {
-    if (!loadedTrip) {
-      if (desktopPanel !== "trips") {
-        setDesktopPanel("trips");
-      }
-
-      if (mobileTab !== "trips") {
-        setMobileTab("trips");
-      }
-    }
-  }, [desktopPanel, loadedTrip, mobileTab]);
 
   useEffect(() => {
     if (previewTripId && !tripSummaries.some((trip) => trip.id === previewTripId)) {
@@ -273,6 +206,47 @@ export default function PlannerApp() {
       setActiveTripId(null);
     }
   }, [activeTripId, previewTripId, tripSummaries]);
+
+  useEffect(() => {
+    if (!loadedTrip && isTripScreen) {
+      setScreenStack(createPlannerScreenStack());
+    }
+  }, [isTripScreen, loadedTrip]);
+
+  useEffect(() => {
+    if (!isCloudTripLibraryAvailable || previewTripId || isPreviewingTripId || tripSummaries.length === 0) {
+      return;
+    }
+
+    const nextPreviewTripId = tripSummaries[0].id;
+    let isCancelled = false;
+    setIsPreviewingTripId(nextPreviewTripId);
+
+    void (async () => {
+      try {
+        const nextTrip = await previewCloudTrip(nextPreviewTripId);
+        if (!isCancelled && nextTrip) {
+          setPreviewTripId(nextTrip.id);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsPreviewingTripId((current) =>
+            current === nextPreviewTripId ? null : current,
+          );
+        }
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    isCloudTripLibraryAvailable,
+    isPreviewingTripId,
+    previewCloudTrip,
+    previewTripId,
+    tripSummaries,
+  ]);
 
   useEffect(() => {
     if (plannerInteractionMode !== "edit") {
@@ -542,16 +516,10 @@ export default function PlannerApp() {
     [displayTrip, loadedRoutePanel.estimates],
   );
 
-  const loadedGapWarnings = useMemo(() => (displayTrip ? getGapWarnings(displayTrip) : []), [displayTrip]);
-  const previewGapWarnings = useMemo(() => (previewTrip ? getGapWarnings(previewTrip) : []), [previewTrip]);
   const todayActions = useMemo(() => (activeTrip ? getTodayActions(activeTrip) : []), [activeTrip]);
   const costSummary = useMemo(
     () => (displayTrip ? getCostSummary(displayTrip) : { totalNights: 0, totalCost: 0 }),
     [displayTrip],
-  );
-  const previewCostSummary = useMemo(
-    () => (previewTrip ? getCostSummary(previewTrip) : { totalNights: 0, totalCost: 0 }),
-    [previewTrip],
   );
   const loadedValidationWarnings = useMemo(
     () => (displayTrip ? getValidationWarnings(displayTrip, loadedRoutePanel.estimates) : []),
@@ -567,8 +535,13 @@ export default function PlannerApp() {
   const dashboardValidationWarnings = isCloudTripLibraryAvailable
     ? previewValidationWarnings
     : loadedValidationWarnings;
-  const dashboardGapWarnings = isCloudTripLibraryAvailable ? previewGapWarnings : loadedGapWarnings;
-  const dashboardCostSummary = isCloudTripLibraryAvailable ? previewCostSummary : costSummary;
+  const dashboardTripSummary = useMemo(
+    () =>
+      dashboardTrip
+        ? tripSummaries.find((trip) => trip.id === dashboardTrip.id) ?? null
+        : null,
+    [dashboardTrip, tripSummaries],
+  );
   const effectiveSelectedEntity = useMemo<SelectedEntity>(() => {
     if (!displayTrip || !selectedEntity) {
       return null;
@@ -595,20 +568,22 @@ export default function PlannerApp() {
 
   const canEditTrip = plannerInteractionMode === "edit" && !isOfflineReadOnly;
   const isTripLibraryBusy = isLoading || isManagingTrips || syncStatus === "saving";
-  const activePanelMeta = desktopPanelMeta.find((panel) => panel.id === desktopPanel) ?? desktopPanelMeta[0];
-  const activePanelSummary =
-    desktopPanel === "itinerary"
+  const shellTitle =
+    currentScreenEntry.screen === "dashboard"
+      ? "Dashboard"
+      : loadedTrip?.name ?? "Dashboard";
+  const shellSummary =
+    currentScreenEntry.screen === "trip-itinerary"
       ? loadedTrip
-        ? `${tripDays.length} ${tripDays.length === 1 ? "day" : "days"} in loaded trip`
-        : "Load a trip to edit stops and map details"
-      : desktopPanel === "trips"
-        ? dashboardTrip
+        ? `${tripDays.length} ${tripDays.length === 1 ? "day" : "days"} in itinerary`
+        : "Open a trip to manage its itinerary"
+      : currentScreenEntry.screen === "trip-overview"
+        ? loadedTrip
+          ? `Overview · ${formatTripDateRange(loadedTrip)}`
+          : "Open a trip to review its route realism"
+        : dashboardTrip
           ? `${isCloudTripLibraryAvailable ? "Previewing" : "Showing"} ${dashboardTrip.name}`
-          : "Preview a trip or set one active for Today"
-        : displayTrip
-          ? `Loaded trip · ${formatTripDateRange(displayTrip)}`
-          : "Load a trip to inspect its overview";
-  const isPanelDisabled = (panelId: DesktopPanel | MobileTab) => panelId !== "trips" && !loadedTrip;
+          : "Select a trip to preview its latest route realism and warnings";
   const hasDraftChanges = useMemo(() => {
     if (plannerInteractionMode !== "edit" || !draftTrip || !loadedTrip) {
       return false;
@@ -627,6 +602,14 @@ export default function PlannerApp() {
     );
   };
 
+  const navigateToScreen = (nextEntry: PlannerScreenEntry) => {
+    setScreenStack((current) => pushPlannerScreen(current, nextEntry));
+  };
+
+  const goBackScreen = () => {
+    setScreenStack((current) => popPlannerScreen(current));
+  };
+
   const openCreateStopEditor = (type: StopType) => {
     setEditor({
       isOpen: true,
@@ -634,64 +617,6 @@ export default function PlannerApp() {
       type,
       initialStop: null,
     });
-  };
-
-  const selectDesktopPanel = (panel: DesktopPanel) => {
-    panelSelectionVersionRef.current += 1;
-    setDesktopPanel(panel);
-  };
-
-  const selectMobileTab = (panel: MobileTab) => {
-    panelSelectionVersionRef.current += 1;
-    setMobileTab(panel);
-  };
-
-  const showOverviewPanel = (selectionVersion?: number) => {
-    if (
-      typeof selectionVersion === "number" &&
-      panelSelectionVersionRef.current !== selectionVersion
-    ) {
-      return;
-    }
-
-    if (isDesktopViewport) {
-      setDesktopPanel("overview");
-      return;
-    }
-
-    setMobileTab("overview");
-  };
-
-  const showDashboardPanel = (selectionVersion?: number) => {
-    if (
-      typeof selectionVersion === "number" &&
-      panelSelectionVersionRef.current !== selectionVersion
-    ) {
-      return;
-    }
-
-    if (isDesktopViewport) {
-      setDesktopPanel("trips");
-      return;
-    }
-
-    setMobileTab("trips");
-  };
-
-  const showItineraryPanel = (selectionVersion?: number) => {
-    if (
-      typeof selectionVersion === "number" &&
-      panelSelectionVersionRef.current !== selectionVersion
-    ) {
-      return;
-    }
-
-    if (isDesktopViewport) {
-      setDesktopPanel("itinerary");
-      return;
-    }
-
-    setMobileTab("itinerary");
   };
 
   const enterEditMode = () => {
@@ -828,10 +753,8 @@ export default function PlannerApp() {
   };
 
   const handleOpenTrip = async (tripId: string) => {
-    const selectionVersion = panelSelectionVersionRef.current;
-
     if (tripId === loadedTrip?.id) {
-      showOverviewPanel();
+      navigateToScreen({ screen: "trip-overview", tripId });
       return;
     }
 
@@ -846,7 +769,8 @@ export default function PlannerApp() {
       const nextState = useTripStore.getState();
       if (!nextState.error && nextState.data?.activeTripId === tripId) {
         setPreviewTripId(tripId);
-        showOverviewPanel(selectionVersion);
+        setSelectedEntity(null);
+        navigateToScreen({ screen: "trip-overview", tripId });
       }
     } finally {
       setIsManagingTrips(false);
@@ -861,7 +785,6 @@ export default function PlannerApp() {
     }
 
     const previousLoadedTripId = loadedTrip?.id ?? null;
-    const selectionVersion = panelSelectionVersionRef.current;
     setIsManagingTrips(true);
 
     try {
@@ -873,7 +796,9 @@ export default function PlannerApp() {
       if (didCreate) {
         setPreviewTripId(nextLoadedTripId);
         if (input.source === "blank") {
-          showItineraryPanel(selectionVersion);
+          if (nextLoadedTripId) {
+            navigateToScreen({ screen: "trip-itinerary", tripId: nextLoadedTripId });
+          }
           setEditor(defaultEditorState);
           const nextTrip =
             nextState.data?.trips.find((trip) => trip.id === nextLoadedTripId) ?? null;
@@ -882,7 +807,9 @@ export default function PlannerApp() {
             setDraftTrip(cloneTrip(nextTrip));
           }
         } else {
-          showOverviewPanel(selectionVersion);
+          if (nextLoadedTripId) {
+            navigateToScreen({ screen: "trip-overview", tripId: nextLoadedTripId });
+          }
         }
       }
 
@@ -910,7 +837,6 @@ export default function PlannerApp() {
   };
 
   const handleDeleteTrip = async (trip: TripSummary) => {
-    const selectionVersion = panelSelectionVersionRef.current;
     if (trip.id === loadedTrip?.id && !confirmDiscardDraftChanges(`deleting "${trip.name}"`)) {
       return;
     }
@@ -933,7 +859,7 @@ export default function PlannerApp() {
 
       if (!nextState.error && isDeletingLoadedTrip) {
         setPreviewTripId((current) => (current === trip.id ? null : current));
-        showDashboardPanel(selectionVersion);
+        setScreenStack(createPlannerScreenStack());
       }
     } finally {
       setIsManagingTrips(false);
@@ -945,7 +871,6 @@ export default function PlannerApp() {
       return;
     }
 
-    const selectionVersion = panelSelectionVersionRef.current;
     setIsManagingTrips(true);
 
     try {
@@ -953,7 +878,12 @@ export default function PlannerApp() {
       const nextState = useTripStore.getState();
       if (!nextState.error) {
         setPreviewTripId(nextState.data?.activeTripId ?? null);
-        showOverviewPanel(selectionVersion);
+        if (nextState.data?.activeTripId) {
+          navigateToScreen({
+            screen: "trip-overview",
+            tripId: nextState.data.activeTripId,
+          });
+        }
       }
     } finally {
       setIsManagingTrips(false);
@@ -1007,14 +937,88 @@ export default function PlannerApp() {
     </>
   );
 
+  const renderTripWorkspaceHeader = () => {
+    if (!loadedTrip || !isTripScreen) {
+      return null;
+    }
+
+    return (
+      <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-app-muted">
+              <span className="planner-eyebrow text-app-muted">Dashboard</span>
+              <span aria-hidden="true" className="text-app-border">
+                &gt;
+              </span>
+              <span className="truncate font-medium text-app-text">{loadedTrip.name}</span>
+              <span aria-hidden="true" className="text-app-border">
+                &gt;
+              </span>
+              <span className="font-medium text-app-text">
+                {plannerScreenLabels[currentScreenEntry.screen]}
+              </span>
+            </div>
+
+            <div className="mt-4 inline-flex rounded-[18px] border border-app-border bg-app-surface-muted p-1">
+              {(
+                [
+                  { screen: "trip-overview", label: "Overview" },
+                  { screen: "trip-itinerary", label: "Itinerary" },
+                ] as const
+              ).map((item) => (
+                <button
+                  key={item.screen}
+                  type="button"
+                  data-testid={`trip-workspace-tab-${item.screen}`}
+                  onClick={() =>
+                    navigateToScreen({
+                      screen: item.screen,
+                      tripId: loadedTrip.id,
+                    })
+                  }
+                  className={`rounded-[14px] px-3.5 py-2 text-sm font-semibold transition ${
+                    currentScreenEntry.screen === item.screen
+                      ? "bg-app-surface text-brand-primary shadow-[0_1px_2px_rgb(var(--color-app-overlay)_/_0.04)]"
+                      : "text-app-muted hover:bg-app-surface hover:text-app-text"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            aria-label="Go back"
+            data-testid="trip-workspace-back"
+            onClick={goBackScreen}
+            className="planner-button-secondary inline-flex h-11 w-11 items-center justify-center rounded-full border"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            >
+              <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+      </section>
+    );
+  };
+
   const renderOverviewPanel = () => (
     <div
       data-testid="overview-scroll-region"
       className="space-y-4 pr-1 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-y-auto"
     >
       {displayTrip ? (
-        <div className="px-1">
-          <p className="planner-eyebrow planner-section-label">Loaded trip</p>
+        <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
+          <p className="planner-eyebrow planner-section-label">Trip overview</p>
           <h2 className="planner-title-lg mt-2 text-app-text">{displayTrip.name}</h2>
           <p className="planner-copy mt-2 flex flex-wrap items-center gap-2 text-app-muted">
             <span>{formatTripDateRange(displayTrip)}</span>
@@ -1025,7 +1029,7 @@ export default function PlannerApp() {
             <span className="hidden text-app-border sm:inline">/</span>
             <span>Estimated stay cost: GBP {costSummary.totalCost.toFixed(2)}</span>
           </p>
-        </div>
+        </section>
       ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
@@ -1038,10 +1042,14 @@ export default function PlannerApp() {
           onRefresh={() => void syncLoadedRoutePanel(true)}
         />
 
-        <div className="space-y-4">
-          <ValidationWarningsPanel warnings={loadedValidationWarnings} />
-          <GapWarnings warnings={loadedGapWarnings} />
-        </div>
+        <ValidationWarningsPanel
+          warnings={loadedValidationWarnings}
+          title="Warnings"
+          description="Grouped by severity so route realism and planning risks stay easy to scan."
+          defaultExpandedSeverities={defaultExpandedWarningSeverities}
+          collapseLowSeverity
+          showSeverityCounts
+        />
       </div>
     </div>
   );
@@ -1060,19 +1068,16 @@ export default function PlannerApp() {
               isOfflineReadOnly={isOfflineReadOnly}
               isWorking={isTripLibraryBusy}
               isPreviewingTripId={isPreviewingTripId}
-              isActivatingTripId={isActivatingTripId}
               onCreateTrip={() => setIsTripCreateOpen(true)}
               onImportLegacyTrips={handleImportLegacyTrips}
               onPreviewTrip={handlePreviewTrip}
-              onToggleActiveTrip={handleToggleActiveTrip}
-              onOpenTrip={handleOpenTrip}
-              onRenameTrip={setTripToRename}
-              onDeleteTrip={handleDeleteTrip}
             />
           ) : (
             <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
               <p className="planner-eyebrow planner-section-label">Dashboard</p>
-              <h2 className="planner-title-lg mt-2 text-app-text">Cloud trip library is hidden in demo mode</h2>
+              <h2 className="planner-title-lg mt-2 text-app-text">
+                Cloud trip library is hidden in demo mode
+              </h2>
               <p className="planner-copy mt-3 text-app-muted">
                 Sign in and create a cloud-backed trip to manage multiple trips here. Until then,
                 Dashboard stays available without the cloud trip library controls.
@@ -1080,84 +1085,44 @@ export default function PlannerApp() {
             </section>
           )}
 
-          <div className="space-y-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
-            <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
-              <p className="planner-eyebrow planner-section-label">
-                {isCloudTripLibraryAvailable ? "Previewed trip" : "Loaded trip"}
-              </p>
-              {dashboardTrip ? (
-                <>
-                  <h2 className="planner-title-lg mt-2 text-app-text">{dashboardTrip.name}</h2>
-                  <p className="planner-copy mt-2 flex flex-wrap items-center gap-2 text-app-muted">
-                    <span>{formatTripDateRange(dashboardTrip)}</span>
-                    <span className="hidden text-app-border sm:inline">/</span>
-                    <span>Home base: {dashboardTrip.home.label}</span>
-                    <span className="hidden text-app-border sm:inline">/</span>
-                    <span>
-                      {dashboardCostSummary.totalNights} night
-                      {dashboardCostSummary.totalNights === 1 ? "" : "s"}
-                    </span>
-                  </p>
-                </>
-              ) : (
-                <p className="planner-copy mt-3 text-app-muted">
-                  {isCloudTripLibraryAvailable
-                    ? "Click a trip in the library to preview its route realism and planning warnings without loading it into the main planner."
-                    : "No trip is loaded yet in demo mode."}
-                </p>
-              )}
-            </section>
-
-            <TravelInsightsPanel
-              estimates={dashboardRoutePanel.estimates}
-              legCount={dashboardRouteRequests.length}
-              status={dashboardRoutePanel.status}
-              statusMessage={dashboardRoutePanel.statusMessage}
-              isRefreshing={dashboardRoutePanel.isRefreshing}
-              onRefresh={
-                dashboardTrip
-                  ? isCloudTripLibraryAvailable
-                    ? () => void syncPreviewRoutePanel(true)
-                    : () => void syncLoadedRoutePanel(true)
-                  : undefined
-              }
-              emptyMessage={
-                dashboardTrip
-                  ? null
-                  : isCloudTripLibraryAvailable
-                    ? "Click a trip on Dashboard to inspect saved route timings."
-                    : "Route realism will appear here once a trip is loaded."
-              }
-            />
-
-            <ValidationWarningsPanel
-              warnings={dashboardValidationWarnings}
-              emptyMessage={
-                dashboardTrip
-                  ? null
-                  : isCloudTripLibraryAvailable
-                    ? "Planning warnings will appear here when you preview a trip."
-                    : "Planning warnings will appear here when a trip is loaded."
-              }
-            />
-
-            <GapWarnings
-              warnings={dashboardGapWarnings}
-              emptyMessage={
-                dashboardTrip
-                  ? null
-                  : isCloudTripLibraryAvailable
-                    ? "Base coverage gaps will appear here when you preview a trip."
-                    : "Base coverage gaps will appear here when a trip is loaded."
-              }
-            />
-          </div>
+          <DashboardTripDetailsPanel
+            trip={dashboardTrip}
+            loadedTripId={loadedTrip?.id ?? null}
+            activeTripId={activeTripId}
+            canManageTrips={isCloudTripLibraryAvailable && !!dashboardTripSummary}
+            canDeleteTrip={tripSummaries.length > 1}
+            isWorking={isTripLibraryBusy}
+            isOfflineReadOnly={isOfflineReadOnly}
+            isPreviewing={dashboardTrip ? isPreviewingTripId === dashboardTrip.id : false}
+            isActivating={dashboardTrip ? isActivatingTripId === dashboardTrip.id : false}
+            routeEstimates={dashboardRoutePanel.estimates}
+            routeLegCount={dashboardRouteRequests.length}
+            routeStatus={dashboardRoutePanel.status}
+            routeStatusMessage={dashboardRoutePanel.statusMessage}
+            isRefreshingRouteInsights={dashboardRoutePanel.isRefreshing}
+            warnings={dashboardValidationWarnings}
+            onRefreshRouteInsights={
+              dashboardTrip
+                ? isCloudTripLibraryAvailable
+                  ? () => void syncPreviewRoutePanel(true)
+                  : () => void syncLoadedRoutePanel(true)
+                : undefined
+            }
+            onOpenTrip={dashboardTrip ? () => void handleOpenTrip(dashboardTrip.id) : undefined}
+            onToggleActiveTrip={
+              dashboardTrip ? () => void handleToggleActiveTrip(dashboardTrip.id) : undefined
+            }
+            onRenameTrip={dashboardTripSummary ? () => setTripToRename(dashboardTripSummary) : undefined}
+            onDeleteTrip={
+              dashboardTripSummary ? () => void handleDeleteTrip(dashboardTripSummary) : undefined
+            }
+          />
         </div>
       </div>
     </div>
   );
 
-  const renderItineraryPanel = (isVisible: boolean) => (
+  const renderItineraryPanel = () => (
     <div
       data-testid="desktop-panel-itinerary-region"
       className="lg:flex lg:h-full lg:min-h-0 lg:flex-1 lg:flex-col"
@@ -1316,7 +1281,7 @@ export default function PlannerApp() {
               </div>
             </div>
 
-            <div className="h-[240px] lg:h-[300px]">{renderPlannerMap(isVisible)}</div>
+            <div className="h-[240px] lg:h-[300px]">{renderPlannerMap()}</div>
           </div>
         </div>
 
@@ -1329,7 +1294,7 @@ export default function PlannerApp() {
             sections={itinerarySections}
             selectedDate={effectiveSelectedDate}
             selectedEntity={effectiveSelectedEntity}
-            isVisible={isVisible}
+            isVisible
             isOfflineReadOnly={isOfflineReadOnly}
             canMutate={canEditTrip}
             onSelectDate={onSelectDate}
@@ -1354,7 +1319,7 @@ export default function PlannerApp() {
     </div>
   );
 
-  const renderPlannerMap = (isVisible: boolean) => (
+  const renderPlannerMap = () => (
     <PlannerMap
       trip={displayTrip!}
       markers={mapData.markers}
@@ -1363,10 +1328,22 @@ export default function PlannerApp() {
       selectedEntity={effectiveSelectedEntity}
       selectionOrigin={selectionOrigin}
       onSelectEntity={onSelectEntityFromMap}
-      isVisible={isVisible}
+      isVisible
       className="h-full w-full rounded-[18px] border border-app-border bg-app-surface"
     />
   );
+
+  const renderCurrentScreen = () => {
+    if (currentScreenEntry.screen === "trip-itinerary" && loadedTrip) {
+      return renderItineraryPanel();
+    }
+
+    if (currentScreenEntry.screen === "trip-overview" && loadedTrip) {
+      return renderOverviewPanel();
+    }
+
+    return renderDashboardPanel();
+  };
 
   if (isLoading && authStatus === "checking") {
     return (
@@ -1423,9 +1400,9 @@ export default function PlannerApp() {
 
             <header className="hidden lg:flex lg:items-center lg:justify-between lg:gap-6 lg:border-b lg:border-app-border lg:px-6 lg:py-4">
               <div className="min-w-0 flex flex-wrap items-center gap-3">
-                <h1 className="planner-title-xl text-app-text">{activePanelMeta.label}</h1>
+                <h1 className="planner-title-xl text-app-text">{shellTitle}</h1>
                 <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
-                  {activePanelSummary}
+                  {shellSummary}
                 </span>
               </div>
 
@@ -1446,31 +1423,16 @@ export default function PlannerApp() {
             >
               <nav className="flex-1 overflow-y-auto px-3 py-4">
                 <div className="space-y-1">
-                  {desktopRailPanels.map((panel) => {
-                    const active = desktopPanel === panel.id;
-                    const disabled = isPanelDisabled(panel.id);
-
-                    return (
-                      <button
-                        key={panel.id}
-                        type="button"
-                        data-testid={`desktop-panel-${panel.id}`}
-                        onClick={() => selectDesktopPanel(panel.id)}
-                        disabled={disabled}
-                        className={`flex w-full items-center gap-3 rounded-[18px] border px-3.5 py-3 text-left text-sm font-medium transition ${
-                          active
-                            ? "border-app-border bg-app-surface text-brand-primary shadow-[0_1px_2px_rgb(var(--color-app-overlay)_/_0.04)]"
-                            : disabled
-                              ? "cursor-not-allowed border-transparent text-app-muted/60"
-                              : "border-transparent text-app-muted hover:border-app-border hover:bg-app-surface hover:text-app-text"
-                        }`}
-                        title={panel.label}
-                      >
-                        <span className="shrink-0">{panelIcon(panel.id)}</span>
-                        <span className="min-w-0 flex-1 truncate">{panel.label}</span>
-                      </button>
-                    );
-                  })}
+                  <button
+                    type="button"
+                    data-testid="desktop-panel-dashboard"
+                    onClick={() => setScreenStack(createPlannerScreenStack())}
+                    className="flex w-full items-center gap-3 rounded-[18px] border border-app-border bg-app-surface px-3.5 py-3 text-left text-sm font-medium text-brand-primary shadow-[0_1px_2px_rgb(var(--color-app-overlay)_/_0.04)] transition"
+                    title="Dashboard"
+                  >
+                    <span className="shrink-0">{dashboardIcon()}</span>
+                    <span className="min-w-0 flex-1 truncate">Dashboard</span>
+                  </button>
                 </div>
               </nav>
 
@@ -1514,53 +1476,31 @@ export default function PlannerApp() {
 
               <section className="min-h-0">
                 <div className="space-y-4 p-4 sm:p-5">
-                  {renderSharedNotices()}
-
-                  <div className="rounded-[20px] border border-app-border bg-app-surface p-2">
-                    <div className="flex gap-2 overflow-x-auto pb-1">
-                      {mobilePanels.map((panel) => {
-                        const disabled = isPanelDisabled(panel.id);
-                        return (
-                          <button
-                            key={panel.id}
-                            type="button"
-                            data-testid={`mobile-panel-${panel.id}`}
-                            onClick={() => selectMobileTab(panel.id)}
-                            disabled={disabled}
-                            className={`shrink-0 rounded-[16px] px-3 py-2 text-sm font-semibold transition ${
-                              mobileTab === panel.id
-                                ? "border border-brand-primary bg-brand-primary text-brand-on-primary"
-                                : disabled
-                                  ? "cursor-not-allowed border border-app-border bg-app-surface-muted/60 text-app-muted/70"
-                                  : "border border-app-border bg-app-surface-muted text-app-muted hover:bg-app-surface"
-                            }`}
-                          >
-                            {panel.label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h1 className="planner-title-lg text-app-text">{shellTitle}</h1>
+                    <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
+                      {shellSummary}
+                    </span>
                   </div>
 
-                  {mobileTab === "trips" ? renderDashboardPanel() : null}
-                  {mobileTab === "overview" && loadedTrip ? renderOverviewPanel() : null}
-                  {mobileTab === "itinerary" && loadedTrip ? renderItineraryPanel(true) : null}
+                  {renderSharedNotices()}
+                  {renderTripWorkspaceHeader()}
+                  {renderCurrentScreen()}
                 </div>
               </section>
             </div>
 
             <div className="hidden lg:flex lg:min-h-0 lg:flex-col lg:p-6">
-              <div className="space-y-4">{renderSharedNotices()}</div>
+              <div className="space-y-4">
+                {renderSharedNotices()}
+                {renderTripWorkspaceHeader()}
+              </div>
 
               <div
                 data-testid="desktop-panel-region"
-                className={`min-h-0 flex-1 lg:flex lg:flex-col ${
-                  desktopPanel === "trips" ? "mt-0" : "mt-5"
-                }`}
+                className={`min-h-0 flex-1 lg:flex lg:flex-col ${isTripScreen ? "mt-5" : "mt-0"}`}
               >
-                {desktopPanel === "trips" ? renderDashboardPanel() : null}
-                {desktopPanel === "overview" && loadedTrip ? renderOverviewPanel() : null}
-                {desktopPanel === "itinerary" && loadedTrip ? renderItineraryPanel(isDesktopViewport) : null}
+                {renderCurrentScreen()}
               </div>
             </div>
           </div>
