@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { plannerValidationToneClass } from "@/components/planner/plannerTheme";
 import {
   groupValidationWarningsBySeverity,
+  hasElevatedValidationWarnings,
   validationWarningGroupMeta,
   validationWarningSeverityOrder,
 } from "@/lib/validationWarnings";
@@ -24,6 +25,7 @@ type ValidationWarningsPanelProps = {
   defaultExpandedSeverities?: ValidationWarning["severity"][];
   collapseLowSeverity?: boolean;
   showSeverityCounts?: boolean;
+  compactHealthyState?: boolean;
 };
 
 export default function ValidationWarningsPanel({
@@ -34,11 +36,17 @@ export default function ValidationWarningsPanel({
   defaultExpandedSeverities = defaultExpandedWarningSeverities,
   collapseLowSeverity = false,
   showSeverityCounts = false,
+  compactHealthyState = false,
 }: ValidationWarningsPanelProps) {
   const groupedWarnings = useMemo(
     () => groupValidationWarningsBySeverity(warnings),
     [warnings],
   );
+  const hasElevatedWarnings = useMemo(
+    () => hasElevatedValidationWarnings(warnings),
+    [warnings],
+  );
+  const lowSeverityWarnings = groupedWarnings.low;
   const [isLowSeverityExpanded, setIsLowSeverityExpanded] = useState(
     () => defaultExpandedSeverities.includes("low"),
   );
@@ -52,13 +60,62 @@ export default function ValidationWarningsPanel({
     );
   }
 
-  if (warnings.length === 0) {
+  if (warnings.length === 0 && !compactHealthyState) {
     return (
       <section className="tone-success rounded-[24px] border px-4 py-4 sm:px-5 sm:py-5">
         <p className="planner-eyebrow text-state-success">{title}</p>
         <p className="planner-copy mt-3 font-medium">
           Route realism and itinerary validation look healthy for the current plan.
         </p>
+      </section>
+    );
+  }
+
+  if (!hasElevatedWarnings && compactHealthyState) {
+    return (
+      <section className="tone-success rounded-[20px] border px-4 py-3.5 sm:px-5 sm:py-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="planner-eyebrow text-state-success">{title}</p>
+            <p className="planner-copy mt-2 font-medium">
+              {warnings.length === 0
+                ? "No high or medium warnings for the current plan."
+                : "No high or medium warnings. Low-severity notes are available if you want extra context."}
+            </p>
+          </div>
+
+          {lowSeverityWarnings.length > 0 && collapseLowSeverity ? (
+            <button
+              type="button"
+              onClick={() => setIsLowSeverityExpanded((current) => !current)}
+              className="planner-button-secondary rounded-full border px-3 py-1 text-[11px] font-semibold"
+            >
+              {isLowSeverityExpanded
+                ? "Hide low severity"
+                : `Show low severity (${lowSeverityWarnings.length})`}
+            </button>
+          ) : null}
+        </div>
+
+        {lowSeverityWarnings.length > 0 &&
+        (!collapseLowSeverity || isLowSeverityExpanded) ? (
+          <ul className="mt-3 space-y-2">
+            {lowSeverityWarnings.map((warning) => (
+              <li
+                key={warning.id}
+                className={`rounded-[18px] border px-3.5 py-3 ${plannerValidationToneClass[warning.severity]}`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="planner-title-sm">{warning.label}</p>
+                  <span className="rounded-full border border-current/20 bg-white/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em]">
+                    {warning.severity}
+                  </span>
+                </div>
+                <p className="planner-copy-sm mt-1">{warning.detail}</p>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
     );
   }

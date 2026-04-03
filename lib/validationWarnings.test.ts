@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   groupValidationWarningsBySeverity,
+  hasElevatedValidationWarnings,
   validationWarningGroupMeta,
 } from "@/lib/validationWarnings";
 import { ValidationWarning } from "@/types/trip";
@@ -42,5 +43,20 @@ describe("validationWarnings", () => {
   it("exposes readable metadata for each severity section", () => {
     expect(validationWarningGroupMeta.high.label).toBe("High priority");
     expect(validationWarningGroupMeta.low.description).toContain("route-confidence");
+  });
+
+  it("treats only high and medium warnings as elevated", () => {
+    expect(hasElevatedValidationWarnings(warnings)).toBe(true);
+    expect(
+      hasElevatedValidationWarnings([
+        {
+          id: "low-only",
+          kind: "route_confidence",
+          severity: "low",
+          label: "Low only",
+          detail: "Details",
+        },
+      ]),
+    ).toBe(false);
   });
 });

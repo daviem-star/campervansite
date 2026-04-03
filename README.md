@@ -14,7 +14,7 @@ A Next.js App Router trip planner for campervan travel. The app now ships an aut
 - Desktop and mobile now both start on `Dashboard`.
 - The left rail is app-level only for now and keeps `Dashboard` as the single planner destination, while account and sync controls stay in utility chrome.
 - `Dashboard` pairs the trip library with a matched detail panel so users can preview trip overview details, route realism, and severity-grouped warnings before opening a trip.
-- Opening a trip follows a nested in-app flow: `Dashboard -> Trip Overview -> Trip Itinerary`, with breadcrumb context, top-level trip tabs, and back navigation through visited screens.
+- Opening a trip follows a nested in-app flow: `Dashboard -> Trip Overview -> Trip Itinerary`, with breadcrumb context and top-level trip tabs.
 - Signed-in onboarding creates a cloud-backed starter example trip automatically, or offers a one-time import/local-choice flow when legacy browser data exists.
 - Cloud mode includes email magic-link auth, trip CRUD, sync messaging, conflict recovery, and offline read-only reopening of the last synced trip.
 - Forced demo mode and local test sign-in remain available for deterministic local preview and E2E work.
@@ -32,7 +32,7 @@ The main remaining gap is hosted activation and live-service validation, not mis
 - Preview a trip on `Dashboard` by selecting it from the library, then open it into the nested `Overview` and `Itinerary` trip workspace.
 - Default to `View mode`, then switch to `Edit mode` in `Itinerary` before mutating the trip. Newly created blank trips land directly in itinerary `Edit mode` so stop creation is obvious.
 - Visualize the itinerary on an inline route map within the `Itinerary` view, with road-following road legs when live routing is available, plus ferry port markers and ferry segments.
-- Show trip-day navigation, today actions, trip overview insights, route insights, and severity-grouped validation warnings.
+- Show trip-day navigation, today actions, a quieter trip summary, summary-first route insights, and severity-grouped validation warnings.
 - Search for places in the stop editor with a deliberate submitted lookup and preserve separate routing coordinates when route access data is available.
 - Store campsite metadata such as booking status, hookups, hardstanding, amenities, phone, and website.
 - Store ferry metadata such as operator, booking reference, vehicle details, and check-in buffers.

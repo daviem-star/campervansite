@@ -25,8 +25,8 @@ import {
   isTripPlannerScreen,
   PlannerScreen,
   PlannerScreenEntry,
-  popPlannerScreen,
   pushPlannerScreen,
+  replacePlannerScreen,
 } from "@/lib/plannerNavigation";
 import { readCachedRouteEstimateSet, writeCachedRouteEstimateSet } from "@/lib/routeEstimateCache";
 import {
@@ -97,11 +97,6 @@ const defaultRoutePanelState: RoutePanelState = {
 };
 
 const saveFeedbackToneClass: Record<PlannerNoticeTone, string> = plannerNoticeToneClass;
-const plannerScreenLabels: Record<PlannerScreen, string> = {
-  dashboard: "Dashboard",
-  "trip-overview": "Overview",
-  "trip-itinerary": "Itinerary",
-};
 const defaultExpandedWarningSeverities: ValidationWarning["severity"][] = ["high", "medium"];
 
 const cloneTrip = (trip: Trip): Trip => structuredClone(trip);
@@ -569,17 +564,19 @@ export default function PlannerApp() {
   const canEditTrip = plannerInteractionMode === "edit" && !isOfflineReadOnly;
   const isTripLibraryBusy = isLoading || isManagingTrips || syncStatus === "saving";
   const shellTitle =
-    currentScreenEntry.screen === "dashboard"
-      ? "Dashboard"
-      : loadedTrip?.name ?? "Dashboard";
+    currentScreenEntry.screen === "trip-itinerary"
+      ? "Itinerary"
+      : currentScreenEntry.screen === "trip-overview"
+        ? "Overview"
+        : "Dashboard";
   const shellSummary =
     currentScreenEntry.screen === "trip-itinerary"
       ? loadedTrip
-        ? `${tripDays.length} ${tripDays.length === 1 ? "day" : "days"} in itinerary`
+        ? `${loadedTrip.name} · ${tripDays.length} ${tripDays.length === 1 ? "day" : "days"}`
         : "Open a trip to manage its itinerary"
       : currentScreenEntry.screen === "trip-overview"
         ? loadedTrip
-          ? `Overview · ${formatTripDateRange(loadedTrip)}`
+          ? loadedTrip.name
           : "Open a trip to review its route realism"
         : dashboardTrip
           ? `${isCloudTripLibraryAvailable ? "Previewing" : "Showing"} ${dashboardTrip.name}`
@@ -606,8 +603,17 @@ export default function PlannerApp() {
     setScreenStack((current) => pushPlannerScreen(current, nextEntry));
   };
 
-  const goBackScreen = () => {
-    setScreenStack((current) => popPlannerScreen(current));
+  const switchTripScreen = (screen: Exclude<PlannerScreen, "dashboard">) => {
+    if (!loadedTrip) {
+      return;
+    }
+
+    setScreenStack((current) =>
+      replacePlannerScreen(current, {
+        screen,
+        tripId: loadedTrip.id,
+      }),
+    );
   };
 
   const openCreateStopEditor = (type: StopType) => {
@@ -943,69 +949,44 @@ export default function PlannerApp() {
     }
 
     return (
-      <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2 text-sm text-app-muted">
-              <span className="planner-eyebrow text-app-muted">Dashboard</span>
-              <span aria-hidden="true" className="text-app-border">
-                &gt;
-              </span>
-              <span className="truncate font-medium text-app-text">{loadedTrip.name}</span>
-              <span aria-hidden="true" className="text-app-border">
-                &gt;
-              </span>
-              <span className="font-medium text-app-text">
-                {plannerScreenLabels[currentScreenEntry.screen]}
-              </span>
-            </div>
-
-            <div className="mt-4 inline-flex rounded-[18px] border border-app-border bg-app-surface-muted p-1">
-              {(
-                [
-                  { screen: "trip-overview", label: "Overview" },
-                  { screen: "trip-itinerary", label: "Itinerary" },
-                ] as const
-              ).map((item) => (
-                <button
-                  key={item.screen}
-                  type="button"
-                  data-testid={`trip-workspace-tab-${item.screen}`}
-                  onClick={() =>
-                    navigateToScreen({
-                      screen: item.screen,
-                      tripId: loadedTrip.id,
-                    })
-                  }
-                  className={`rounded-[14px] px-3.5 py-2 text-sm font-semibold transition ${
-                    currentScreenEntry.screen === item.screen
-                      ? "bg-app-surface text-brand-primary shadow-[0_1px_2px_rgb(var(--color-app-overlay)_/_0.04)]"
-                      : "text-app-muted hover:bg-app-surface hover:text-app-text"
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
+      <section className="rounded-[20px] border border-app-border/80 bg-app-surface px-4 py-3.5 sm:px-5 sm:py-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-app-muted">
+            <button
+              type="button"
+              onClick={() => setScreenStack(createPlannerScreenStack())}
+              className="planner-eyebrow text-app-muted transition hover:text-app-text"
+            >
+              Dashboard
+            </button>
+            <span aria-hidden="true" className="text-app-border">
+              &gt;
+            </span>
+            <span className="truncate font-medium text-app-text">{loadedTrip.name}</span>
           </div>
 
-          <button
-            type="button"
-            aria-label="Go back"
-            data-testid="trip-workspace-back"
-            onClick={goBackScreen}
-            className="planner-button-secondary inline-flex h-11 w-11 items-center justify-center rounded-full border"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-            >
-              <path d="M15 6l-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
+          <div className="mt-3 flex max-w-full flex-wrap gap-2">
+            {(
+              [
+                { screen: "trip-overview", label: "Overview" },
+                { screen: "trip-itinerary", label: "Itinerary" },
+              ] as const
+            ).map((item) => (
+              <button
+                key={item.screen}
+                type="button"
+                data-testid={`trip-workspace-tab-${item.screen}`}
+                onClick={() => switchTripScreen(item.screen)}
+                className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
+                  currentScreenEntry.screen === item.screen
+                    ? "border-brand-primary/25 bg-brand-primary/10 text-brand-primary"
+                    : "border-app-border bg-app-surface-muted text-app-muted hover:bg-app-surface hover:text-app-text"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
     );
@@ -1017,40 +998,53 @@ export default function PlannerApp() {
       className="space-y-4 pr-1 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-y-auto"
     >
       {displayTrip ? (
-        <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
-          <p className="planner-eyebrow planner-section-label">Trip overview</p>
-          <h2 className="planner-title-lg mt-2 text-app-text">{displayTrip.name}</h2>
-          <p className="planner-copy mt-2 flex flex-wrap items-center gap-2 text-app-muted">
-            <span>{formatTripDateRange(displayTrip)}</span>
-            <span className="hidden text-app-border sm:inline">/</span>
-            <span>Home base: {displayTrip.home.label}</span>
-            <span className="hidden text-app-border sm:inline">/</span>
-            <span>{costSummary.totalNights} night{costSummary.totalNights === 1 ? "" : "s"}</span>
-            <span className="hidden text-app-border sm:inline">/</span>
-            <span>Estimated stay cost: GBP {costSummary.totalCost.toFixed(2)}</span>
-          </p>
+        <section className="rounded-[20px] border border-app-border/80 bg-app-surface px-4 py-3.5 sm:px-5 sm:py-4">
+          <p className="planner-eyebrow planner-section-label">Trip summary</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              { label: "Dates", value: formatTripDateRange(displayTrip) },
+              { label: "Home base", value: displayTrip.home.label },
+              {
+                label: "Nights",
+                value: `${costSummary.totalNights} night${costSummary.totalNights === 1 ? "" : "s"}`,
+              },
+              { label: "Estimated cost", value: `GBP ${costSummary.totalCost.toFixed(2)}` },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="rounded-[18px] border border-app-border bg-app-surface-muted/70 px-3.5 py-3"
+              >
+                <p className="planner-eyebrow text-app-muted">{item.label}</p>
+                <p className="planner-copy-sm mt-1 font-medium text-app-text">{item.value}</p>
+              </div>
+            ))}
+          </div>
         </section>
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
-        <TravelInsightsPanel
-          estimates={loadedRoutePanel.estimates}
-          legCount={loadedRouteRequests.length}
-          status={loadedRoutePanel.status}
-          statusMessage={loadedRoutePanel.statusMessage}
-          isRefreshing={loadedRoutePanel.isRefreshing}
-          onRefresh={() => void syncLoadedRoutePanel(true)}
-        />
+      <ValidationWarningsPanel
+        key={`overview-warnings-${displayTrip?.id ?? "none"}`}
+        warnings={loadedValidationWarnings}
+        title="Warnings"
+        description="High and medium issues stay upfront so you can judge trip health quickly."
+        defaultExpandedSeverities={defaultExpandedWarningSeverities}
+        collapseLowSeverity
+        showSeverityCounts
+        compactHealthyState
+      />
 
-        <ValidationWarningsPanel
-          warnings={loadedValidationWarnings}
-          title="Warnings"
-          description="Grouped by severity so route realism and planning risks stay easy to scan."
-          defaultExpandedSeverities={defaultExpandedWarningSeverities}
-          collapseLowSeverity
-          showSeverityCounts
-        />
-      </div>
+      <TravelInsightsPanel
+        key={`overview-route-${displayTrip?.id ?? "none"}`}
+        estimates={loadedRoutePanel.estimates}
+        legCount={loadedRouteRequests.length}
+        status={loadedRoutePanel.status}
+        statusMessage={loadedRoutePanel.statusMessage}
+        isRefreshing={loadedRoutePanel.isRefreshing}
+        onRefresh={() => void syncLoadedRoutePanel(true)}
+        description="A quick read on whether the current route still looks grounded."
+        showDetailsByDefault={false}
+        collapsibleDetails
+      />
     </div>
   );
 
@@ -1476,12 +1470,14 @@ export default function PlannerApp() {
 
               <section className="min-h-0">
                 <div className="space-y-4 p-4 sm:p-5">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h1 className="planner-title-lg text-app-text">{shellTitle}</h1>
-                    <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
-                      {shellSummary}
-                    </span>
-                  </div>
+                  {!isTripScreen ? (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h1 className="planner-title-lg text-app-text">{shellTitle}</h1>
+                      <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
+                        {shellSummary}
+                      </span>
+                    </div>
+                  ) : null}
 
                   {renderSharedNotices()}
                   {renderTripWorkspaceHeader()}

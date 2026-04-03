@@ -40,3 +40,11 @@ export const groupValidationWarningsBySeverity = (
     },
   );
 };
+
+export const hasElevatedValidationWarnings = (
+  warnings: ValidationWarning[],
+): boolean => {
+  return warnings.some(
+    (warning) => warning.severity === "high" || warning.severity === "medium",
+  );
+};

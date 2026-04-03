@@ -28,7 +28,7 @@ The current shell now presents that through a dashboard-first nested workflow ra
   - `Dashboard`
   - `Trip Overview`
   - `Trip Itinerary`
-- Nested trip screens use breadcrumb context, top tabs for `Overview` and `Itinerary`, and a back action that returns through visited screens.
+- Nested trip screens use breadcrumb context with `Dashboard > Trip`, plus top tabs for `Overview` and `Itinerary`.
 - A persistent top-left account/status control is available in the planner shell on all viewports.
 - `Today` remains available as an operational status control rather than a rail destination.
 
@@ -45,9 +45,9 @@ The current shell now presents that through a dashboard-first nested workflow ra
   - delete trip
   - import local trips
 - `Trip Overview`
-  - loaded trip summary
-  - travel insights
-  - severity-grouped warnings
+  - compact trip summary
+  - severity-grouped warnings with healthy-state collapse
+  - summary-first travel insights with expandable route details
 - `Itinerary`
   - day strip
   - edit lock
@@ -115,7 +115,7 @@ The immediate product priority is no longer “build multi-trip.” That work is
   - preview a trip from Dashboard
   - open a trip into Overview
   - switch between Overview and Itinerary
-  - back out to Dashboard
+  - return to Dashboard from the breadcrumb
   - rename trip
   - delete non-active trip
   - last-trip delete blocked
