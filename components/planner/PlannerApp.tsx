@@ -6,12 +6,13 @@ import AccountStatusControl from "@/components/planner/AccountStatusControl";
 import DashboardTripDetailsPanel from "@/components/planner/DashboardTripDetailsPanel";
 import DayStrip from "@/components/planner/DayStrip";
 import FirstTripSetupPanel from "@/components/planner/FirstTripSetupPanel";
-import ItinerarySections from "@/components/planner/ItinerarySections";
+import ItineraryInspector from "@/components/planner/ItineraryInspector";
 import PlannerAuthGate from "@/components/planner/PlannerAuthGate";
 import PlannerBrandBadge from "@/components/planner/PlannerBrandBadge";
 import PlannerMap from "@/components/planner/PlannerMap";
 import { plannerNoticeToneClass } from "@/components/planner/plannerTheme";
 import StopEditorModal from "@/components/planner/StopEditorModal";
+import StopTimeline from "@/components/planner/StopTimeline";
 import TodayStatusControl from "@/components/planner/TodayStatusControl";
 import TravelInsightsPanel, {
   getRouteConfidenceSnapshot,
@@ -21,7 +22,13 @@ import TripCreateModal from "@/components/planner/TripCreateModal";
 import TripRenameModal from "@/components/planner/TripRenameModal";
 import TripsPanel from "@/components/planner/TripsPanel";
 import ValidationWarningsPanel from "@/components/planner/ValidationWarningsPanel";
-import { nowIso, todayDateInTimezone } from "@/lib/date";
+import {
+  formatDateOnly,
+  formatDayChip,
+  formatDurationMinutes,
+  nowIso,
+  todayDateInTimezone,
+} from "@/lib/date";
 import {
   createPlannerScreenStack,
   getCurrentPlannerScreen,
@@ -41,12 +48,15 @@ import { getExampleTripDefaultName } from "@/lib/tripFactories";
 import {
   formatTripDateRange,
   getCostSummary,
-  getItinerarySections,
+  getItineraryDays,
   getMapData,
+  getSelectedEntityDetails,
   getSelectedEntityPrimaryDate,
   getTodayActions,
   getTripDays,
   getValidationWarnings,
+  moveStopByOffset,
+  reorderStopsById,
   ensureStopOrder,
 } from "@/lib/tripDerived";
 import { useTripStore } from "@/store/useTripStore";
@@ -501,9 +511,9 @@ export default function PlannerApp() {
     ? selectedDate
     : tripDays[0] ?? selectedDate;
 
-  const itinerarySections = useMemo(
-    () => (displayTrip ? getItinerarySections(displayTrip) : []),
-    [displayTrip],
+  const itineraryDays = useMemo(
+    () => (displayTrip ? getItineraryDays(displayTrip, loadedRoutePanel.estimates) : []),
+    [displayTrip, loadedRoutePanel.estimates],
   );
 
   const mapData = useMemo(
@@ -569,6 +579,17 @@ export default function PlannerApp() {
   }, [loadedRoutePanel.isRefreshing, mapData.segments]);
 
   const canEditTrip = plannerInteractionMode === "edit" && !isOfflineReadOnly;
+  const currentItineraryDay = useMemo(
+    () => itineraryDays.find((day) => day.date === effectiveSelectedDate) ?? itineraryDays[0] ?? null,
+    [effectiveSelectedDate, itineraryDays],
+  );
+  const selectedEntityDetails = useMemo(
+    () =>
+      displayTrip
+        ? getSelectedEntityDetails(displayTrip, effectiveSelectedEntity, loadedRoutePanel.estimates)
+        : null,
+    [displayTrip, effectiveSelectedEntity, loadedRoutePanel.estimates],
+  );
   const isTripLibraryBusy = isLoading || isManagingTrips || syncStatus === "saving";
   const shellTitle =
     currentScreenEntry.screen === "trip-itinerary"
@@ -623,7 +644,21 @@ export default function PlannerApp() {
     );
   };
 
+  const startEditSession = () => {
+    if (!loadedTrip || isOfflineReadOnly) {
+      return false;
+    }
+
+    setDraftTrip((current) => current ?? cloneTrip(loadedTrip));
+    setPlannerInteractionMode("edit");
+    return true;
+  };
+
   const openCreateStopEditor = (type: StopType) => {
+    if (!startEditSession()) {
+      return;
+    }
+
     setEditor({
       isOpen: true,
       mode: "create",
@@ -633,15 +668,7 @@ export default function PlannerApp() {
   };
 
   const enterEditMode = () => {
-    if (!loadedTrip) {
-      return;
-    }
-
-    setPlannerInteractionMode("edit");
-
-    if (useTripStore.getState().plannerInteractionMode === "edit") {
-      setDraftTrip(cloneTrip(loadedTrip));
-    }
+    startEditSession();
   };
 
   const exitEditMode = () => {
@@ -706,6 +733,44 @@ export default function PlannerApp() {
     }));
   };
 
+  const onReorderStops = async (activeId: string, overId: string) => {
+    if (!canEditTrip || !draftTrip) {
+      return;
+    }
+
+    const nextStops = reorderStopsById(draftTrip.stops, activeId, overId);
+    const movedStop = nextStops.find((stop) => stop.id === activeId) ?? null;
+
+    mutateDraftTrip((currentTrip) => ({
+      ...currentTrip,
+      stops: nextStops,
+    }));
+
+    if (movedStop) {
+      setSelectedDate(getSelectedEntityPrimaryDate({ ...draftTrip, stops: nextStops }, { kind: movedStop.type, stopId: movedStop.id }) ?? selectedDate);
+      setSelectedEntity({ kind: movedStop.type, stopId: movedStop.id });
+    }
+  };
+
+  const onMoveStop = (stopId: string, offset: -1 | 1) => {
+    if (!canEditTrip || !draftTrip) {
+      return;
+    }
+
+    const nextStops = moveStopByOffset(draftTrip.stops, stopId, offset);
+    const movedStop = nextStops.find((stop) => stop.id === stopId) ?? null;
+
+    mutateDraftTrip((currentTrip) => ({
+      ...currentTrip,
+      stops: nextStops,
+    }));
+
+    if (movedStop) {
+      setSelectedDate(getSelectedEntityPrimaryDate({ ...draftTrip, stops: nextStops }, { kind: movedStop.type, stopId: movedStop.id }) ?? selectedDate);
+      setSelectedEntity({ kind: movedStop.type, stopId: movedStop.id });
+    }
+  };
+
   const onSelectDate = (date: string) => {
     setSelectedDate(date);
   };
@@ -724,6 +789,21 @@ export default function PlannerApp() {
 
   const onSelectEntityFromItinerary = (entity: Exclude<SelectedEntity, null>) => {
     selectEntity(entity, "itinerary");
+  };
+
+  const openEditStopEditor = (stop: TripStop) => {
+    if (!startEditSession()) {
+      return;
+    }
+
+    setSelectedEntity({ kind: stop.type, stopId: stop.id });
+    setSelectedDate(getSelectedEntityPrimaryDate(displayTrip ?? loadedTrip!, { kind: stop.type, stopId: stop.id }) ?? selectedDate);
+    setEditor({
+      isOpen: true,
+      mode: "edit",
+      type: stop.type,
+      initialStop: stop,
+    });
   };
 
   const onSelectEntityFromMap = (entity: Exclude<SelectedEntity, null>) => {
@@ -956,43 +1036,70 @@ export default function PlannerApp() {
     }
 
     return (
-      <section className="rounded-[20px] border border-app-border/80 bg-app-surface px-4 py-3.5 sm:px-5 sm:py-4">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2 text-sm text-app-muted">
-            <button
-              type="button"
-              onClick={() => setScreenStack(createPlannerScreenStack())}
-              className="planner-eyebrow text-app-muted transition hover:text-app-text"
-            >
-              Dashboard
-            </button>
-            <span aria-hidden="true" className="text-app-border">
-              &gt;
-            </span>
-            <span className="truncate font-medium text-app-text">{loadedTrip.name}</span>
-          </div>
+      <section className="overflow-hidden rounded-[24px] border border-app-border/80 bg-app-surface shadow-[0_18px_42px_rgb(var(--color-app-overlay)_/_0.08)]">
+        <div className="border-b border-app-border/80 bg-[linear-gradient(155deg,rgb(var(--color-brand-primary)_/_0.08),rgb(var(--color-app-surface))_50%,rgb(var(--color-brand-secondary)_/_0.08))] px-4 py-4 sm:px-5 sm:py-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-app-muted">
+                <button
+                  type="button"
+                  onClick={() => setScreenStack(createPlannerScreenStack())}
+                  className="planner-eyebrow text-app-muted transition hover:text-app-text"
+                >
+                  Dashboard
+                </button>
+                <span aria-hidden="true" className="text-app-border">
+                  &gt;
+                </span>
+                <span className="truncate font-medium text-app-text">{loadedTrip.name}</span>
+              </div>
 
-          <div className="mt-3 flex max-w-full flex-wrap gap-2">
-            {(
-              [
-                { screen: "trip-overview", label: "Overview" },
-                { screen: "trip-itinerary", label: "Itinerary" },
-              ] as const
-            ).map((item) => (
-              <button
-                key={item.screen}
-                type="button"
-                data-testid={`trip-workspace-tab-${item.screen}`}
-                onClick={() => switchTripScreen(item.screen)}
-                className={`rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
-                  currentScreenEntry.screen === item.screen
-                    ? "border-brand-primary/25 bg-brand-primary/10 text-brand-primary"
-                    : "border-app-border bg-app-surface-muted text-app-muted hover:bg-app-surface hover:text-app-text"
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
+              <h2 className="planner-title-xl mt-3 text-app-text">{loadedTrip.name}</h2>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
+                  {formatTripDateRange(loadedTrip)}
+                </span>
+                <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
+                  {tripDays.length} {tripDays.length === 1 ? "day" : "days"}
+                </span>
+                <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
+                  {loadedRouteConfidence.summary} routing
+                </span>
+                {currentScreenEntry.screen === "trip-itinerary" ? (
+                  <span
+                    className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                      plannerInteractionMode === "edit" ? "planner-pill-active" : "planner-pill"
+                    }`}
+                  >
+                    {plannerInteractionMode === "edit" ? "Editing draft" : "Review mode"}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="flex max-w-full flex-wrap gap-2">
+              {(
+                [
+                  { screen: "trip-overview", label: "Overview" },
+                  { screen: "trip-itinerary", label: "Itinerary" },
+                ] as const
+              ).map((item) => (
+                <button
+                  key={item.screen}
+                  type="button"
+                  data-testid={`trip-workspace-tab-${item.screen}`}
+                  onClick={() => switchTripScreen(item.screen)}
+                  className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                    currentScreenEntry.screen === item.screen
+                      ? "border-brand-primary/25 bg-brand-primary/10 text-brand-primary shadow-[0_10px_26px_rgb(var(--color-app-overlay)_/_0.08)]"
+                      : "border-app-border bg-app-surface text-app-muted hover:bg-app-surface-muted hover:text-app-text"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -1122,186 +1229,219 @@ export default function PlannerApp() {
             : "border-app-border/80"
         }`}
       >
-        <div className="border-b border-app-border px-4 py-4 sm:px-5 sm:py-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="planner-eyebrow planner-section-label">Itinerary</p>
-              <h2 className="planner-title-lg mt-2 text-app-text">Stops and travel flow</h2>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                    plannerInteractionMode === "edit"
-                      ? "planner-pill-active"
-                      : "planner-pill"
-                  }`}
-                >
-                  {plannerInteractionMode === "edit" ? "Edit mode active" : "View mode active"}
-                </span>
-                {saveFeedback ? (
-                  <span
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold ${saveFeedbackToneClass[saveFeedback.tone]}`}
-                  >
-                    {saveFeedback.text}
-                  </span>
-                ) : null}
-              </div>
-            </div>
+        <div className="lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1.12fr)_minmax(320px,0.88fr)]">
+          <div
+            data-testid="desktop-itinerary-scroll-region"
+            data-itinerary-scroll-container="true"
+            className="min-h-0 px-4 py-4 sm:px-5 sm:py-5 lg:overflow-y-auto"
+          >
+            <div className="space-y-5">
+              <section className="rounded-[26px] border border-app-border/80 bg-[linear-gradient(160deg,rgb(var(--color-brand-primary)_/_0.08),rgb(var(--color-app-surface))_48%,rgb(var(--color-brand-secondary)_/_0.08))] px-4 py-4 shadow-[0_18px_40px_rgb(var(--color-app-overlay)_/_0.08)] sm:px-5 sm:py-5">
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="planner-eyebrow planner-section-label">Itinerary workspace</p>
+                      <h3 className="planner-title-lg mt-2 text-app-text">
+                        {currentItineraryDay
+                          ? `${formatDayChip(currentItineraryDay.date)} · ${formatDateOnly(currentItineraryDay.date)}`
+                          : "Build your route day by day"}
+                      </h3>
+                      <p className="planner-copy mt-2 text-app-muted">
+                        {currentItineraryDay?.activeStay
+                          ? `Base: ${currentItineraryDay.activeStay.title}`
+                          : "Select a day to review movements, base coverage, and stop details."}
+                      </p>
+                    </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                data-testid="planner-mode-toggle"
-                aria-pressed={plannerInteractionMode === "edit"}
-                title={
-                  isOfflineReadOnly
-                    ? "View mode stays locked while offline. Reconnect before switching to Edit mode."
-                    : plannerInteractionMode === "edit"
-                      ? "Edit mode is active. Save or cancel before returning to view-only review."
-                      : "View mode is active. Click to switch to Edit mode and change this itinerary."
-                }
-                onClick={() => {
-                  if (plannerInteractionMode === "view") {
-                    enterEditMode();
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        data-testid="planner-mode-toggle"
+                        onClick={() => {
+                          if (plannerInteractionMode === "view") {
+                            enterEditMode();
+                          }
+                        }}
+                        disabled={isOfflineReadOnly || plannerInteractionMode === "edit"}
+                        className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                          isOfflineReadOnly
+                            ? "cursor-not-allowed border-app-border bg-app-surface-muted text-app-muted"
+                            : plannerInteractionMode === "edit"
+                              ? "cursor-default border-app-border bg-app-surface text-app-text"
+                              : "planner-button-primary"
+                        }`}
+                      >
+                        {plannerInteractionMode === "edit" ? "Editing draft" : "Edit itinerary"}
+                      </button>
+
+                      <div
+                        className={`flex items-center gap-2 transition-[max-width,opacity] duration-200 ${
+                          plannerInteractionMode === "edit" ? "max-w-[18rem] opacity-100" : "max-w-0 overflow-hidden opacity-0"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          data-testid="planner-mode-save"
+                          onClick={() => void handleSaveItinerary()}
+                          disabled={!hasDraftChanges || isSavingDraft}
+                          className="planner-button-primary rounded-full border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed"
+                        >
+                          {isSavingDraft ? "Saving..." : "Save"}
+                        </button>
+
+                        <button
+                          type="button"
+                          data-testid="planner-mode-cancel"
+                          onClick={exitEditMode}
+                          disabled={isSavingDraft}
+                          className="planner-button-secondary rounded-full border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {saveFeedback ? (
+                    <p
+                      className={`planner-copy-sm rounded-2xl border px-3 py-2 font-medium ${saveFeedbackToneClass[saveFeedback.tone]}`}
+                    >
+                      {saveFeedback.text}
+                    </p>
+                  ) : null}
+
+                  {isOfflineReadOnly ? (
+                    <p className="planner-copy-sm tone-warning rounded-2xl border px-3 py-2 font-medium">
+                      The cached trip stays available for review while offline, but editing and saving
+                      stay locked until you reconnect.
+                    </p>
+                  ) : null}
+
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(260px,0.72fr)]">
+                    <div className="rounded-[22px] border border-app-border bg-app-surface/85 p-3.5">
+                      <div className="mb-3 flex items-center justify-between">
+                        <h4 className="planner-title-sm text-app-text">Trip days</h4>
+                        <span className="planner-meta text-app-muted">
+                          {tripDays.length} {tripDays.length === 1 ? "day" : "days"}
+                        </span>
+                      </div>
+                      <DayStrip
+                        days={itineraryDays}
+                        selectedDate={effectiveSelectedDate}
+                        onSelect={onSelectDate}
+                      />
+                    </div>
+
+                    <div className="rounded-[22px] border border-app-border bg-app-surface/85 p-4">
+                      <p className="planner-eyebrow text-app-muted">Day snapshot</p>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-3 xl:grid-cols-2">
+                        <div>
+                          <p className="planner-title-lg text-app-text">
+                            {currentItineraryDay?.stopCount ?? 0}
+                          </p>
+                          <p className="planner-copy-sm mt-1 text-app-muted">Stops in focus</p>
+                        </div>
+                        <div>
+                          <p className="planner-title-lg text-app-text">
+                            {formatDurationMinutes(currentItineraryDay?.bufferedDriveMinutes ?? 0)}
+                          </p>
+                          <p className="planner-copy-sm mt-1 text-app-muted">Buffered drive</p>
+                        </div>
+                        <div>
+                          <p className="planner-title-lg text-app-text">
+                            {currentItineraryDay?.roadLegCount ?? 0}
+                          </p>
+                          <p className="planner-copy-sm mt-1 text-app-muted">Road legs</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {([
+                      [
+                        "stay",
+                        "+ Stay",
+                        "border border-brand-support/35 bg-brand-support/18 text-brand-primary",
+                      ],
+                      [
+                        "ferry",
+                        "+ Ferry",
+                        "border border-state-info-border bg-state-info-surface text-state-info",
+                      ],
+                      [
+                        "point_of_interest",
+                        "+ POI",
+                        "border border-brand-secondary/35 bg-brand-secondary/16 text-brand-secondary-variant",
+                      ],
+                    ] as const).map(([type, label, tone]) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => openCreateStopEditor(type)}
+                        data-testid={`planner-add-${type}`}
+                        disabled={isOfflineReadOnly}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${tone}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              <StopTimeline
+                days={itineraryDays}
+                selectedDate={effectiveSelectedDate}
+                selectedEntity={effectiveSelectedEntity}
+                isVisible
+                isOfflineReadOnly={isOfflineReadOnly}
+                canMutate={canEditTrip}
+                onSelectDate={onSelectDate}
+                onSelectEntity={onSelectEntityFromItinerary}
+                onEdit={openEditStopEditor}
+                onDelete={(stop) => {
+                  const confirmed = window.confirm(`Delete "${stop.title}"?`);
+                  if (confirmed) {
+                    void onDeleteStop(stop.id);
                   }
                 }}
-                disabled={isOfflineReadOnly || plannerInteractionMode === "edit"}
-                className={`rounded-xl border px-3.5 py-2 text-sm font-semibold transition ${
-                  isOfflineReadOnly
-                    ? "cursor-not-allowed border-app-border bg-app-surface-muted text-app-muted"
-                    : plannerInteractionMode === "edit"
-                      ? "cursor-default border-app-border bg-app-surface-muted text-app-muted"
-                      : "planner-button-primary"
-                }`}
-              >
-                Edit mode
-              </button>
-
-              <div
-                className={`flex items-center gap-2 overflow-hidden transition-[max-width,opacity] duration-200 ${
-                  plannerInteractionMode === "edit" ? "max-w-[16rem] opacity-100" : "max-w-0 opacity-0"
-                }`}
-              >
-                <button
-                  type="button"
-                  data-testid="planner-mode-save"
-                  onClick={() => void handleSaveItinerary()}
-                  disabled={!hasDraftChanges || isSavingDraft}
-                  className="planner-button-primary rounded-xl border px-3.5 py-2 text-sm font-semibold transition disabled:cursor-not-allowed"
-                >
-                  {isSavingDraft ? "Saving..." : "Save"}
-                </button>
-
-                <button
-                  type="button"
-                  data-testid="planner-mode-cancel"
-                  onClick={exitEditMode}
-                  disabled={isSavingDraft}
-                  className="planner-button-secondary rounded-xl border px-3.5 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Cancel
-                </button>
-              </div>
+                onReorder={onReorderStops}
+                onMove={onMoveStop}
+              />
             </div>
           </div>
 
-          {isOfflineReadOnly ? (
-            <p className="planner-copy-sm tone-warning mt-4 rounded-xl border px-3 py-2 font-medium">
-              The cached trip is available to review while offline, but editing stays locked until
-              you reconnect.
-            </p>
-          ) : null}
+          <aside className="border-t border-app-border bg-app-surface-muted/35 px-4 py-4 sm:px-5 sm:py-5 lg:min-h-0 lg:overflow-y-auto lg:border-l lg:border-t-0">
+            <div className="space-y-4 lg:sticky lg:top-0">
+              <ItineraryInspector
+                selectedDate={effectiveSelectedDate}
+                selectedDay={currentItineraryDay}
+                selectedDetails={selectedEntityDetails}
+                routeConfidence={loadedRouteConfidence}
+                routeSummary={routeMapSummary}
+                routeStatus={loadedRoutePanel.status}
+                routeStatusMessage={loadedRoutePanel.statusMessage}
+                onRefreshRoute={() => void syncLoadedRoutePanel(true)}
+                onEditSelected={openEditStopEditor}
+                isOfflineReadOnly={isOfflineReadOnly}
+              />
 
-          <div className="mt-4 rounded-[20px] border border-app-border bg-app-surface-muted/70 p-3.5 sm:p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="planner-title-sm text-app-text">Trip days</h3>
-              <span className="planner-meta text-app-muted">
-                {tripDays.length} {tripDays.length === 1 ? "day" : "days"}
-              </span>
+              <section className="rounded-[24px] border border-app-border/80 bg-app-surface p-3.5 shadow-[0_18px_40px_rgb(var(--color-app-overlay)_/_0.08)] sm:p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <p className="planner-eyebrow planner-section-label">Map</p>
+                    <p className="planner-copy-sm mt-1 text-app-muted">
+                      Timeline selections stay linked to the current route view.
+                    </p>
+                  </div>
+                </div>
+                <div className="h-[280px] overflow-hidden rounded-[20px] border border-app-border bg-app-surface lg:h-[340px]">
+                  {renderPlannerMap()}
+                </div>
+              </section>
             </div>
-            <DayStrip
-              days={tripDays}
-              selectedDate={effectiveSelectedDate}
-              onSelect={onSelectDate}
-            />
-          </div>
-
-          {canEditTrip ? (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {([
-                ["stay", "+ Stay", "border border-brand-support/35 bg-brand-support/18 text-brand-primary"],
-                ["ferry", "+ Ferry", "border border-state-info-border bg-state-info-surface text-state-info"],
-                [
-                  "point_of_interest",
-                  "+ POI",
-                  "border border-brand-secondary/35 bg-brand-secondary/16 text-brand-secondary-variant",
-                ],
-              ] as const).map(([type, label, tone]) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => openCreateStopEditor(type)}
-                  data-testid={`planner-add-${type}`}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${tone}`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          <div className="mt-4 rounded-[20px] border border-app-border bg-app-surface-muted/70 p-3.5 sm:p-4">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <div className="flex flex-wrap gap-2">
-                <span className="planner-pill rounded-full border bg-app-surface px-3 py-1 text-xs font-semibold">
-                  {routeMapSummary.totalRoadLegs} road legs
-                </span>
-                <span className="rounded-full border border-brand-support/35 bg-brand-support/18 px-3 py-1 text-xs font-semibold text-brand-primary">
-                  {routeMapSummary.liveRoadLegs} live
-                </span>
-                <span className="tone-warning rounded-full border px-3 py-1 text-xs font-semibold">
-                  {routeMapSummary.fallbackRoadLegs} fallback
-                </span>
-                {routeMapSummary.pendingRoadLegs > 0 ? (
-                  <span className="tone-info rounded-full border px-3 py-1 text-xs font-semibold">
-                    {routeMapSummary.pendingRoadLegs} pending
-                  </span>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="h-[240px] lg:h-[300px]">{renderPlannerMap()}</div>
-          </div>
-        </div>
-
-        <div
-          data-testid="desktop-itinerary-scroll-region"
-          data-itinerary-scroll-container="true"
-          className="max-h-[48vh] overflow-y-auto px-4 py-4 pr-3 sm:px-5 sm:py-5 sm:pr-4 lg:max-h-none lg:min-h-0 lg:flex-1 lg:overflow-y-auto"
-        >
-          <ItinerarySections
-            sections={itinerarySections}
-            selectedDate={effectiveSelectedDate}
-            selectedEntity={effectiveSelectedEntity}
-            isVisible
-            isOfflineReadOnly={isOfflineReadOnly}
-            canMutate={canEditTrip}
-            onSelectDate={onSelectDate}
-            onSelectEntity={onSelectEntityFromItinerary}
-            onEdit={(stop) =>
-              setEditor({
-                isOpen: true,
-                mode: "edit",
-                type: stop.type,
-                initialStop: stop,
-              })
-            }
-            onDelete={(stop) => {
-              const confirmed = window.confirm(`Delete "${stop.title}"?`);
-              if (confirmed) {
-                void onDeleteStop(stop.id);
-              }
-            }}
-          />
+          </aside>
         </div>
       </section>
     </div>

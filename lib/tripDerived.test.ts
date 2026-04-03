@@ -4,8 +4,12 @@ import { toIsoFromLocalInput } from "@/lib/date";
 import {
   buildTravelLegSignature,
   buildTravelEstimateRequests,
+  getItineraryDays,
   getMapData,
+  getSelectedEntityDetails,
   getValidationWarnings,
+  moveStopByOffset,
+  reorderStopsById,
 } from "@/lib/tripDerived";
 import { TravelLegEstimate, Trip } from "@/types/trip";
 
@@ -341,5 +345,124 @@ describe("tripDerived", () => {
       severity: "low",
       date: "2026-04-03",
     });
+  });
+
+  it("builds day-first itinerary rows with travel estimates and active base coverage", () => {
+    const trip = buildTrip();
+    const estimates: TravelLegEstimate[] = [
+      {
+        id: "road-home-stay-1",
+        fromId: "home",
+        fromLabel: "Home: Home",
+        toId: "stay-1",
+        toLabel: "Camp one",
+        kind: "road",
+        distanceKm: 42,
+        durationMinutes: 50,
+        bufferedDurationMinutes: 68,
+        provider: "openrouteservice_driving_car",
+        fetchedAt: new Date().toISOString(),
+        confidence: "live",
+        date: "2026-04-03",
+        relatedStopId: "stay-1",
+      },
+      {
+        id: "road-stay-1-ferry-1",
+        fromId: "stay-1",
+        fromLabel: "Camp one",
+        toId: "ferry-1",
+        toLabel: "Morning ferry departure",
+        kind: "road",
+        distanceKm: 75,
+        durationMinutes: 70,
+        bufferedDurationMinutes: 95,
+        provider: "fallback_haversine",
+        fetchedAt: new Date().toISOString(),
+        confidence: "fallback",
+        date: "2026-04-04",
+        relatedStopId: "ferry-1",
+      },
+    ];
+
+    const days = getItineraryDays(trip, estimates);
+
+    expect(days[0]).toMatchObject({
+      date: "2026-04-03",
+      stopCount: 1,
+      roadLegCount: 1,
+      liveRoadLegCount: 1,
+      bufferedDriveMinutes: 68,
+      activeStay: {
+        id: "stay-1",
+      },
+    });
+    expect(days[0]?.rows.map((row) => row.kind)).toEqual(["travel", "stop"]);
+    expect(days[1]).toMatchObject({
+      date: "2026-04-04",
+      stopCount: 2,
+      roadLegCount: 2,
+      fallbackRoadLegCount: 1,
+      pendingRoadLegCount: 1,
+      activeStay: {
+        id: "stay-2",
+      },
+    });
+  });
+
+  it("returns selected stop details with the related travel estimate", () => {
+    const trip = buildTrip();
+    const estimates: TravelLegEstimate[] = [
+      {
+        id: "road-stay-1-ferry-1",
+        fromId: "stay-1",
+        fromLabel: "Camp one",
+        toId: "ferry-1",
+        toLabel: "Morning ferry departure",
+        kind: "road",
+        distanceKm: 75,
+        durationMinutes: 70,
+        bufferedDurationMinutes: 95,
+        provider: "fallback_haversine",
+        fetchedAt: new Date().toISOString(),
+        confidence: "fallback",
+        date: "2026-04-04",
+        relatedStopId: "ferry-1",
+      },
+    ];
+
+    const details = getSelectedEntityDetails(trip, { kind: "ferry", stopId: "ferry-1" }, estimates);
+
+    expect(details).toMatchObject({
+      primaryDate: "2026-04-04",
+      stop: {
+        id: "ferry-1",
+      },
+      travelEstimate: {
+        id: "road-stay-1-ferry-1",
+        confidence: "fallback",
+      },
+    });
+  });
+
+  it("reorders stops by id and normalizes the resulting order", () => {
+    const trip = buildTrip();
+
+    const reordered = reorderStopsById(trip.stops, "stay-2", "stay-1");
+
+    expect(reordered.map((stop) => `${stop.id}:${stop.order}`)).toEqual([
+      "stay-2:0",
+      "stay-1:1",
+      "ferry-1:2",
+    ]);
+  });
+
+  it("moves stops up and down by offset for mobile reorder controls", () => {
+    const trip = buildTrip();
+
+    const movedUp = moveStopByOffset(trip.stops, "stay-2", -1);
+    const movedDown = moveStopByOffset(movedUp, "stay-1", 1);
+
+    expect(movedUp.map((stop) => stop.id)).toEqual(["stay-1", "stay-2", "ferry-1"]);
+    expect(movedDown.map((stop) => stop.id)).toEqual(["stay-2", "stay-1", "ferry-1"]);
   });
 });

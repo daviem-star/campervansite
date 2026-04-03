@@ -279,6 +279,43 @@ export type StandalonePoiSection = BaseItinerarySection & {
 
 export type ItinerarySection = StayGroupSection | FerrySection | StandalonePoiSection;
 
+export type ItineraryTimelineStopRow = {
+  kind: "stop";
+  id: string;
+  date: string;
+  stop: TripStop;
+};
+
+export type ItineraryTimelineTravelRow = {
+  kind: "travel";
+  id: string;
+  date: string;
+  fromLabel: string;
+  toLabel: string;
+  relatedStopId?: string;
+  estimate: TravelLegEstimate | null;
+};
+
+export type ItineraryTimelineRow = ItineraryTimelineStopRow | ItineraryTimelineTravelRow;
+
+export type ItineraryDay = {
+  date: string;
+  activeStay: StayStop | null;
+  rows: ItineraryTimelineRow[];
+  stopCount: number;
+  roadLegCount: number;
+  liveRoadLegCount: number;
+  fallbackRoadLegCount: number;
+  pendingRoadLegCount: number;
+  bufferedDriveMinutes: number;
+};
+
+export type SelectedEntityDetails = {
+  stop: TripStop;
+  primaryDate: string;
+  travelEstimate: TravelLegEstimate | null;
+};
+
 export type SessionUser = {
   id: string;
   email: string | null;

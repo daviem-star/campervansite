@@ -17,13 +17,16 @@ import {
   FerrySection,
   FerryStop,
   GapWarning,
+  ItineraryDay,
   ItinerarySection,
+  ItineraryTimelineRow,
   MapMarker,
   MapRoadRenderState,
   RouteLineString,
   MapSegment,
   PlaceRef,
   PointOfInterestStop,
+  SelectedEntityDetails,
   SelectedEntity,
   StandalonePoiSection,
   StayGroupSection,
@@ -452,6 +455,14 @@ export const getTodayTargetSections = (trip: Trip): ItinerarySection[] => {
   return getItinerarySections(trip).filter((section) => sectionMatchesDate(section, today));
 };
 
+export const getActiveStayForDate = (trip: Trip, date: string): StayStop | null => {
+  const stays = sortStaysByCheckIn(
+    trip.stops.filter((stop): stop is StayStop => stop.type === "stay"),
+  ).filter((stay) => stayCoverageDatesInclusive(stay).includes(date));
+
+  return stays.length > 0 ? stays[stays.length - 1] : null;
+};
+
 export const findStopById = (trip: Trip, stopId: string): TripStop | null => {
   return trip.stops.find((stop) => stop.id === stopId) ?? null;
 };
@@ -506,24 +517,7 @@ const anchorRouteGeometry = (
 };
 
 const getOrderedStopsForTravel = (trip: Trip): TripStop[] => {
-  const sections = getItinerarySections(trip);
-  const orderedStops: TripStop[] = [];
-
-  sections.forEach((section) => {
-    if (section.kind === "ferry") {
-      orderedStops.push(section.ferry);
-      return;
-    }
-
-    if (section.kind === "standalone_poi") {
-      orderedStops.push(section.poi);
-      return;
-    }
-
-    orderedStops.push(section.stay, ...section.pois);
-  });
-
-  return orderedStops;
+  return sortStopsByOrder(trip.stops);
 };
 
 const getStopTimingAnchor = (stop: TripStop): string | undefined => {
@@ -612,6 +606,71 @@ const buildTravelLegContexts = (trip: Trip): TravelLegContext[] => {
   return contexts;
 };
 
+export const getItineraryDays = (
+  trip: Trip,
+  estimates: TravelLegEstimate[] = [],
+): ItineraryDay[] => {
+  const days = getTripDays(trip);
+  const contexts = buildTravelLegContexts(trip);
+  const contextByStopId = new Map(
+    contexts.flatMap((context) =>
+      context.relatedStopId ? [[context.relatedStopId, context] as const] : [],
+    ),
+  );
+  const estimateByContextId = new Map(estimates.map((estimate) => [estimate.id, estimate]));
+  const orderedStops = getOrderedStopsForTravel(trip);
+
+  return days.map((date) => {
+    const rows: ItineraryTimelineRow[] = [];
+
+    orderedStops.forEach((stop) => {
+      const stopDate = getPrimaryDateForStop(stop);
+      if (stopDate !== date) {
+        return;
+      }
+
+      const context = contextByStopId.get(stop.id);
+      if (context) {
+        rows.push({
+          kind: "travel",
+          id: context.id,
+          date,
+          fromLabel: context.fromLabel,
+          toLabel: context.toLabel,
+          relatedStopId: stop.id,
+          estimate: estimateByContextId.get(context.id) ?? null,
+        });
+      }
+
+      rows.push({
+        kind: "stop",
+        id: stop.id,
+        date,
+        stop,
+      });
+    });
+
+    const travelRows = rows.filter(
+      (row): row is Extract<ItineraryTimelineRow, { kind: "travel" }> => row.kind === "travel",
+    );
+
+    return {
+      date,
+      activeStay: getActiveStayForDate(trip, date),
+      rows,
+      stopCount: rows.filter((row) => row.kind === "stop").length,
+      roadLegCount: travelRows.length,
+      liveRoadLegCount: travelRows.filter((row) => row.estimate?.confidence === "live").length,
+      fallbackRoadLegCount: travelRows.filter((row) => row.estimate?.confidence === "fallback").length,
+      pendingRoadLegCount: travelRows.filter((row) => !row.estimate).length,
+      bufferedDriveMinutes: travelRows.reduce(
+        (total, row) => total + (row.estimate?.bufferedDurationMinutes ?? 0),
+        0,
+      ),
+    };
+  });
+};
+
 export const buildTravelEstimateRequests = (
   trip: Trip,
 ): TravelLegRequest[] => {
@@ -662,6 +721,31 @@ export const getTravelSummary = (estimates: TravelLegEstimate[]): {
     },
     { totalDistanceKm: 0, totalBufferedMinutes: 0 },
   );
+};
+
+export const getSelectedEntityDetails = (
+  trip: Trip,
+  selectedEntity: SelectedEntity,
+  estimates: TravelLegEstimate[] = [],
+): SelectedEntityDetails | null => {
+  if (!selectedEntity) {
+    return null;
+  }
+
+  const stop = findStopById(trip, selectedEntity.stopId);
+  if (!stop) {
+    return null;
+  }
+
+  const contexts = buildTravelLegContexts(trip);
+  const context = contexts.find((item) => item.relatedStopId === stop.id);
+  const estimate = context ? estimates.find((item) => item.id === context.id) ?? null : null;
+
+  return {
+    stop,
+    primaryDate: getPrimaryDateForStop(stop),
+    travelEstimate: estimate,
+  };
 };
 
 export const getValidationWarnings = (
@@ -1025,6 +1109,51 @@ export const ensureStopOrder = (stops: TripStop[]): TripStop[] => {
     ...stop,
     order: index,
   }));
+};
+
+export const reorderStopsById = (
+  stops: TripStop[],
+  activeId: string,
+  overId: string,
+): TripStop[] => {
+  const orderedStops = sortStopsByOrder(stops);
+  const activeIndex = orderedStops.findIndex((stop) => stop.id === activeId);
+  const overIndex = orderedStops.findIndex((stop) => stop.id === overId);
+
+  if (activeIndex === -1 || overIndex === -1 || activeIndex === overIndex) {
+    return orderedStops.map((stop, index) => ({
+      ...stop,
+      order: index,
+    }));
+  }
+
+  const nextStops = [...orderedStops];
+  const [movedStop] = nextStops.splice(activeIndex, 1);
+  nextStops.splice(overIndex, 0, movedStop);
+
+  return nextStops.map((stop, index) => ({
+    ...stop,
+    order: index,
+  }));
+};
+
+export const moveStopByOffset = (
+  stops: TripStop[],
+  stopId: string,
+  offset: -1 | 1,
+): TripStop[] => {
+  const orderedStops = sortStopsByOrder(stops);
+  const index = orderedStops.findIndex((stop) => stop.id === stopId);
+  const targetIndex = index + offset;
+
+  if (index === -1 || targetIndex < 0 || targetIndex >= orderedStops.length) {
+    return orderedStops.map((stop, itemIndex) => ({
+      ...stop,
+      order: itemIndex,
+    }));
+  }
+
+  return reorderStopsById(orderedStops, stopId, orderedStops[targetIndex].id);
 };
 
 export const formatTripDateRange = (trip: Trip): string => {

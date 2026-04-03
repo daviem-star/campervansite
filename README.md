@@ -30,9 +30,9 @@ The main remaining gap is hosted activation and live-service validation, not mis
   - `ferry`
   - `point_of_interest`
 - Preview a trip on `Dashboard` by selecting it from the library, then open it into the nested `Overview` and `Itinerary` trip workspace.
-- Default to `View mode`, then switch to `Edit mode` in `Itinerary` before mutating the trip. Newly created blank trips land directly in itinerary `Edit mode` so stop creation is obvious.
-- Visualize the itinerary on an inline route map within the `Itinerary` view, with road-following road legs when live routing is available, plus ferry port markers and ferry segments.
-- Show trip-day navigation, today actions, a quieter trip summary, summary-first route insights, and severity-grouped validation warnings.
+- Use a day-first `Itinerary` workspace with a draggable timeline, sticky day navigation, direct add/edit controls, and explicit draft `Save` / `Cancel` actions.
+- Visualize the itinerary in a split workspace with a linked route map, selected-stop inspector, and road-following road legs when live routing is available, plus ferry port markers and ferry segments.
+- Show trip-day navigation, a selected-day snapshot, today actions, summary-first route insights, and severity-grouped validation warnings.
 - Search for places in the stop editor with a deliberate submitted lookup and preserve separate routing coordinates when route access data is available.
 - Store campsite metadata such as booking status, hookups, hardstanding, amenities, phone, and website.
 - Store ferry metadata such as operator, booking reference, vehicle details, and check-in buffers.
