@@ -17,7 +17,7 @@ const FIRST_TRIP_SETUP_PREFIX = "campervan_trip_planner_first_trip_setup";
 
 export interface TripRepository {
   listTrips(): Promise<TripSummary[]>;
-  loadTrip(tripId: string): Promise<Trip>;
+  loadTrip(tripId: string, options?: { cacheOffline?: boolean }): Promise<Trip>;
   saveTrip(trip: Trip): Promise<Trip>;
   createTrip(input: CreateTripInput): Promise<Trip>;
   renameTrip(tripId: string, input: RenameTripInput): Promise<TripSummary>;
@@ -174,9 +174,14 @@ export class CloudTripRepository implements TripRepository {
     return payload.trips;
   }
 
-  async loadTrip(tripId: string): Promise<Trip> {
+  async loadTrip(
+    tripId: string,
+    options: { cacheOffline?: boolean } = {},
+  ): Promise<Trip> {
     const payload = await this.request<{ trip: Trip }>(`/api/trips/${tripId}`);
-    await writeCachedActiveTrip(payload.trip);
+    if (options.cacheOffline ?? true) {
+      await writeCachedActiveTrip(payload.trip);
+    }
     return payload.trip;
   }
 

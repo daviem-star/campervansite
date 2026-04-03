@@ -13,7 +13,6 @@ import {
   hasResolvedFirstTripSetup,
   LegacyLocalStorageTripRepository,
   markFirstTripSetupResolved,
-  pickInitialCloudTripId,
   readLegacyLocalTrips,
   setPreferredActiveTripId,
   TripConflictError,
@@ -98,6 +97,23 @@ const removeTripSummary = (summaries: TripSummary[], tripId: string): TripSummar
   return sortTripSummaries(summaries.filter((summary) => summary.id !== tripId));
 };
 
+const mergeTripCacheEntry = (
+  cache: Record<string, Trip>,
+  trip: Trip,
+): Record<string, Trip> => ({
+  ...cache,
+  [trip.id]: trip,
+});
+
+const removeTripCacheEntry = (
+  cache: Record<string, Trip>,
+  tripId: string,
+): Record<string, Trip> => {
+  const nextCache = { ...cache };
+  delete nextCache[tripId];
+  return nextCache;
+};
+
 const createNotice = (
   text: string,
   surface: PlannerNoticeSurface,
@@ -141,6 +157,7 @@ const setLoadedCloudTripState = (
     authStatus: AuthStatus;
     user: SessionUser;
     tripSummaries: TripSummary[];
+    tripCache: Record<string, Trip>;
     notice?: PlannerNotice | null;
     syncStatus?: SyncStatus;
     error?: string | null;
@@ -166,6 +183,40 @@ const setLoadedCloudTripState = (
     hasLegacyImport: options.hasLegacyImport ?? hasLegacyLocalTripData(),
     firstTripSetup: "none",
     plannerInteractionMode: "view",
+    tripCache: mergeTripCacheEntry(options.tripCache, trip),
+  });
+};
+
+const setSignedInLibraryState = (
+  set: (partial: Partial<TripStoreState>) => void,
+  options: {
+    authStatus: AuthStatus;
+    user: SessionUser;
+    tripSummaries: TripSummary[];
+    tripCache?: Record<string, Trip>;
+    notice?: PlannerNotice | null;
+    syncStatus?: SyncStatus;
+    error?: string | null;
+    isOfflineReadOnly?: boolean;
+    hasLegacyImport?: boolean;
+    firstTripSetup?: FirstTripSetup;
+  },
+) => {
+  set({
+    data: null,
+    tripSummaries: sortTripSummaries(options.tripSummaries),
+    isLoading: false,
+    error: options.error ?? null,
+    notice: options.notice ?? null,
+    authStatus: options.authStatus,
+    user: options.user,
+    mode: "cloud",
+    syncStatus: options.syncStatus ?? "saved",
+    isOfflineReadOnly: options.isOfflineReadOnly ?? false,
+    hasLegacyImport: options.hasLegacyImport ?? hasLegacyLocalTripData(),
+    firstTripSetup: options.firstTripSetup ?? "none",
+    plannerInteractionMode: "view",
+    tripCache: options.tripCache ?? {},
   });
 };
 
@@ -177,6 +228,7 @@ type PlannerInteractionMode = "view" | "edit";
 type TripStoreState = {
   data: AppData | null;
   tripSummaries: TripSummary[];
+  tripCache: Record<string, Trip>;
   isLoading: boolean;
   error: string | null;
   notice: PlannerNotice | null;
@@ -199,6 +251,8 @@ type TripStoreState = {
   createTrip: (input: CreateTripInput) => Promise<void>;
   startWithExampleTrip: () => Promise<void>;
   loadCloudTrip: (tripId: string) => Promise<void>;
+  previewCloudTrip: (tripId: string) => Promise<Trip | null>;
+  clearLoadedTrip: () => void;
   renameTrip: (tripId: string, input: RenameTripInput) => Promise<void>;
   deleteTrip: (tripId: string) => Promise<void>;
   resetToSeed: () => Promise<void>;
@@ -271,6 +325,10 @@ const loadDemoMode = async (
   set({
     data: demoData,
     tripSummaries: [],
+    tripCache: demoData.trips.reduce<Record<string, Trip>>((cache, trip) => {
+      cache[trip.id] = trip;
+      return cache;
+    }, {}),
     isLoading: false,
     error: null,
     notice,
@@ -294,6 +352,7 @@ const loadAuthGateState = (
   set({
     data: null,
     tripSummaries: [],
+    tripCache: {},
     isLoading: false,
     error,
     notice,
@@ -347,6 +406,7 @@ const createCloudTrip = async (
       authStatus: "signed_in",
       user,
       tripSummaries: nextSummaries,
+      tripCache: get().tripCache,
       notice: options.notice,
       syncStatus: "saved",
     });
@@ -373,27 +433,6 @@ const loadOrCreateStarterTrip = async (
   user: SessionUser,
 ): Promise<Trip | null> => {
   return await withPerUserLock(pendingStarterTripLoads, user.id, async () => {
-    const cloudRepository = getCloudRepository();
-    const refreshedSummaries = await cloudRepository.listTrips();
-    const existingTripId = pickInitialCloudTripId(refreshedSummaries, user);
-
-    if (existingTripId) {
-      const trip = await cloudRepository.loadTrip(existingTripId);
-      setPreferredActiveTripId(user.id, trip.id);
-      markFirstTripSetupResolved(user.id);
-      setLoadedCloudTripState(set, trip, {
-        authStatus: "signed_in",
-        user,
-        tripSummaries: refreshedSummaries,
-        notice: createNotice(
-          "Example trip ready. Switch from View mode to Edit mode when you want to change stops or dates.",
-          "account",
-          "success",
-        ),
-      });
-      return trip;
-    }
-
     return await createCloudTrip(
       set,
       get,
@@ -427,13 +466,14 @@ const loadSignedInMode = async (
     if (cachedTrip) {
       setPreferredActiveTripId(user.id, cachedTrip.id);
       markFirstTripSetupResolved(user.id);
-      setLoadedCloudTripState(set, cachedTrip, {
+      setSignedInLibraryState(set, {
         authStatus: "signed_in",
         user,
         tripSummaries: [tripToTripSummary(cachedTrip)],
+        tripCache: { [cachedTrip.id]: cachedTrip },
         error: "Showing the last synced trip while offline.",
         notice: createNotice(
-          "Reconnect to resume editing and sync the latest changes.",
+          "Reconnect to preview, open, or sync the latest changes.",
           "inline",
           "warning",
         ),
@@ -443,91 +483,86 @@ const loadSignedInMode = async (
       await trackEvent("offline_open", { tripId: cachedTrip.id });
       return;
     }
+
+    setSignedInLibraryState(set, {
+      authStatus: "signed_in",
+      user,
+      tripSummaries: [],
+      error: "You are offline and no cached trip is available yet.",
+      notice: createNotice("Reconnect to load your cloud trip library.", "inline", "warning"),
+      syncStatus: "offline",
+      isOfflineReadOnly: true,
+      hasLegacyImport: hasLegacyLocalTripData(),
+    });
+    return;
   }
 
   try {
     const summaries = await cloudRepository.listTrips();
-    const initialTripId = pickInitialCloudTripId(summaries, user);
+    const shouldOfferChoice =
+      summaries.length === 0 &&
+      hasLegacyLocalTripData() &&
+      !hasResolvedFirstTripSetup(user.id);
 
-    if (!initialTripId) {
-      const shouldOfferChoice =
-        hasLegacyLocalTripData() && !hasResolvedFirstTripSetup(user.id);
-
-      if (shouldOfferChoice) {
-        set({
-          data: null,
-          tripSummaries: [],
-          isLoading: false,
-          error: null,
-          notice: createNotice(
-            "Choose whether to import your local trip or start with the example itinerary.",
-            "inline",
-          ),
-          authStatus: "signed_in",
-          user,
-          mode: "cloud",
-          syncStatus: "idle",
-          isOfflineReadOnly: false,
-          hasLegacyImport: true,
-          firstTripSetup: "choose_source",
-          plannerInteractionMode: "view",
-        });
-        return;
-      }
-
-      const starterTrip = await loadOrCreateStarterTrip(set, get, user);
-
-      if (!starterTrip) {
-        set({ isLoading: false });
-      }
-
+    if (shouldOfferChoice) {
+      setSignedInLibraryState(set, {
+        authStatus: "signed_in",
+        user,
+        tripSummaries: [],
+        notice: createNotice(
+          "Choose whether to import your local trip or start with the example itinerary.",
+          "inline",
+        ),
+        syncStatus: "idle",
+        isOfflineReadOnly: false,
+        hasLegacyImport: true,
+        firstTripSetup: "choose_source",
+      });
       return;
     }
 
-    const trip = await cloudRepository.loadTrip(initialTripId);
-    setPreferredActiveTripId(user.id, trip.id);
-    markFirstTripSetupResolved(user.id);
-    setLoadedCloudTripState(set, trip, {
+    setSignedInLibraryState(set, {
       authStatus: "signed_in",
       user,
       tripSummaries: summaries,
-      notice: createNotice(
-        "Cloud trip loaded. Changes will sync across devices while you are online.",
-        "account",
-        "success",
-      ),
+      notice:
+        summaries.length > 0
+          ? createNotice("Trip library ready. Open a trip to start planning.", "account", "success")
+          : null,
+      syncStatus: summaries.length > 0 ? "saved" : "idle",
+      isOfflineReadOnly: false,
+      hasLegacyImport: hasLegacyLocalTripData(),
     });
-    await trackEvent("trip_loaded", { source: "cloud", tripId: trip.id });
   } catch (error) {
     const cachedTrip = await cloudRepository.getCachedActiveTrip();
     if (cachedTrip) {
       markFirstTripSetupResolved(user.id);
-      setLoadedCloudTripState(set, cachedTrip, {
+      setSignedInLibraryState(set, {
         authStatus: "signed_in",
         user,
         tripSummaries: [tripToTripSummary(cachedTrip)],
+        tripCache: { [cachedTrip.id]: cachedTrip },
         error: "Unable to reach cloud sync. Showing the last synced trip instead.",
-        notice: createNotice("This trip is read-only until the connection returns.", "inline", "warning"),
+        notice: createNotice(
+          "This cached library view is read-only until the connection returns.",
+          "inline",
+          "warning",
+        ),
         syncStatus: "offline",
         isOfflineReadOnly: true,
       });
       return;
     }
 
-    set({
-      data: null,
-      tripSummaries: [],
-      isLoading: false,
-      error: error instanceof Error ? error.message : "Unable to load cloud trip data.",
-      notice: createNotice("Reconnect or reload to continue setting up your trip.", "inline", "warning"),
+    setSignedInLibraryState(set, {
       authStatus: "signed_in",
       user,
-      mode: "cloud",
+      tripSummaries: [],
+      error: error instanceof Error ? error.message : "Unable to load cloud trip data.",
+      notice: createNotice("Reconnect or reload to continue setting up your trip.", "inline", "warning"),
       syncStatus: "error",
       isOfflineReadOnly: false,
       hasLegacyImport: false,
-      firstTripSetup: "none",
-      plannerInteractionMode: "view",
     });
   }
 };
@@ -555,6 +590,7 @@ const enforceEditMode = (
 export const useTripStore = create<TripStoreState>((set, get) => ({
   data: null,
   tripSummaries: [],
+  tripCache: {},
   isLoading: false,
   error: null,
   notice: null,
@@ -754,6 +790,7 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
         authStatus: "signed_in",
         user: state.user,
         tripSummaries: summaries,
+        tripCache: get().tripCache,
         notice: createNotice(
           `Imported ${summaries.length} local ${summaries.length === 1 ? "trip" : "trips"} into cloud sync.`,
           "account",
@@ -886,6 +923,7 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
         authStatus: "signed_in",
         user: state.user,
         tripSummaries: nextSummaries,
+        tripCache: get().tripCache,
         notice: createNotice("Cloud trip loaded successfully.", "account", "success"),
       });
     } catch (error) {
@@ -900,6 +938,65 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
         ),
       });
     }
+  },
+
+  previewCloudTrip: async (tripId) => {
+    const state = get();
+    const cachedTrip = state.tripCache[tripId] ?? null;
+    if (cachedTrip) {
+      return cachedTrip;
+    }
+
+    if (state.authStatus !== "signed_in" || !state.user) {
+      set({ error: "Sign in before previewing a cloud trip.", notice: null });
+      return null;
+    }
+
+    if (state.isOfflineReadOnly) {
+      set({
+        error: "This trip has not been cached locally yet.",
+        notice: createNotice(
+          "Reconnect to preview trips that are not already cached.",
+          "inline",
+          "warning",
+        ),
+      });
+      return null;
+    }
+
+    const cloudRepository = getCloudRepository();
+    try {
+      const trip = await cloudRepository.loadTrip(tripId, { cacheOffline: false });
+      set({
+        tripCache: mergeTripCacheEntry(get().tripCache, trip),
+        error: null,
+        notice: state.notice?.surface === "inline" ? null : state.notice,
+      });
+      return trip;
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : "Unable to preview the selected trip.",
+        notice: createNotice(
+          "Try again once the trip service is available.",
+          "inline",
+          "warning",
+        ),
+      });
+      return null;
+    }
+  },
+
+  clearLoadedTrip: () => {
+    const state = get();
+    set({
+      data: null,
+      plannerInteractionMode: "view",
+      error: null,
+      notice:
+        state.authStatus === "signed_in"
+          ? createNotice("No trip loaded. Open one from the dashboard when you are ready.", "account")
+          : null,
+    });
   },
 
   renameTrip: async (tripId, input) => {
@@ -931,6 +1028,17 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
               lastSyncedAt: summary.lastSyncedAt,
             })
           : state.data;
+      const cachedTrip = state.tripCache[tripId];
+      const nextTripCache =
+        cachedTrip
+          ? mergeTripCacheEntry(state.tripCache, {
+              ...cachedTrip,
+              name: summary.name,
+              version: summary.version,
+              updatedAt: summary.updatedAt,
+              lastSyncedAt: summary.lastSyncedAt,
+            })
+          : state.tripCache;
 
       if (nextData) {
         const renamedActiveTrip = getActiveTrip(nextData);
@@ -942,6 +1050,7 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
       set({
         data: nextData,
         tripSummaries: upsertTripSummary(state.tripSummaries, summary),
+        tripCache: nextTripCache,
         syncStatus: "saved",
         error: null,
         notice: createNotice("Trip renamed successfully.", "account", "success"),
@@ -987,6 +1096,7 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
       if (!isDeletingActiveTrip) {
         set({
           tripSummaries: removeTripSummary(nextSummaries, tripId),
+          tripCache: removeTripCacheEntry(state.tripCache, tripId),
           syncStatus: "saved",
           error: null,
           notice: createNotice("Trip deleted successfully.", "account", "success"),
@@ -996,25 +1106,14 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
       }
 
       await clearCachedActiveTrip();
-      const fallbackTripSummary = nextSummaries[0];
-      if (!fallbackTripSummary) {
-        set({
-          data: null,
-          tripSummaries: [],
-          syncStatus: "error",
-          error: "No remaining trips could be loaded.",
-          notice: createNotice("Reload to continue.", "inline", "warning"),
-        });
-        return;
-      }
-
-      const fallbackTrip = await cloudRepository.loadTrip(fallbackTripSummary.id);
-      setPreferredActiveTripId(state.user.id, fallbackTrip.id);
-      setLoadedCloudTripState(set, fallbackTrip, {
-        authStatus: "signed_in",
-        user: state.user,
+      set({
+        data: null,
         tripSummaries: nextSummaries,
-        notice: createNotice(`Trip deleted. Loaded ${fallbackTrip.name}.`, "account", "success"),
+        tripCache: removeTripCacheEntry(state.tripCache, tripId),
+        syncStatus: "saved",
+        error: null,
+        notice: createNotice("Trip deleted. No trip is loaded now.", "account", "success"),
+        plannerInteractionMode: "view",
       });
       await trackEvent("trip_deleted", { tripId, activeTripDeleted: true });
     } catch (error) {
@@ -1041,6 +1140,10 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
     set({
       data: seed,
       tripSummaries: [],
+      tripCache: seed.trips.reduce<Record<string, Trip>>((cache, trip) => {
+        cache[trip.id] = trip;
+        return cache;
+      }, {}),
       error: null,
       notice: createNotice("Demo seed itinerary restored.", "account", "success"),
       mode: "demo",
@@ -1062,6 +1165,10 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
     set({
       data: shifted,
       tripSummaries: [],
+      tripCache: shifted.trips.reduce<Record<string, Trip>>((cache, trip) => {
+        cache[trip.id] = trip;
+        return cache;
+      }, {}),
       error: null,
       notice: createNotice("Demo itinerary shifted so the trip starts now.", "account", "success"),
       mode: "demo",
@@ -1279,6 +1386,7 @@ const persistActiveTrip = async (
       set({
         data: replaceActiveTrip(state.data, savedTrip),
         tripSummaries: upsertTripSummary(state.tripSummaries, tripToTripSummary(savedTrip)),
+        tripCache: mergeTripCacheEntry(state.tripCache, savedTrip),
         isLoading: false,
         syncStatus: "saved",
         mode: "cloud",
@@ -1311,6 +1419,9 @@ const persistActiveTrip = async (
           tripSummaries: error.latestTrip
             ? upsertTripSummary(state.tripSummaries, tripToTripSummary(error.latestTrip))
             : state.tripSummaries,
+          tripCache: error.latestTrip
+            ? mergeTripCacheEntry(state.tripCache, error.latestTrip)
+            : state.tripCache,
         });
         await trackEvent("sync_conflict", { tripId: nextTrip.id });
         return;
@@ -1362,6 +1473,7 @@ const persistActiveTrip = async (
   await localRepository.save(nextData);
   set({
     data: nextData,
+    tripCache: mergeTripCacheEntry(state.tripCache, nextData.trips[0]),
     mode: "demo",
     syncStatus: "idle",
     error: null,

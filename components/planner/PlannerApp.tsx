@@ -2,7 +2,6 @@
 
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 
-import AccountPanel from "@/components/planner/AccountPanel";
 import AccountStatusControl from "@/components/planner/AccountStatusControl";
 import DayStrip from "@/components/planner/DayStrip";
 import FirstTripSetupPanel from "@/components/planner/FirstTripSetupPanel";
@@ -13,14 +12,13 @@ import PlannerBrandBadge from "@/components/planner/PlannerBrandBadge";
 import PlannerMap from "@/components/planner/PlannerMap";
 import { plannerNoticeToneClass } from "@/components/planner/plannerTheme";
 import StopEditorModal from "@/components/planner/StopEditorModal";
-import TodayActionsPanel from "@/components/planner/TodayActionsPanel";
+import TodayStatusControl from "@/components/planner/TodayStatusControl";
 import TravelInsightsPanel from "@/components/planner/TravelInsightsPanel";
 import TripCreateModal from "@/components/planner/TripCreateModal";
-import TripHeader from "@/components/planner/TripHeader";
 import TripRenameModal from "@/components/planner/TripRenameModal";
 import TripsPanel from "@/components/planner/TripsPanel";
 import ValidationWarningsPanel from "@/components/planner/ValidationWarningsPanel";
-import { formatDateOnly, nowIso, todayDateInTimezone } from "@/lib/date";
+import { nowIso, todayDateInTimezone } from "@/lib/date";
 import { readCachedRouteEstimateSet, writeCachedRouteEstimateSet } from "@/lib/routeEstimateCache";
 import {
   buildTripTravelLegPayload,
@@ -59,10 +57,16 @@ type EditorState = {
   initialStop: TripStop | null;
 };
 
-type MobileTab = "trips" | "today" | "itinerary" | "overview";
-type DesktopPanel = "trips" | "itinerary" | "overview" | "today";
+type MobileTab = "trips" | "itinerary" | "overview";
+type DesktopPanel = "trips" | "itinerary" | "overview";
 type SelectionOrigin = "itinerary" | "map" | "system";
 type RouteInsightsState = "fresh" | "stale" | "unavailable";
+type RoutePanelState = {
+  estimates: TravelLegEstimate[];
+  isRefreshing: boolean;
+  status: RouteInsightsState;
+  statusMessage: string | null;
+};
 type MapRouteSummary = {
   totalRoadLegs: number;
   pendingRoadLegs: number;
@@ -78,6 +82,13 @@ const defaultEditorState: EditorState = {
   initialStop: null,
 };
 
+const defaultRoutePanelState: RoutePanelState = {
+  estimates: [],
+  isRefreshing: false,
+  status: "fresh",
+  statusMessage: null,
+};
+
 const desktopPanelMeta: Array<{
   id: DesktopPanel;
   label: string;
@@ -85,7 +96,6 @@ const desktopPanelMeta: Array<{
   { id: "trips", label: "Dashboard" },
   { id: "overview", label: "Overview" },
   { id: "itinerary", label: "Itinerary" },
-  { id: "today", label: "Today" },
 ];
 
 const mobilePanelMeta: Array<{
@@ -95,7 +105,6 @@ const mobilePanelMeta: Array<{
   { id: "trips", label: "Dashboard" },
   { id: "overview", label: "Overview" },
   { id: "itinerary", label: "Itinerary" },
-  { id: "today", label: "Today" },
 ];
 
 const saveFeedbackToneClass: Record<PlannerNoticeTone, string> = plannerNoticeToneClass;
@@ -149,6 +158,7 @@ export default function PlannerApp() {
   const {
     data,
     tripSummaries,
+    tripCache,
     isLoading,
     error,
     notice,
@@ -169,6 +179,7 @@ export default function PlannerApp() {
     createTrip,
     startWithExampleTrip,
     loadCloudTrip,
+    previewCloudTrip,
     renameTrip,
     deleteTrip,
     resetToSeed,
@@ -181,16 +192,18 @@ export default function PlannerApp() {
   const [selectedEntity, setSelectedEntity] = useState<SelectedEntity>(null);
   const [selectionOrigin, setSelectionOrigin] = useState<SelectionOrigin>("system");
   const [editor, setEditor] = useState<EditorState>(defaultEditorState);
-  const [mobileTab, setMobileTab] = useState<MobileTab>("today");
-  const [desktopPanel, setDesktopPanel] = useState<DesktopPanel>("itinerary");
+  const [mobileTab, setMobileTab] = useState<MobileTab>("trips");
+  const [desktopPanel, setDesktopPanel] = useState<DesktopPanel>("trips");
   const [isDesktopViewport, setIsDesktopViewport] = useState(false);
-  const [routeEstimates, setRouteEstimates] = useState<TravelLegEstimate[]>([]);
-  const [isEstimatingRoutes, setIsEstimatingRoutes] = useState(false);
-  const [routeInsightsState, setRouteInsightsState] = useState<RouteInsightsState>("fresh");
-  const [routeStatusMessage, setRouteStatusMessage] = useState<string | null>(null);
+  const [loadedRoutePanel, setLoadedRoutePanel] = useState<RoutePanelState>(defaultRoutePanelState);
+  const [previewRoutePanel, setPreviewRoutePanel] = useState<RoutePanelState>(defaultRoutePanelState);
   const [isTripCreateOpen, setIsTripCreateOpen] = useState(false);
   const [tripToRename, setTripToRename] = useState<TripSummary | null>(null);
   const [isManagingTrips, setIsManagingTrips] = useState(false);
+  const [previewTripId, setPreviewTripId] = useState<string | null>(null);
+  const [activeTripId, setActiveTripId] = useState<string | null>(null);
+  const [isPreviewingTripId, setIsPreviewingTripId] = useState<string | null>(null);
+  const [isActivatingTripId, setIsActivatingTripId] = useState<string | null>(null);
   const [draftTrip, setDraftTrip] = useState<Trip | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{
@@ -198,7 +211,8 @@ export default function PlannerApp() {
     text: string;
   } | null>(null);
   const panelSelectionVersionRef = useRef(0);
-  const routeRefreshCounterRef = useRef(0);
+  const loadedRouteRefreshCounterRef = useRef(0);
+  const previewRouteRefreshCounterRef = useRef(0);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -217,60 +231,48 @@ export default function PlannerApp() {
     void initialize();
   }, [initialize]);
 
-  const activeTrip = useMemo(() => {
+  const loadedTrip = useMemo(() => {
     if (!data) {
       return null;
     }
 
     return data.trips.find((trip) => trip.id === data.activeTripId) ?? null;
   }, [data]);
-  const displayTrip = plannerInteractionMode === "edit" && draftTrip ? draftTrip : activeTrip;
+  const displayTrip = plannerInteractionMode === "edit" && draftTrip ? draftTrip : loadedTrip;
+  const previewTrip = previewTripId ? tripCache[previewTripId] ?? null : null;
+  const activeTrip = activeTripId ? tripCache[activeTripId] ?? null : null;
 
   const isCloudTripLibraryAvailable = authStatus === "signed_in" && mode === "cloud";
-  const desktopTripsPanel = isCloudTripLibraryAvailable
-    ? desktopPanelMeta.find((panel) => panel.id === "trips") ?? null
-    : null;
+  const desktopTripsPanel = desktopPanelMeta.find((panel) => panel.id === "trips") ?? null;
   const desktopViewPanels = desktopPanelMeta.filter((panel) => panel.id !== "trips");
   const desktopRailPanels = desktopTripsPanel
     ? [desktopTripsPanel, ...desktopViewPanels]
     : desktopViewPanels;
-  const mobileTripsPanel = isCloudTripLibraryAvailable
-    ? mobilePanelMeta.find((panel) => panel.id === "trips") ?? null
-    : null;
+  const mobileTripsPanel = mobilePanelMeta.find((panel) => panel.id === "trips") ?? null;
   const mobileViewPanels = mobilePanelMeta.filter((panel) => panel.id !== "trips");
+  const mobilePanels = mobileTripsPanel ? [mobileTripsPanel, ...mobileViewPanels] : mobileViewPanels;
 
   useEffect(() => {
-    if (!isCloudTripLibraryAvailable) {
-      if (desktopPanel === "trips") {
-        setDesktopPanel("overview");
+    if (!loadedTrip) {
+      if (desktopPanel !== "trips") {
+        setDesktopPanel("trips");
       }
 
-      if (mobileTab === "trips") {
-        setMobileTab("overview");
+      if (mobileTab !== "trips") {
+        setMobileTab("trips");
       }
     }
-  }, [desktopPanel, isCloudTripLibraryAvailable, mobileTab]);
-
-  const routePayload = useMemo(() => {
-    if (!displayTrip) {
-      return {
-        requests: [],
-        signature: "",
-      };
-    }
-
-    return buildTripTravelLegPayload(displayTrip);
-  }, [displayTrip]);
-
-  const routeRequests = routePayload.requests;
-  const routeSignature = routePayload.signature;
-  const routeRequestsRef = useRef(routeRequests);
-  const activeTripRef = useRef(displayTrip);
+  }, [desktopPanel, loadedTrip, mobileTab]);
 
   useEffect(() => {
-    routeRequestsRef.current = routeRequests;
-    activeTripRef.current = displayTrip;
-  }, [displayTrip, routeRequests]);
+    if (previewTripId && !tripSummaries.some((trip) => trip.id === previewTripId)) {
+      setPreviewTripId(null);
+    }
+
+    if (activeTripId && !tripSummaries.some((trip) => trip.id === activeTripId)) {
+      setActiveTripId(null);
+    }
+  }, [activeTripId, previewTripId, tripSummaries]);
 
   useEffect(() => {
     if (plannerInteractionMode !== "edit") {
@@ -278,13 +280,13 @@ export default function PlannerApp() {
       return;
     }
 
-    if (!activeTrip) {
+    if (!loadedTrip) {
       setDraftTrip(null);
       return;
     }
 
-    setDraftTrip((current) => current ?? cloneTrip(activeTrip));
-  }, [activeTrip, plannerInteractionMode]);
+    setDraftTrip((current) => current ?? cloneTrip(loadedTrip));
+  }, [loadedTrip, plannerInteractionMode]);
 
   useEffect(() => {
     if (!saveFeedback || saveFeedback.tone === "warning") {
@@ -295,102 +297,232 @@ export default function PlannerApp() {
     return () => window.clearTimeout(timer);
   }, [saveFeedback]);
 
+  const loadedRoutePayload = useMemo(() => {
+    if (!displayTrip) {
+      return {
+        requests: [],
+        signature: "",
+      };
+    }
+
+    return buildTripTravelLegPayload(displayTrip);
+  }, [displayTrip]);
+  const previewRoutePayload = useMemo(() => {
+    if (!previewTrip) {
+      return {
+        requests: [],
+        signature: "",
+      };
+    }
+
+    return buildTripTravelLegPayload(previewTrip);
+  }, [previewTrip]);
+  const loadedRouteRequests = loadedRoutePayload.requests;
+  const loadedRouteSignature = loadedRoutePayload.signature;
+  const previewRouteRequests = previewRoutePayload.requests;
+  const previewRouteSignature = previewRoutePayload.signature;
+  const loadedTripRef = useRef(displayTrip);
+  const loadedRouteRequestsRef = useRef(loadedRouteRequests);
+  const loadedRouteSignatureRef = useRef(loadedRouteSignature);
+  const previewTripRef = useRef(previewTrip);
+  const previewRouteRequestsRef = useRef(previewRouteRequests);
+  const previewRouteSignatureRef = useRef(previewRouteSignature);
+
   useEffect(() => {
-    const currentTrip = activeTripRef.current;
-    const currentRequests = routeRequestsRef.current;
+    loadedTripRef.current = displayTrip;
+    loadedRouteRequestsRef.current = loadedRouteRequests;
+    loadedRouteSignatureRef.current = loadedRouteSignature;
+    previewTripRef.current = previewTrip;
+    previewRouteRequestsRef.current = previewRouteRequests;
+    previewRouteSignatureRef.current = previewRouteSignature;
+  }, [
+    displayTrip,
+    loadedRouteRequests,
+    loadedRouteSignature,
+    previewRouteRequests,
+    previewRouteSignature,
+    previewTrip,
+  ]);
+
+  const syncLoadedRoutePanel = async (fetchFresh: boolean) => {
+    const currentTrip = loadedTripRef.current;
+    const currentRequests = loadedRouteRequestsRef.current;
+    const currentSignature = loadedRouteSignatureRef.current;
 
     if (!currentTrip || currentRequests.length === 0) {
-      startTransition(() => {
-        setRouteEstimates([]);
-        setRouteInsightsState("fresh");
-        setRouteStatusMessage(null);
-        setIsEstimatingRoutes(false);
-      });
+      startTransition(() => setLoadedRoutePanel(defaultRoutePanelState));
       return;
     }
 
-    let cancelled = false;
-    const refreshId = routeRefreshCounterRef.current + 1;
-    routeRefreshCounterRef.current = refreshId;
+    const refreshId = loadedRouteRefreshCounterRef.current + 1;
+    loadedRouteRefreshCounterRef.current = refreshId;
+    const cached = await readCachedRouteEstimateSet(currentSignature);
+    if (loadedRouteRefreshCounterRef.current !== refreshId) {
+      return;
+    }
 
-    const loadRouteEstimates = async () => {
-      const cached = await readCachedRouteEstimateSet(routeSignature);
-      if (cancelled || routeRefreshCounterRef.current !== refreshId) {
+    const cachedEstimates = cached.entry
+      ? mergeTravelEstimateMetadata(cached.entry.estimates, currentRequests)
+      : [];
+
+    setLoadedRoutePanel((current) => ({
+      ...current,
+      estimates: cachedEstimates,
+      status: cached.entry ? (cached.state === "fresh" ? "fresh" : "stale") : "fresh",
+      statusMessage:
+        cached.state === "stale"
+          ? "Showing saved route timings until you refresh them."
+          : null,
+      isRefreshing: false,
+    }));
+
+    if (!fetchFresh) {
+      return;
+    }
+
+    setLoadedRoutePanel((current) => ({
+      ...current,
+      estimates: cachedEstimates,
+      isRefreshing: true,
+      status: cached.entry ? (cached.state === "fresh" ? "fresh" : "stale") : current.status,
+      statusMessage:
+        cached.state === "stale"
+          ? "Showing saved route timings while a refresh runs."
+          : current.statusMessage,
+    }));
+
+    try {
+      const estimates = await fetchTravelLegEstimates(currentRequests);
+      if (loadedRouteRefreshCounterRef.current !== refreshId) {
         return;
       }
 
-      if (cached.state === "fresh" && cached.entry) {
-        setRouteEstimates(mergeTravelEstimateMetadata(cached.entry.estimates, currentRequests));
-        setRouteInsightsState("fresh");
-        setRouteStatusMessage(null);
-        setIsEstimatingRoutes(false);
+      const mergedEstimates = mergeTravelEstimateMetadata(estimates, currentRequests);
+      await writeCachedRouteEstimateSet(currentSignature, mergedEstimates);
+      setLoadedRoutePanel({
+        estimates: mergedEstimates,
+        isRefreshing: false,
+        status: "fresh",
+        statusMessage: null,
+      });
+    } catch (caught) {
+      if (loadedRouteRefreshCounterRef.current !== refreshId) {
         return;
       }
 
-      if (cached.entry) {
-        setRouteEstimates(mergeTravelEstimateMetadata(cached.entry.estimates, currentRequests));
-        setRouteInsightsState("stale");
-        setRouteStatusMessage("Showing the last successful route timings while a refresh runs.");
-      } else {
-        setRouteEstimates([]);
-        setRouteInsightsState("fresh");
-        setRouteStatusMessage(null);
-      }
-
-      setIsEstimatingRoutes(true);
-
-      try {
-        const estimates = await fetchTravelLegEstimates(currentRequests);
-        if (cancelled || routeRefreshCounterRef.current !== refreshId) {
-          return;
-        }
-
-        const mergedEstimates = mergeTravelEstimateMetadata(estimates, currentRequests);
-        setRouteEstimates(mergedEstimates);
-        setRouteInsightsState("fresh");
-        setRouteStatusMessage(null);
-        await writeCachedRouteEstimateSet(routeSignature, mergedEstimates);
-      } catch (caught) {
-        if (cancelled || routeRefreshCounterRef.current !== refreshId) {
-          return;
-        }
-
-        if (cached.entry) {
-          setRouteInsightsState("stale");
-          setRouteStatusMessage(
-            caught instanceof Error
+      setLoadedRoutePanel({
+        estimates: cachedEstimates,
+        isRefreshing: false,
+        status: cached.entry ? "stale" : "unavailable",
+        statusMessage:
+          cached.entry
+            ? caught instanceof Error
               ? `${caught.message} Showing the last successful route timings instead.`
-              : "Unable to refresh route estimates. Showing the last successful timings instead.",
-          );
-        } else {
-          setRouteInsightsState("unavailable");
-          setRouteStatusMessage(
-            caught instanceof Error ? caught.message : "Unable to refresh route estimates.",
-          );
-        }
-      } finally {
-        if (!cancelled && routeRefreshCounterRef.current === refreshId) {
-          setIsEstimatingRoutes(false);
-        }
+              : "Unable to refresh route estimates. Showing the last successful timings instead."
+            : caught instanceof Error
+              ? caught.message
+              : "Unable to refresh route estimates.",
+      });
+    }
+  };
+
+  const syncPreviewRoutePanel = async (fetchFresh: boolean) => {
+    const currentTrip = previewTripRef.current;
+    const currentRequests = previewRouteRequestsRef.current;
+    const currentSignature = previewRouteSignatureRef.current;
+
+    if (!currentTrip || currentRequests.length === 0) {
+      startTransition(() => setPreviewRoutePanel(defaultRoutePanelState));
+      return;
+    }
+
+    const refreshId = previewRouteRefreshCounterRef.current + 1;
+    previewRouteRefreshCounterRef.current = refreshId;
+    const cached = await readCachedRouteEstimateSet(currentSignature);
+    if (previewRouteRefreshCounterRef.current !== refreshId) {
+      return;
+    }
+
+    const cachedEstimates = cached.entry
+      ? mergeTravelEstimateMetadata(cached.entry.estimates, currentRequests)
+      : [];
+
+    setPreviewRoutePanel((current) => ({
+      ...current,
+      estimates: cachedEstimates,
+      status: cached.entry ? (cached.state === "fresh" ? "fresh" : "stale") : "fresh",
+      statusMessage:
+        cached.state === "stale"
+          ? "Showing saved route timings until you refresh them."
+          : null,
+      isRefreshing: false,
+    }));
+
+    if (!fetchFresh) {
+      return;
+    }
+
+    setPreviewRoutePanel((current) => ({
+      ...current,
+      estimates: cachedEstimates,
+      isRefreshing: true,
+      status: cached.entry ? (cached.state === "fresh" ? "fresh" : "stale") : current.status,
+      statusMessage:
+        cached.state === "stale"
+          ? "Showing saved route timings while a refresh runs."
+          : current.statusMessage,
+    }));
+
+    try {
+      const estimates = await fetchTravelLegEstimates(currentRequests);
+      if (previewRouteRefreshCounterRef.current !== refreshId) {
+        return;
       }
-    };
 
-    void loadRouteEstimates();
+      const mergedEstimates = mergeTravelEstimateMetadata(estimates, currentRequests);
+      await writeCachedRouteEstimateSet(currentSignature, mergedEstimates);
+      setPreviewRoutePanel({
+        estimates: mergedEstimates,
+        isRefreshing: false,
+        status: "fresh",
+        statusMessage: null,
+      });
+    } catch (caught) {
+      if (previewRouteRefreshCounterRef.current !== refreshId) {
+        return;
+      }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [routeSignature]);
+      setPreviewRoutePanel({
+        estimates: cachedEstimates,
+        isRefreshing: false,
+        status: cached.entry ? "stale" : "unavailable",
+        statusMessage:
+          cached.entry
+            ? caught instanceof Error
+              ? `${caught.message} Showing the last successful route timings instead.`
+              : "Unable to refresh route estimates. Showing the last successful timings instead."
+            : caught instanceof Error
+              ? caught.message
+              : "Unable to refresh route estimates.",
+      });
+    }
+  };
 
   useEffect(() => {
-    if (routeRequests.length === 0) {
+    void syncLoadedRoutePanel(false);
+  }, [loadedRouteSignature]);
+
+  useEffect(() => {
+    void syncPreviewRoutePanel(false);
+  }, [previewRouteSignature]);
+
+  useEffect(() => {
+    if (!loadedTrip) {
       return;
     }
 
-    setRouteEstimates((currentEstimates) =>
-      mergeTravelEstimateMetadata(currentEstimates, routeRequests),
-    );
-  }, [routeRequests]);
+    void syncLoadedRoutePanel(true);
+  }, [loadedTrip]);
 
   const tripDays = useMemo(() => (displayTrip ? getTripDays(displayTrip) : []), [displayTrip]);
   const effectiveSelectedDate = tripDays.includes(selectedDate)
@@ -403,20 +535,40 @@ export default function PlannerApp() {
   );
 
   const mapData = useMemo(
-    () => (displayTrip ? getMapData(displayTrip, routeEstimates) : { markers: [], segments: [] }),
-    [displayTrip, routeEstimates],
+    () =>
+      displayTrip
+        ? getMapData(displayTrip, loadedRoutePanel.estimates)
+        : { markers: [], segments: [] },
+    [displayTrip, loadedRoutePanel.estimates],
   );
 
-  const gapWarnings = useMemo(() => (displayTrip ? getGapWarnings(displayTrip) : []), [displayTrip]);
-  const todayActions = useMemo(() => (displayTrip ? getTodayActions(displayTrip) : []), [displayTrip]);
+  const loadedGapWarnings = useMemo(() => (displayTrip ? getGapWarnings(displayTrip) : []), [displayTrip]);
+  const previewGapWarnings = useMemo(() => (previewTrip ? getGapWarnings(previewTrip) : []), [previewTrip]);
+  const todayActions = useMemo(() => (activeTrip ? getTodayActions(activeTrip) : []), [activeTrip]);
   const costSummary = useMemo(
     () => (displayTrip ? getCostSummary(displayTrip) : { totalNights: 0, totalCost: 0 }),
     [displayTrip],
   );
-  const validationWarnings = useMemo(
-    () => (displayTrip ? getValidationWarnings(displayTrip, routeEstimates) : []),
-    [displayTrip, routeEstimates],
+  const previewCostSummary = useMemo(
+    () => (previewTrip ? getCostSummary(previewTrip) : { totalNights: 0, totalCost: 0 }),
+    [previewTrip],
   );
+  const loadedValidationWarnings = useMemo(
+    () => (displayTrip ? getValidationWarnings(displayTrip, loadedRoutePanel.estimates) : []),
+    [displayTrip, loadedRoutePanel.estimates],
+  );
+  const previewValidationWarnings = useMemo(
+    () => (previewTrip ? getValidationWarnings(previewTrip, previewRoutePanel.estimates) : []),
+    [previewRoutePanel.estimates, previewTrip],
+  );
+  const dashboardTrip = isCloudTripLibraryAvailable ? previewTrip : displayTrip;
+  const dashboardRoutePanel = isCloudTripLibraryAvailable ? previewRoutePanel : loadedRoutePanel;
+  const dashboardRouteRequests = isCloudTripLibraryAvailable ? previewRouteRequests : loadedRouteRequests;
+  const dashboardValidationWarnings = isCloudTripLibraryAvailable
+    ? previewValidationWarnings
+    : loadedValidationWarnings;
+  const dashboardGapWarnings = isCloudTripLibraryAvailable ? previewGapWarnings : loadedGapWarnings;
+  const dashboardCostSummary = isCloudTripLibraryAvailable ? previewCostSummary : costSummary;
   const effectiveSelectedEntity = useMemo<SelectedEntity>(() => {
     if (!displayTrip || !selectedEntity) {
       return null;
@@ -437,32 +589,33 @@ export default function PlannerApp() {
       pendingRoadLegs: roadSegments.filter((segment) => segment.routeStatus === "pending").length,
       liveRoadLegs: roadSegments.filter((segment) => segment.routeStatus === "live").length,
       fallbackRoadLegs: roadSegments.filter((segment) => segment.routeStatus === "fallback").length,
-      isRefreshing: isEstimatingRoutes,
+      isRefreshing: loadedRoutePanel.isRefreshing,
     };
-  }, [isEstimatingRoutes, mapData.segments]);
+  }, [loadedRoutePanel.isRefreshing, mapData.segments]);
 
   const canEditTrip = plannerInteractionMode === "edit" && !isOfflineReadOnly;
   const isTripLibraryBusy = isLoading || isManagingTrips || syncStatus === "saving";
   const activePanelMeta = desktopPanelMeta.find((panel) => panel.id === desktopPanel) ?? desktopPanelMeta[0];
-  const stopCount = displayTrip?.stops.length ?? 0;
-  const stayCount = displayTrip?.stops.filter((stop) => stop.type === "stay").length ?? 0;
   const activePanelSummary =
     desktopPanel === "itinerary"
-      ? `${tripDays.length} ${tripDays.length === 1 ? "day" : "days"} in plan`
-      : desktopPanel === "today"
-        ? `${todayActions.length} action${todayActions.length === 1 ? "" : "s"} in focus`
+      ? loadedTrip
+        ? `${tripDays.length} ${tripDays.length === 1 ? "day" : "days"} in loaded trip`
+        : "Load a trip to edit stops and map details"
       : desktopPanel === "trips"
-          ? "Account, library, and trip health"
-          : displayTrip
-            ? formatTripDateRange(displayTrip)
-            : "No trip selected";
+        ? dashboardTrip
+          ? `${isCloudTripLibraryAvailable ? "Previewing" : "Showing"} ${dashboardTrip.name}`
+          : "Preview a trip or set one active for Today"
+        : displayTrip
+          ? `Loaded trip · ${formatTripDateRange(displayTrip)}`
+          : "Load a trip to inspect its overview";
+  const isPanelDisabled = (panelId: DesktopPanel | MobileTab) => panelId !== "trips" && !loadedTrip;
   const hasDraftChanges = useMemo(() => {
-    if (plannerInteractionMode !== "edit" || !draftTrip || !activeTrip) {
+    if (plannerInteractionMode !== "edit" || !draftTrip || !loadedTrip) {
       return false;
     }
 
-    return JSON.stringify(draftTrip) !== JSON.stringify(activeTrip);
-  }, [activeTrip, draftTrip, plannerInteractionMode]);
+    return JSON.stringify(draftTrip) !== JSON.stringify(loadedTrip);
+  }, [draftTrip, loadedTrip, plannerInteractionMode]);
 
   const confirmDiscardDraftChanges = (actionLabel: string) => {
     if (!hasDraftChanges) {
@@ -509,6 +662,22 @@ export default function PlannerApp() {
     setMobileTab("overview");
   };
 
+  const showDashboardPanel = (selectionVersion?: number) => {
+    if (
+      typeof selectionVersion === "number" &&
+      panelSelectionVersionRef.current !== selectionVersion
+    ) {
+      return;
+    }
+
+    if (isDesktopViewport) {
+      setDesktopPanel("trips");
+      return;
+    }
+
+    setMobileTab("trips");
+  };
+
   const showItineraryPanel = (selectionVersion?: number) => {
     if (
       typeof selectionVersion === "number" &&
@@ -526,14 +695,14 @@ export default function PlannerApp() {
   };
 
   const enterEditMode = () => {
-    if (!activeTrip) {
+    if (!loadedTrip) {
       return;
     }
 
     setPlannerInteractionMode("edit");
 
     if (useTripStore.getState().plannerInteractionMode === "edit") {
-      setDraftTrip(cloneTrip(activeTrip));
+      setDraftTrip(cloneTrip(loadedTrip));
     }
   };
 
@@ -623,10 +792,45 @@ export default function PlannerApp() {
     selectEntity(entity, "map");
   };
 
+  const handlePreviewTrip = async (tripId: string) => {
+    if (previewTripId === tripId) {
+      return;
+    }
+
+    setIsPreviewingTripId(tripId);
+
+    try {
+      const trip = await previewCloudTrip(tripId);
+      if (trip) {
+        setPreviewTripId(trip.id);
+      }
+    } finally {
+      setIsPreviewingTripId((current) => (current === tripId ? null : current));
+    }
+  };
+
+  const handleToggleActiveTrip = async (tripId: string) => {
+    if (activeTripId === tripId) {
+      setActiveTripId(null);
+      return;
+    }
+
+    setIsActivatingTripId(tripId);
+
+    try {
+      const trip = await previewCloudTrip(tripId);
+      if (trip) {
+        setActiveTripId(trip.id);
+      }
+    } finally {
+      setIsActivatingTripId((current) => (current === tripId ? null : current));
+    }
+  };
+
   const handleOpenTrip = async (tripId: string) => {
     const selectionVersion = panelSelectionVersionRef.current;
 
-    if (tripId === activeTrip?.id) {
+    if (tripId === loadedTrip?.id) {
       showOverviewPanel();
       return;
     }
@@ -641,6 +845,7 @@ export default function PlannerApp() {
       await loadCloudTrip(tripId);
       const nextState = useTripStore.getState();
       if (!nextState.error && nextState.data?.activeTripId === tripId) {
+        setPreviewTripId(tripId);
         showOverviewPanel(selectionVersion);
       }
     } finally {
@@ -655,22 +860,23 @@ export default function PlannerApp() {
       return false;
     }
 
-    const previousActiveTripId = activeTrip?.id ?? null;
+    const previousLoadedTripId = loadedTrip?.id ?? null;
     const selectionVersion = panelSelectionVersionRef.current;
     setIsManagingTrips(true);
 
     try {
       await createTrip(input);
       const nextState = useTripStore.getState();
-      const nextActiveTripId = nextState.data?.activeTripId ?? null;
-      const didCreate = !nextState.error && nextActiveTripId !== previousActiveTripId;
+      const nextLoadedTripId = nextState.data?.activeTripId ?? null;
+      const didCreate = !nextState.error && nextLoadedTripId !== previousLoadedTripId;
 
       if (didCreate) {
+        setPreviewTripId(nextLoadedTripId);
         if (input.source === "blank") {
           showItineraryPanel(selectionVersion);
           setEditor(defaultEditorState);
           const nextTrip =
-            nextState.data?.trips.find((trip) => trip.id === nextActiveTripId) ?? null;
+            nextState.data?.trips.find((trip) => trip.id === nextLoadedTripId) ?? null;
           setPlannerInteractionMode("edit");
           if (nextTrip && useTripStore.getState().plannerInteractionMode === "edit") {
             setDraftTrip(cloneTrip(nextTrip));
@@ -705,13 +911,13 @@ export default function PlannerApp() {
 
   const handleDeleteTrip = async (trip: TripSummary) => {
     const selectionVersion = panelSelectionVersionRef.current;
-    if (trip.id === activeTrip?.id && !confirmDiscardDraftChanges(`deleting "${trip.name}"`)) {
+    if (trip.id === loadedTrip?.id && !confirmDiscardDraftChanges(`deleting "${trip.name}"`)) {
       return;
     }
 
     const confirmed = window.confirm(
-      trip.id === activeTrip?.id
-        ? `Delete "${trip.name}"? The planner will immediately load another remaining trip.`
+      trip.id === loadedTrip?.id
+        ? `Delete "${trip.name}"? This will return you to Dashboard with no trip loaded.`
         : `Delete "${trip.name}"? This cannot be undone.`,
     );
     if (!confirmed) {
@@ -721,12 +927,13 @@ export default function PlannerApp() {
     setIsManagingTrips(true);
 
     try {
-      const isDeletingActiveTrip = trip.id === activeTrip?.id;
+      const isDeletingLoadedTrip = trip.id === loadedTrip?.id;
       await deleteTrip(trip.id);
       const nextState = useTripStore.getState();
 
-      if (!nextState.error && isDeletingActiveTrip) {
-        showOverviewPanel(selectionVersion);
+      if (!nextState.error && isDeletingLoadedTrip) {
+        setPreviewTripId((current) => (current === trip.id ? null : current));
+        showDashboardPanel(selectionVersion);
       }
     } finally {
       setIsManagingTrips(false);
@@ -745,6 +952,7 @@ export default function PlannerApp() {
       await importLegacyTrips();
       const nextState = useTripStore.getState();
       if (!nextState.error) {
+        setPreviewTripId(nextState.data?.activeTripId ?? null);
         showOverviewPanel(selectionVersion);
       }
     } finally {
@@ -804,120 +1012,145 @@ export default function PlannerApp() {
       data-testid="overview-scroll-region"
       className="space-y-4 pr-1 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-y-auto"
     >
-      <TripHeader
-        tripName={displayTrip?.name ?? ""}
-        homeLabel={displayTrip?.home.label ?? ""}
-        dateRangeLabel={displayTrip ? formatTripDateRange(displayTrip) : ""}
-        totalNights={costSummary.totalNights}
-        totalCost={costSummary.totalCost}
-      />
+      {displayTrip ? (
+        <div className="px-1">
+          <p className="planner-eyebrow planner-section-label">Loaded trip</p>
+          <h2 className="planner-title-lg mt-2 text-app-text">{displayTrip.name}</h2>
+          <p className="planner-copy mt-2 flex flex-wrap items-center gap-2 text-app-muted">
+            <span>{formatTripDateRange(displayTrip)}</span>
+            <span className="hidden text-app-border sm:inline">/</span>
+            <span>Home base: {displayTrip.home.label}</span>
+            <span className="hidden text-app-border sm:inline">/</span>
+            <span>{costSummary.totalNights} night{costSummary.totalNights === 1 ? "" : "s"}</span>
+            <span className="hidden text-app-border sm:inline">/</span>
+            <span>Estimated stay cost: GBP {costSummary.totalCost.toFixed(2)}</span>
+          </p>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
         <TravelInsightsPanel
-          estimates={routeEstimates}
-          legCount={routeRequests.length}
-          status={routeInsightsState}
-          statusMessage={routeStatusMessage}
-          isRefreshing={isEstimatingRoutes}
+          estimates={loadedRoutePanel.estimates}
+          legCount={loadedRouteRequests.length}
+          status={loadedRoutePanel.status}
+          statusMessage={loadedRoutePanel.statusMessage}
+          isRefreshing={loadedRoutePanel.isRefreshing}
+          onRefresh={() => void syncLoadedRoutePanel(true)}
         />
 
         <div className="space-y-4">
-          <ValidationWarningsPanel warnings={validationWarnings} />
-          <GapWarnings warnings={gapWarnings} />
+          <ValidationWarningsPanel warnings={loadedValidationWarnings} />
+          <GapWarnings warnings={loadedGapWarnings} />
         </div>
-      </div>
-    </div>
-  );
-
-  const renderTodayPanel = () => (
-    <div
-      data-testid="today-scroll-region"
-      className="space-y-4 pr-1 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-y-auto"
-    >
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(280px,0.92fr)]">
-        <TodayActionsPanel actions={todayActions} />
-
-        <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
-          <p className="planner-eyebrow planner-section-label">Daily snapshot</p>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            <div className="rounded-[18px] border border-app-border bg-app-surface-muted/80 px-3.5 py-3.5">
-              <p className="planner-eyebrow text-app-muted">Selected date</p>
-              <p className="planner-title-lg mt-2 text-app-text">
-                {formatDateOnly(effectiveSelectedDate)}
-              </p>
-            </div>
-            <div className="rounded-[18px] border border-app-border bg-app-surface-muted/80 px-3.5 py-3.5">
-              <p className="planner-eyebrow text-app-muted">Campsites</p>
-              <p className="planner-metric mt-2 text-app-text">{stayCount}</p>
-            </div>
-            <div className="rounded-[18px] border border-app-border bg-app-surface-muted/80 px-3.5 py-3.5">
-              <p className="planner-eyebrow text-app-muted">Stops in plan</p>
-              <p className="planner-metric mt-2 text-app-text">{stopCount}</p>
-            </div>
-            <div className="rounded-[18px] border border-app-border bg-app-surface-muted/80 px-3.5 py-3.5">
-              <p className="planner-eyebrow text-app-muted">Live road legs</p>
-              <p className="planner-metric mt-2 text-app-text">{routeMapSummary.liveRoadLegs}</p>
-            </div>
-          </div>
-        </section>
       </div>
     </div>
   );
 
   const renderDashboardPanel = () => (
     <div data-testid="desktop-panel-trips-region" className="lg:flex lg:h-full lg:min-h-0 lg:flex-col">
-      <div className="space-y-4 pr-1 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-y-auto">
-        <TripHeader
-          tripName={displayTrip?.name ?? ""}
-          homeLabel={displayTrip?.home.label ?? ""}
-          dateRangeLabel={displayTrip ? formatTripDateRange(displayTrip) : ""}
-          totalNights={costSummary.totalNights}
-          totalCost={costSummary.totalCost}
-        />
+      <div className="space-y-4 pr-1 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
+        <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:items-stretch xl:grid-cols-[minmax(0,1.02fr)_minmax(320px,0.98fr)]">
+          {isCloudTripLibraryAvailable ? (
+            <TripsPanel
+              trips={tripSummaries}
+              loadedTripId={loadedTrip?.id ?? null}
+              previewTripId={previewTripId}
+              activeTripId={activeTripId}
+              hasLegacyImport={hasLegacyImport}
+              isOfflineReadOnly={isOfflineReadOnly}
+              isWorking={isTripLibraryBusy}
+              isPreviewingTripId={isPreviewingTripId}
+              isActivatingTripId={isActivatingTripId}
+              onCreateTrip={() => setIsTripCreateOpen(true)}
+              onImportLegacyTrips={handleImportLegacyTrips}
+              onPreviewTrip={handlePreviewTrip}
+              onToggleActiveTrip={handleToggleActiveTrip}
+              onOpenTrip={handleOpenTrip}
+              onRenameTrip={setTripToRename}
+              onDeleteTrip={handleDeleteTrip}
+            />
+          ) : (
+            <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
+              <p className="planner-eyebrow planner-section-label">Dashboard</p>
+              <h2 className="planner-title-lg mt-2 text-app-text">Cloud trip library is hidden in demo mode</h2>
+              <p className="planner-copy mt-3 text-app-muted">
+                Sign in and create a cloud-backed trip to manage multiple trips here. Until then,
+                Dashboard stays available without the cloud trip library controls.
+              </p>
+            </section>
+          )}
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.92fr)]">
-          <TripsPanel
-            trips={tripSummaries}
-            activeTripId={activeTrip?.id ?? ""}
-            hasLegacyImport={hasLegacyImport}
-            isOfflineReadOnly={isOfflineReadOnly}
-            isWorking={isTripLibraryBusy}
-            onCreateTrip={() => setIsTripCreateOpen(true)}
-            onImportLegacyTrips={handleImportLegacyTrips}
-            onOpenTrip={handleOpenTrip}
-            onRenameTrip={setTripToRename}
-            onDeleteTrip={handleDeleteTrip}
-          />
+          <div className="space-y-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+            <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
+              <p className="planner-eyebrow planner-section-label">
+                {isCloudTripLibraryAvailable ? "Previewed trip" : "Loaded trip"}
+              </p>
+              {dashboardTrip ? (
+                <>
+                  <h2 className="planner-title-lg mt-2 text-app-text">{dashboardTrip.name}</h2>
+                  <p className="planner-copy mt-2 flex flex-wrap items-center gap-2 text-app-muted">
+                    <span>{formatTripDateRange(dashboardTrip)}</span>
+                    <span className="hidden text-app-border sm:inline">/</span>
+                    <span>Home base: {dashboardTrip.home.label}</span>
+                    <span className="hidden text-app-border sm:inline">/</span>
+                    <span>
+                      {dashboardCostSummary.totalNights} night
+                      {dashboardCostSummary.totalNights === 1 ? "" : "s"}
+                    </span>
+                  </p>
+                </>
+              ) : (
+                <p className="planner-copy mt-3 text-app-muted">
+                  {isCloudTripLibraryAvailable
+                    ? "Click a trip in the library to preview its route realism and planning warnings without loading it into the main planner."
+                    : "No trip is loaded yet in demo mode."}
+                </p>
+              )}
+            </section>
 
-          <AccountPanel
-            authStatus={authStatus}
-            mode={mode}
-            userEmail={user?.email ?? null}
-            syncStatus={syncStatus}
-            isOfflineReadOnly={isOfflineReadOnly}
-            hasLegacyImport={hasLegacyImport}
-            statusMessage={accountNotice?.text ?? null}
-            onSignIn={signInWithMagicLink}
-            onSignInAsTestUser={signInAsTestUser}
-            onSignOut={signOut}
-            onImportLegacy={handleImportLegacyTrips}
-            onCreateCloudTripFromCurrent={createCloudTripFromCurrent}
-          />
-        </div>
+            <TravelInsightsPanel
+              estimates={dashboardRoutePanel.estimates}
+              legCount={dashboardRouteRequests.length}
+              status={dashboardRoutePanel.status}
+              statusMessage={dashboardRoutePanel.statusMessage}
+              isRefreshing={dashboardRoutePanel.isRefreshing}
+              onRefresh={
+                dashboardTrip
+                  ? isCloudTripLibraryAvailable
+                    ? () => void syncPreviewRoutePanel(true)
+                    : () => void syncLoadedRoutePanel(true)
+                  : undefined
+              }
+              emptyMessage={
+                dashboardTrip
+                  ? null
+                  : isCloudTripLibraryAvailable
+                    ? "Click a trip on Dashboard to inspect saved route timings."
+                    : "Route realism will appear here once a trip is loaded."
+              }
+            />
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
-          <TravelInsightsPanel
-            estimates={routeEstimates}
-            legCount={routeRequests.length}
-            status={routeInsightsState}
-            statusMessage={routeStatusMessage}
-            isRefreshing={isEstimatingRoutes}
-          />
+            <ValidationWarningsPanel
+              warnings={dashboardValidationWarnings}
+              emptyMessage={
+                dashboardTrip
+                  ? null
+                  : isCloudTripLibraryAvailable
+                    ? "Planning warnings will appear here when you preview a trip."
+                    : "Planning warnings will appear here when a trip is loaded."
+              }
+            />
 
-          <div className="space-y-4">
-            <ValidationWarningsPanel warnings={validationWarnings} />
-            <GapWarnings warnings={gapWarnings} />
+            <GapWarnings
+              warnings={dashboardGapWarnings}
+              emptyMessage={
+                dashboardTrip
+                  ? null
+                  : isCloudTripLibraryAvailable
+                    ? "Base coverage gaps will appear here when you preview a trip."
+                    : "Base coverage gaps will appear here when a trip is loaded."
+              }
+            />
           </div>
         </div>
       </div>
@@ -1135,7 +1368,7 @@ export default function PlannerApp() {
     />
   );
 
-  if (isLoading && !activeTrip && authStatus === "checking") {
+  if (isLoading && authStatus === "checking") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-app-bg px-4 py-10">
         <p className="planner-copy text-app-muted">Loading trip planner...</p>
@@ -1143,7 +1376,7 @@ export default function PlannerApp() {
     );
   }
 
-  if (!activeTrip && (authStatus === "signed_out" || authStatus === "disabled")) {
+  if (authStatus === "signed_out" || (authStatus === "disabled" && mode !== "demo")) {
     return (
       <PlannerAuthGate
         authStatus={authStatus}
@@ -1155,7 +1388,7 @@ export default function PlannerApp() {
     );
   }
 
-  if (!activeTrip && authStatus === "signed_in" && firstTripSetup === "choose_source") {
+  if (authStatus === "signed_in" && firstTripSetup === "choose_source") {
     return (
       <div className="min-h-screen bg-app-bg px-4 py-10">
         <div className="mx-auto max-w-3xl space-y-4">
@@ -1171,27 +1404,10 @@ export default function PlannerApp() {
     );
   }
 
-  if (isLoading && !activeTrip) {
+  if (isLoading && authStatus === "signed_in" && !loadedTrip && tripSummaries.length === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-app-bg px-4 py-10">
         <p className="planner-copy text-app-muted">Preparing your trip workspace...</p>
-      </div>
-    );
-  }
-
-  if (!activeTrip) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-app-bg px-4 py-10">
-        <div className="rounded-2xl border border-app-border bg-app-surface p-6 text-center shadow-sm">
-          <p className="planner-copy text-app-text">{error ?? "No trip loaded."}</p>
-          <button
-            type="button"
-            onClick={() => void initialize()}
-            className="planner-button-primary mt-3 rounded-xl border px-4 py-2 text-sm font-semibold"
-          >
-            Reload
-          </button>
-        </div>
       </div>
     );
   }
@@ -1212,6 +1428,16 @@ export default function PlannerApp() {
                   {activePanelSummary}
                 </span>
               </div>
+
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl border border-app-border bg-app-surface px-3 py-2">
+                  <p className="planner-eyebrow text-app-muted">Active trip</p>
+                  <p className="planner-title-sm mt-1 text-app-text">
+                    {activeTrip?.name ?? "No active trip"}
+                  </p>
+                </div>
+                <TodayStatusControl activeTripName={activeTrip?.name ?? null} actions={todayActions} />
+              </div>
             </header>
 
             <aside
@@ -1222,6 +1448,7 @@ export default function PlannerApp() {
                 <div className="space-y-1">
                   {desktopRailPanels.map((panel) => {
                     const active = desktopPanel === panel.id;
+                    const disabled = isPanelDisabled(panel.id);
 
                     return (
                       <button
@@ -1229,10 +1456,13 @@ export default function PlannerApp() {
                         type="button"
                         data-testid={`desktop-panel-${panel.id}`}
                         onClick={() => selectDesktopPanel(panel.id)}
+                        disabled={disabled}
                         className={`flex w-full items-center gap-3 rounded-[18px] border px-3.5 py-3 text-left text-sm font-medium transition ${
                           active
                             ? "border-app-border bg-app-surface text-brand-primary shadow-[0_1px_2px_rgb(var(--color-app-overlay)_/_0.04)]"
-                            : "border-transparent text-app-muted hover:border-app-border hover:bg-app-surface hover:text-app-text"
+                            : disabled
+                              ? "cursor-not-allowed border-transparent text-app-muted/60"
+                              : "border-transparent text-app-muted hover:border-app-border hover:bg-app-surface hover:text-app-text"
                         }`}
                         title={panel.label}
                       >
@@ -1270,20 +1500,15 @@ export default function PlannerApp() {
                     <PlannerBrandBadge compact variant="rail" />
                   </div>
 
-                  <AccountStatusControl
-                    authStatus={authStatus}
-                    mode={mode}
-                    userEmail={user?.email ?? null}
-                    syncStatus={syncStatus}
-                    isOfflineReadOnly={isOfflineReadOnly}
-                    notice={accountNotice}
-                    onSignIn={signInWithMagicLink}
-                    onSignInAsTestUser={signInAsTestUser}
-                    onSignOut={signOut}
-                    onCreateCloudTripFromCurrent={createCloudTripFromCurrent}
-                    onResetSeed={resetToSeed}
-                    onResetSeedAlignedToToday={resetToSeedAlignedToToday}
-                  />
+                  <div className="flex items-center gap-2">
+                    <div className="rounded-2xl border border-app-border bg-app-surface px-3 py-2">
+                      <p className="planner-eyebrow text-app-muted">Active trip</p>
+                      <p className="planner-title-sm mt-1 max-w-[9rem] truncate text-app-text">
+                        {activeTrip?.name ?? "No active trip"}
+                      </p>
+                    </div>
+                    <TodayStatusControl activeTripName={activeTrip?.name ?? null} actions={todayActions} />
+                  </div>
                 </div>
               </div>
 
@@ -1292,46 +1517,34 @@ export default function PlannerApp() {
                   {renderSharedNotices()}
 
                   <div className="rounded-[20px] border border-app-border bg-app-surface p-2">
-                    {mobileTripsPanel ? (
-                      <div className="mb-2">
-                        <button
-                          type="button"
-                          data-testid="mobile-panel-trips"
-                          onClick={() => selectMobileTab(mobileTripsPanel.id)}
-                          className={`w-full rounded-[16px] px-3 py-2 text-sm font-semibold transition ${
-                            mobileTab === mobileTripsPanel.id
-                              ? "border border-brand-primary bg-brand-primary text-brand-on-primary"
-                              : "border border-app-border bg-app-surface-muted text-app-muted hover:bg-app-surface"
-                          }`}
-                        >
-                          {mobileTripsPanel.label}
-                        </button>
-                      </div>
-                    ) : null}
-
                     <div className="flex gap-2 overflow-x-auto pb-1">
-                      {mobileViewPanels.map((panel) => (
-                        <button
-                          key={panel.id}
-                          type="button"
-                          data-testid={`mobile-panel-${panel.id}`}
-                          onClick={() => selectMobileTab(panel.id)}
-                          className={`shrink-0 rounded-[16px] px-3 py-2 text-sm font-semibold transition ${
-                            mobileTab === panel.id
-                              ? "border border-brand-primary bg-brand-primary text-brand-on-primary"
-                              : "border border-app-border bg-app-surface-muted text-app-muted hover:bg-app-surface"
-                          }`}
-                        >
-                          {panel.label}
-                        </button>
-                      ))}
+                      {mobilePanels.map((panel) => {
+                        const disabled = isPanelDisabled(panel.id);
+                        return (
+                          <button
+                            key={panel.id}
+                            type="button"
+                            data-testid={`mobile-panel-${panel.id}`}
+                            onClick={() => selectMobileTab(panel.id)}
+                            disabled={disabled}
+                            className={`shrink-0 rounded-[16px] px-3 py-2 text-sm font-semibold transition ${
+                              mobileTab === panel.id
+                                ? "border border-brand-primary bg-brand-primary text-brand-on-primary"
+                                : disabled
+                                  ? "cursor-not-allowed border border-app-border bg-app-surface-muted/60 text-app-muted/70"
+                                  : "border border-app-border bg-app-surface-muted text-app-muted hover:bg-app-surface"
+                            }`}
+                          >
+                            {panel.label}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {mobileTab === "trips" && isCloudTripLibraryAvailable ? renderDashboardPanel() : null}
-                  {mobileTab === "today" ? renderTodayPanel() : null}
-                  {mobileTab === "overview" ? renderOverviewPanel() : null}
-                  {mobileTab === "itinerary" ? renderItineraryPanel(true) : null}
+                  {mobileTab === "trips" ? renderDashboardPanel() : null}
+                  {mobileTab === "overview" && loadedTrip ? renderOverviewPanel() : null}
+                  {mobileTab === "itinerary" && loadedTrip ? renderItineraryPanel(true) : null}
                 </div>
               </section>
             </div>
@@ -1341,16 +1554,34 @@ export default function PlannerApp() {
 
               <div
                 data-testid="desktop-panel-region"
-                className="mt-5 min-h-0 flex-1 lg:flex lg:flex-col"
+                className={`min-h-0 flex-1 lg:flex lg:flex-col ${
+                  desktopPanel === "trips" ? "mt-0" : "mt-5"
+                }`}
               >
-                {desktopPanel === "trips" && isCloudTripLibraryAvailable ? renderDashboardPanel() : null}
-                {desktopPanel === "overview" ? renderOverviewPanel() : null}
-                {desktopPanel === "today" ? renderTodayPanel() : null}
-                {desktopPanel === "itinerary" ? renderItineraryPanel(isDesktopViewport) : null}
+                {desktopPanel === "trips" ? renderDashboardPanel() : null}
+                {desktopPanel === "overview" && loadedTrip ? renderOverviewPanel() : null}
+                {desktopPanel === "itinerary" && loadedTrip ? renderItineraryPanel(isDesktopViewport) : null}
               </div>
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="fixed bottom-4 left-4 z-40 lg:hidden">
+        <AccountStatusControl
+          authStatus={authStatus}
+          mode={mode}
+          userEmail={user?.email ?? null}
+          syncStatus={syncStatus}
+          isOfflineReadOnly={isOfflineReadOnly}
+          notice={accountNotice}
+          onSignIn={signInWithMagicLink}
+          onSignInAsTestUser={signInAsTestUser}
+          onSignOut={signOut}
+          onCreateCloudTripFromCurrent={createCloudTripFromCurrent}
+          onResetSeed={resetToSeed}
+          onResetSeedAlignedToToday={resetToSeedAlignedToToday}
+        />
       </div>
 
       <StopEditorModal

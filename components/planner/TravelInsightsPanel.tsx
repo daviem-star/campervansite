@@ -13,6 +13,11 @@ type TravelInsightsPanelProps = {
   status: "fresh" | "stale" | "unavailable";
   statusMessage: string | null;
   isRefreshing: boolean;
+  onRefresh?: () => void;
+  isRefreshDisabled?: boolean;
+  emptyMessage?: string | null;
+  title?: string;
+  description?: string;
 };
 
 const groupEstimatesByDate = (
@@ -41,6 +46,11 @@ export default function TravelInsightsPanel({
   status,
   statusMessage,
   isRefreshing,
+  onRefresh,
+  isRefreshDisabled = false,
+  emptyMessage = null,
+  title = "Route realism",
+  description = "Live and cached drive estimates across the current campervan plan.",
 }: TravelInsightsPanelProps) {
   const totalDistanceKm = estimates.reduce((sum, estimate) => sum + estimate.distanceKm, 0);
   const totalBufferedMinutes = estimates.reduce(
@@ -55,14 +65,24 @@ export default function TravelInsightsPanel({
     <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="planner-eyebrow planner-section-label">Route realism</p>
-          <p className="planner-copy mt-2 text-app-muted">
-            Live and cached drive estimates across the current campervan plan.
-          </p>
+          <p className="planner-eyebrow planner-section-label">{title}</p>
+          <p className="planner-copy mt-2 text-app-muted">{description}</p>
         </div>
-        <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
-          {legCount} road legs
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
+            {legCount} road legs
+          </span>
+          {onRefresh ? (
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={isRefreshDisabled || isRefreshing}
+              className="planner-button-secondary rounded-full border px-3 py-1 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isRefreshing ? "Refreshing..." : "Refresh"}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {statusMessage && status !== "fresh" ? (
@@ -78,7 +98,9 @@ export default function TravelInsightsPanel({
       ) : null}
 
       {legCount === 0 ? (
-        <p className="planner-copy text-app-muted">Add more trip stops to generate route estimates.</p>
+        <p className="planner-copy text-app-muted">
+          {emptyMessage ?? "Add more trip stops to generate route estimates."}
+        </p>
       ) : status === "unavailable" && estimates.length === 0 ? (
         <div className="planner-copy tone-error rounded-2xl border px-4 py-4">
           {statusMessage ?? "Route timings are unavailable right now."}

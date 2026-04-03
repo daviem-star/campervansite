@@ -5,6 +5,7 @@ import { TodayAction } from "@/types/trip";
 
 type TodayActionsPanelProps = {
   actions: TodayAction[];
+  tripName?: string | null;
 };
 
 const typePill = {
@@ -12,14 +13,16 @@ const typePill = {
   stay_checkout: "border border-brand-support/35 bg-brand-support/18 text-brand-primary",
 } as const;
 
-export default function TodayActionsPanel({ actions }: TodayActionsPanelProps) {
+export default function TodayActionsPanel({ actions, tripName = null }: TodayActionsPanelProps) {
   return (
     <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <p className="planner-eyebrow planner-section-label">Today&apos;s actions</p>
           <p className="planner-copy mt-2 text-app-muted">
-            Time-critical steps and ferry checkpoints for the selected itinerary.
+            {tripName
+              ? `Time-critical steps and ferry checkpoints for ${tripName}.`
+              : "Choose an active trip from Dashboard to see what needs attention today."}
           </p>
         </div>
         <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
@@ -27,7 +30,9 @@ export default function TodayActionsPanel({ actions }: TodayActionsPanelProps) {
         </span>
       </div>
 
-      {actions.length === 0 ? (
+      {!tripName ? (
+        <p className="planner-copy text-app-muted">No active trip selected.</p>
+      ) : actions.length === 0 ? (
         <p className="planner-copy text-app-muted">No time-critical actions due today.</p>
       ) : (
         <ul className="space-y-3">

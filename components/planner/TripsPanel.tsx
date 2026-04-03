@@ -5,12 +5,18 @@ import { TripSummary } from "@/types/trip";
 
 type TripsPanelProps = {
   trips: TripSummary[];
-  activeTripId: string;
+  loadedTripId: string | null;
+  previewTripId: string | null;
+  activeTripId: string | null;
   hasLegacyImport: boolean;
   isOfflineReadOnly: boolean;
   isWorking: boolean;
+  isPreviewingTripId: string | null;
+  isActivatingTripId: string | null;
   onCreateTrip: () => void;
   onImportLegacyTrips: () => Promise<void>;
+  onPreviewTrip: (tripId: string) => Promise<void>;
+  onToggleActiveTrip: (tripId: string) => Promise<void>;
   onOpenTrip: (tripId: string) => Promise<void>;
   onRenameTrip: (trip: TripSummary) => void;
   onDeleteTrip: (trip: TripSummary) => Promise<void>;
@@ -21,12 +27,18 @@ const actionButtonClass =
 
 export default function TripsPanel({
   trips,
+  loadedTripId,
+  previewTripId,
   activeTripId,
   hasLegacyImport,
   isOfflineReadOnly,
   isWorking,
+  isPreviewingTripId,
+  isActivatingTripId,
   onCreateTrip,
   onImportLegacyTrips,
+  onPreviewTrip,
+  onToggleActiveTrip,
   onOpenTrip,
   onRenameTrip,
   onDeleteTrip,
@@ -38,7 +50,8 @@ export default function TripsPanel({
           <p className="planner-eyebrow planner-section-label">Trip library</p>
           <h2 className="planner-title-lg mt-2 text-app-text">Manage your trips</h2>
           <p className="planner-copy mt-2 max-w-2xl text-app-muted">
-            Open, rename, or start a fresh plan without leaving the planner.
+            Click any trip to preview it, open the one you want to work on, and set an active trip
+            for Today.
           </p>
         </div>
 
@@ -87,26 +100,41 @@ export default function TripsPanel({
         ) : null}
 
         {trips.map((trip) => {
+          const isLoaded = trip.id === loadedTripId;
+          const isPreviewed = trip.id === previewTripId;
           const isActive = trip.id === activeTripId;
           const isOnlyTrip = trips.length === 1;
+          const isPreviewing = trip.id === isPreviewingTripId;
+          const isActivating = trip.id === isActivatingTripId;
 
           return (
             <article
               key={trip.id}
               data-testid={`trip-summary-${trip.id}`}
-              className={`px-4 py-4 transition sm:px-5 ${
-                isActive
+              onClick={() => void onPreviewTrip(trip.id)}
+              className={`cursor-pointer px-4 py-4 transition sm:px-5 ${
+                isPreviewed
                   ? "bg-brand-primary/10 text-app-text"
-                  : "bg-app-surface text-app-text"
+                  : "bg-app-surface text-app-text hover:bg-app-surface-muted/60"
               }`}
             >
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="planner-title-md">{trip.name}</h3>
-                    {isActive ? (
+                    {isLoaded ? (
                       <span className="planner-pill-active rounded-full border bg-app-surface px-2.5 py-0.5 text-[11px] font-semibold">
-                        Open now
+                        Loaded
+                      </span>
+                    ) : null}
+                    {isActive ? (
+                      <span className="rounded-full border border-state-info-border bg-state-info-surface px-2.5 py-0.5 text-[11px] font-semibold text-state-info">
+                        Active
+                      </span>
+                    ) : null}
+                    {isPreviewed ? (
+                      <span className="planner-pill rounded-full border bg-app-surface px-2.5 py-0.5 text-[11px] font-semibold">
+                        Previewed
                       </span>
                     ) : null}
                   </div>
@@ -117,15 +145,36 @@ export default function TripsPanel({
                     Version {trip.version}
                     {trip.lastSyncedAt ? ` · Last synced ${formatDateTime(trip.lastSyncedAt)}` : ""}
                   </p>
+                  {isPreviewing ? (
+                    <p className="planner-meta mt-2 text-brand-primary">Loading preview...</p>
+                  ) : null}
                 </div>
 
                 <div className="flex flex-wrap gap-2 xl:justify-end">
                   <button
                     type="button"
-                    onClick={() => void onOpenTrip(trip.id)}
-                    disabled={isWorking || isOfflineReadOnly || isActive}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void onToggleActiveTrip(trip.id);
+                    }}
+                    disabled={isWorking || isOfflineReadOnly || isActivating}
                     className={`${actionButtonClass} ${
                       isActive
+                        ? "border-state-info-border bg-state-info-surface text-state-info"
+                        : "planner-button-secondary border"
+                    }`}
+                  >
+                    {isActivating ? "Updating..." : isActive ? "Clear active" : "Set active"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void onOpenTrip(trip.id);
+                    }}
+                    disabled={isWorking || isOfflineReadOnly || isLoaded}
+                    className={`${actionButtonClass} ${
+                      isLoaded
                         ? "border-app-border bg-app-surface text-app-muted"
                         : "planner-button-secondary border"
                     }`}
@@ -134,10 +183,13 @@ export default function TripsPanel({
                   </button>
                   <button
                     type="button"
-                    onClick={() => onRenameTrip(trip)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRenameTrip(trip);
+                    }}
                     disabled={isWorking || isOfflineReadOnly}
                     className={`${actionButtonClass} ${
-                      isActive
+                      isLoaded
                         ? "border-brand-primary/25 bg-brand-primary/10 text-brand-primary hover:bg-brand-primary/16"
                         : "planner-button-secondary border"
                     }`}
@@ -146,7 +198,10 @@ export default function TripsPanel({
                   </button>
                   <button
                     type="button"
-                    onClick={() => void onDeleteTrip(trip)}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void onDeleteTrip(trip);
+                    }}
                     disabled={isWorking || isOfflineReadOnly || isOnlyTrip}
                     className={`${actionButtonClass} planner-button-danger`}
                   >

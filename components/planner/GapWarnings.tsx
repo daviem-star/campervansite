@@ -4,9 +4,19 @@ import { GapWarning } from "@/types/trip";
 
 type GapWarningsProps = {
   warnings: GapWarning[];
+  emptyMessage?: string | null;
 };
 
-export default function GapWarnings({ warnings }: GapWarningsProps) {
+export default function GapWarnings({ warnings, emptyMessage = null }: GapWarningsProps) {
+  if (emptyMessage) {
+    return (
+      <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
+        <p className="planner-eyebrow planner-section-label">Base coverage</p>
+        <p className="planner-copy mt-3 text-app-muted">{emptyMessage}</p>
+      </section>
+    );
+  }
+
   if (warnings.length === 0) {
     return (
       <section className="tone-success rounded-[24px] border px-4 py-4 sm:px-5 sm:py-5">

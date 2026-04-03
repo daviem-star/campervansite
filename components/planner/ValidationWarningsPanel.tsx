@@ -5,11 +5,22 @@ import { ValidationWarning } from "@/types/trip";
 
 type ValidationWarningsPanelProps = {
   warnings: ValidationWarning[];
+  emptyMessage?: string | null;
 };
 
 export default function ValidationWarningsPanel({
   warnings,
+  emptyMessage = null,
 }: ValidationWarningsPanelProps) {
+  if (emptyMessage) {
+    return (
+      <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
+        <p className="planner-eyebrow planner-section-label">Planning warnings</p>
+        <p className="planner-copy mt-3 text-app-muted">{emptyMessage}</p>
+      </section>
+    );
+  }
+
   if (warnings.length === 0) {
     return (
       <section className="tone-success rounded-[24px] border px-4 py-4 sm:px-5 sm:py-5">
