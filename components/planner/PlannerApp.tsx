@@ -13,7 +13,10 @@ import PlannerMap from "@/components/planner/PlannerMap";
 import { plannerNoticeToneClass } from "@/components/planner/plannerTheme";
 import StopEditorModal from "@/components/planner/StopEditorModal";
 import TodayStatusControl from "@/components/planner/TodayStatusControl";
-import TravelInsightsPanel from "@/components/planner/TravelInsightsPanel";
+import TravelInsightsPanel, {
+  getRouteConfidenceSnapshot,
+} from "@/components/planner/TravelInsightsPanel";
+import TripHeader from "@/components/planner/TripHeader";
 import TripCreateModal from "@/components/planner/TripCreateModal";
 import TripRenameModal from "@/components/planner/TripRenameModal";
 import TripsPanel from "@/components/planner/TripsPanel";
@@ -524,6 +527,10 @@ export default function PlannerApp() {
     () => (previewTrip ? getValidationWarnings(previewTrip, previewRoutePanel.estimates) : []),
     [previewRoutePanel.estimates, previewTrip],
   );
+  const loadedRouteConfidence = useMemo(
+    () => getRouteConfidenceSnapshot(loadedRoutePanel.estimates, loadedRouteRequests.length),
+    [loadedRoutePanel.estimates, loadedRouteRequests.length],
+  );
   const dashboardTrip = isCloudTripLibraryAvailable ? previewTrip : displayTrip;
   const dashboardRoutePanel = isCloudTripLibraryAvailable ? previewRoutePanel : loadedRoutePanel;
   const dashboardRouteRequests = isCloudTripLibraryAvailable ? previewRouteRequests : loadedRouteRequests;
@@ -995,31 +1002,18 @@ export default function PlannerApp() {
   const renderOverviewPanel = () => (
     <div
       data-testid="overview-scroll-region"
-      className="space-y-4 pr-1 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-y-auto"
+      className="space-y-5 pr-1 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-y-auto"
     >
       {displayTrip ? (
-        <section className="rounded-[20px] border border-app-border/80 bg-app-surface px-4 py-3.5 sm:px-5 sm:py-4">
-          <p className="planner-eyebrow planner-section-label">Trip summary</p>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            {[
-              { label: "Dates", value: formatTripDateRange(displayTrip) },
-              { label: "Home base", value: displayTrip.home.label },
-              {
-                label: "Nights",
-                value: `${costSummary.totalNights} night${costSummary.totalNights === 1 ? "" : "s"}`,
-              },
-              { label: "Estimated cost", value: `GBP ${costSummary.totalCost.toFixed(2)}` },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="rounded-[18px] border border-app-border bg-app-surface-muted/70 px-3.5 py-3"
-              >
-                <p className="planner-eyebrow text-app-muted">{item.label}</p>
-                <p className="planner-copy-sm mt-1 font-medium text-app-text">{item.value}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+        <TripHeader
+          tripName={displayTrip.name}
+          homeLabel={displayTrip.home.label}
+          dateRangeLabel={formatTripDateRange(displayTrip)}
+          totalNights={costSummary.totalNights}
+          totalCost={costSummary.totalCost}
+          warningCount={loadedValidationWarnings.length}
+          routeConfidenceLabel={loadedRouteConfidence.summary}
+        />
       ) : null}
 
       <ValidationWarningsPanel
@@ -1395,9 +1389,11 @@ export default function PlannerApp() {
             <header className="hidden lg:flex lg:items-center lg:justify-between lg:gap-6 lg:border-b lg:border-app-border lg:px-6 lg:py-4">
               <div className="min-w-0 flex flex-wrap items-center gap-3">
                 <h1 className="planner-title-xl text-app-text">{shellTitle}</h1>
-                <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
-                  {shellSummary}
-                </span>
+                {!isTripScreen ? (
+                  <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
+                    {shellSummary}
+                  </span>
+                ) : null}
               </div>
 
               <div className="flex items-center gap-3">

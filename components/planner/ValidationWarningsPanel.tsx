@@ -47,9 +47,34 @@ export default function ValidationWarningsPanel({
     [warnings],
   );
   const lowSeverityWarnings = groupedWarnings.low;
+  const highWarningCount = groupedWarnings.high.length;
+  const mediumWarningCount = groupedWarnings.medium.length;
+  const hasHighWarnings = highWarningCount > 0;
+  const elevatedWarningCount = highWarningCount + mediumWarningCount;
   const [isLowSeverityExpanded, setIsLowSeverityExpanded] = useState(
     () => defaultExpandedSeverities.includes("low"),
   );
+  const elevatedWarningSummary = hasHighWarnings
+    ? `${highWarningCount} high-priority issue${highWarningCount === 1 ? "" : "s"} need attention${
+        mediumWarningCount > 0
+          ? `, plus ${mediumWarningCount} medium-priority note${mediumWarningCount === 1 ? "" : "s"}`
+          : ""
+      }.`
+    : mediumWarningCount > 0
+      ? `${mediumWarningCount} medium-priority issue${mediumWarningCount === 1 ? "" : "s"} deserve a review before you commit.`
+      : warnings.length > 0
+        ? `${warnings.length} low-priority note${warnings.length === 1 ? "" : "s"} are available for extra context.`
+        : "Route realism and itinerary validation look healthy for the current plan.";
+  const headerCountClass = hasHighWarnings
+    ? "tone-error"
+    : hasElevatedWarnings
+      ? "tone-warning"
+      : "planner-pill";
+  const headerLabelClass = hasHighWarnings
+    ? "text-state-error"
+    : hasElevatedWarnings
+      ? "text-state-warning"
+      : "planner-section-label-accent";
 
   if (emptyMessage) {
     return (
@@ -122,13 +147,14 @@ export default function ValidationWarningsPanel({
 
   return (
     <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <p className="planner-eyebrow planner-section-label-accent">{title}</p>
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className={`planner-eyebrow ${headerLabelClass}`}>{title}</p>
+          <p className="planner-title-md mt-2 text-app-text">{elevatedWarningSummary}</p>
           <p className="planner-copy mt-2 text-app-muted">{description}</p>
         </div>
-        <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
-          {warnings.length}
+        <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${headerCountClass}`}>
+          {hasElevatedWarnings ? elevatedWarningCount : warnings.length}
         </span>
       </div>
 

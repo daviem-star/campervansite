@@ -24,6 +24,11 @@ type TravelInsightsPanelProps = {
   collapsibleDetails?: boolean;
 };
 
+type RouteConfidenceSnapshot = {
+  summary: "Live" | "Fallback" | "Mixed" | "Pending" | "Unavailable";
+  detail: string;
+};
+
 const groupEstimatesByDate = (
   estimates: TravelLegEstimate[],
 ): Array<{
@@ -42,6 +47,37 @@ const groupEstimatesByDate = (
     date,
     estimates: groupedEstimates,
   }));
+};
+
+export const getRouteConfidenceSnapshot = (
+  estimates: TravelLegEstimate[],
+  legCount: number,
+): RouteConfidenceSnapshot => {
+  const liveEstimates = estimates.filter((estimate) => estimate.confidence === "live").length;
+  const fallbackEstimates = estimates.filter((estimate) => estimate.confidence === "fallback").length;
+  const pendingEstimates = Math.max(legCount - estimates.length, 0);
+  const summary =
+    liveEstimates > 0 && fallbackEstimates === 0
+      ? "Live"
+      : fallbackEstimates > 0 && liveEstimates === 0
+        ? "Fallback"
+        : liveEstimates > 0 && fallbackEstimates > 0
+          ? "Mixed"
+          : pendingEstimates > 0
+            ? "Pending"
+            : "Unavailable";
+  const detail =
+    summary === "Live"
+      ? `${liveEstimates} live leg${liveEstimates === 1 ? "" : "s"}`
+      : summary === "Fallback"
+        ? `${fallbackEstimates} fallback leg${fallbackEstimates === 1 ? "" : "s"}`
+        : summary === "Mixed"
+          ? `${liveEstimates} live / ${fallbackEstimates} fallback`
+          : summary === "Pending"
+            ? `${pendingEstimates} leg${pendingEstimates === 1 ? "" : "s"} pending refresh`
+            : "No route data available";
+
+  return { summary, detail };
 };
 
 export default function TravelInsightsPanel({
@@ -63,31 +99,9 @@ export default function TravelInsightsPanel({
     (sum, estimate) => sum + estimate.bufferedDurationMinutes,
     0,
   );
-  const liveEstimates = estimates.filter((estimate) => estimate.confidence === "live").length;
-  const fallbackEstimates = estimates.filter((estimate) => estimate.confidence === "fallback").length;
-  const pendingEstimates = Math.max(legCount - estimates.length, 0);
   const groupedEstimates = groupEstimatesByDate(estimates);
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(showDetailsByDefault);
-  const routeConfidenceSummary =
-    liveEstimates > 0 && fallbackEstimates === 0
-      ? "Live"
-      : fallbackEstimates > 0 && liveEstimates === 0
-        ? "Fallback"
-        : liveEstimates > 0 && fallbackEstimates > 0
-          ? "Mixed"
-          : pendingEstimates > 0
-            ? "Pending"
-            : "Unavailable";
-  const routeConfidenceDetail =
-    routeConfidenceSummary === "Live"
-      ? `${liveEstimates} live leg${liveEstimates === 1 ? "" : "s"}`
-      : routeConfidenceSummary === "Fallback"
-        ? `${fallbackEstimates} fallback leg${fallbackEstimates === 1 ? "" : "s"}`
-        : routeConfidenceSummary === "Mixed"
-          ? `${liveEstimates} live / ${fallbackEstimates} fallback`
-          : routeConfidenceSummary === "Pending"
-            ? `${pendingEstimates} leg${pendingEstimates === 1 ? "" : "s"} pending refresh`
-            : "No route data available";
+  const routeConfidence = getRouteConfidenceSnapshot(estimates, legCount);
   const shouldShowDetails = !collapsibleDetails || isDetailsExpanded;
 
   return (
@@ -136,82 +150,49 @@ export default function TravelInsightsPanel({
         </div>
       ) : (
         <div className="space-y-4">
-          <div
-            className={`grid gap-2 ${
-              collapsibleDetails ? "sm:grid-cols-3" : "sm:grid-cols-2 xl:grid-cols-4"
-            }`}
-          >
-            {collapsibleDetails ? (
-              <>
-                <div className="rounded-[18px] border border-app-border bg-app-surface-muted/80 px-3.5 py-3.5">
-                  <p className="planner-eyebrow text-app-muted">Buffered drive time</p>
-                  <p className="planner-title-lg mt-2 text-app-text">
-                    {formatDurationMinutes(totalBufferedMinutes)}
-                  </p>
-                </div>
-                <div className="rounded-[18px] border border-app-border bg-app-surface-muted/80 px-3.5 py-3.5">
-                  <p className="planner-eyebrow text-app-muted">Road legs</p>
-                  <p className="planner-title-lg mt-2 text-app-text">
-                    {legCount}
-                  </p>
-                </div>
-                <div className="rounded-[18px] border border-app-border bg-app-surface-muted/80 px-3.5 py-3.5">
-                  <p className="planner-eyebrow text-app-muted">Routing confidence</p>
-                  <p className="planner-title-lg mt-2 text-app-text">
-                    {routeConfidenceSummary}
-                  </p>
-                  <p className="planner-copy-sm mt-1 text-app-muted">{routeConfidenceDetail}</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="rounded-[18px] border border-app-border bg-app-surface-muted/80 px-3.5 py-3.5">
-                  <p className="planner-eyebrow text-app-muted">Estimated road distance</p>
-                  <p className="planner-title-lg mt-2 text-app-text">
-                    {totalDistanceKm.toFixed(1)} km
-                  </p>
-                </div>
-                <div className="rounded-[18px] border border-app-border bg-app-surface-muted/80 px-3.5 py-3.5">
-                  <p className="planner-eyebrow text-app-muted">Buffered drive time</p>
-                  <p className="planner-title-lg mt-2 text-app-text">
-                    {formatDurationMinutes(totalBufferedMinutes)}
-                  </p>
-                </div>
-                <div className="rounded-[18px] border border-app-border bg-app-surface-muted/80 px-3.5 py-3.5">
-                  <p className="planner-eyebrow text-app-muted">Live legs</p>
-                  <p className="planner-title-lg mt-2 text-app-text">{liveEstimates}</p>
-                </div>
-                <div className="rounded-[18px] border border-app-border bg-app-surface-muted/80 px-3.5 py-3.5">
-                  <p className="planner-eyebrow text-app-muted">Fallback legs</p>
-                  <p className="planner-title-lg mt-2 text-app-text">{fallbackEstimates}</p>
-                </div>
-              </>
-            )}
-          </div>
-
-          {collapsibleDetails ? (
-            <div className="rounded-[18px] border border-app-border bg-app-surface-muted/60 px-3.5 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="planner-copy-sm font-medium text-app-text">
-                    {isDetailsExpanded
-                      ? "Showing detailed route legs."
-                      : "Route details are hidden until you need them."}
-                  </p>
-                  <p className="planner-copy-sm mt-1 text-app-muted">
-                    Estimated road distance {totalDistanceKm.toFixed(1)} km.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsDetailsExpanded((current) => !current)}
-                  className="planner-button-secondary rounded-full border px-3 py-1 text-xs font-semibold"
-                >
-                  {isDetailsExpanded ? "Hide route details" : "Show route details"}
-                </button>
+          <div className="overflow-hidden rounded-[20px] border border-app-border/80 bg-app-surface-muted/45">
+            <div className="grid gap-px bg-app-border/70 sm:grid-cols-3">
+              <div className="bg-app-surface/85 px-4 py-4">
+                <p className="planner-eyebrow text-app-muted">Buffered drive time</p>
+                <p className="planner-title-lg mt-2 text-app-text">
+                  {formatDurationMinutes(totalBufferedMinutes)}
+                </p>
+              </div>
+              <div className="bg-app-surface/85 px-4 py-4">
+                <p className="planner-eyebrow text-app-muted">Road legs</p>
+                <p className="planner-title-lg mt-2 text-app-text">{legCount}</p>
+              </div>
+              <div className="bg-app-surface/85 px-4 py-4">
+                <p className="planner-eyebrow text-app-muted">Routing confidence</p>
+                <p className="planner-title-lg mt-2 text-app-text">{routeConfidence.summary}</p>
+                <p className="planner-copy-sm mt-1 text-app-muted">{routeConfidence.detail}</p>
               </div>
             </div>
-          ) : null}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-app-border/70 pt-4">
+            <div>
+              <p className="planner-copy-sm font-medium text-app-text">
+                Estimated road distance {totalDistanceKm.toFixed(1)} km.
+              </p>
+              {collapsibleDetails ? (
+                <p className="planner-copy-sm mt-1 text-app-muted">
+                  {isDetailsExpanded
+                    ? "Showing detailed route legs."
+                    : "Route details are hidden until you need them."}
+                </p>
+              ) : null}
+            </div>
+            {collapsibleDetails ? (
+              <button
+                type="button"
+                onClick={() => setIsDetailsExpanded((current) => !current)}
+                className="planner-button-secondary rounded-full border px-3 py-1 text-xs font-semibold"
+              >
+                {isDetailsExpanded ? "Hide route details" : "Show route details"}
+              </button>
+            ) : null}
+          </div>
 
           {shouldShowDetails ? (
             <div className="space-y-4">
