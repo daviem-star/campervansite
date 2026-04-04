@@ -68,6 +68,7 @@ describe("tripData migration", () => {
     expect(migrated?.trips[0].ownerUserId).toBeNull();
     expect(migrated?.trips[0].version).toBe(1);
     expect(migrated?.trips[0].lastSyncedAt).toBeNull();
+    expect(migrated?.trips[0].routeSnapshot).toBeNull();
     expect(migrated?.trips[0].home.routingCoordinates).toEqual({ lat: 56.01, lng: -3.99 });
     expect(migrated?.trips[0].stops[0]).toMatchObject({
       place: {
@@ -110,6 +111,27 @@ describe("tripData migration", () => {
     });
 
     expect(migrated).not.toBeNull();
+    migrated!.trips[0].routeSnapshot = {
+      signature: "road-home-stop-1",
+      fetchedAt: "2026-03-01T11:30:00.000Z",
+      estimates: [
+        {
+          id: "road-home-stop-1",
+          fromId: "home",
+          fromLabel: "Home",
+          toId: "stop-1",
+          toLabel: "Trip",
+          kind: "road",
+          distanceKm: 48.2,
+          durationMinutes: 62,
+          bufferedDurationMinutes: 81,
+          provider: "fallback_haversine",
+          fetchedAt: "2026-03-01T11:30:00.000Z",
+          confidence: "fallback",
+          date: "2026-03-02",
+        },
+      ],
+    };
     const parsed = parseStoredAppData(serializeAppData(migrated!));
 
     expect(parsed).toEqual(migrated);

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { DELETE, PATCH } from "@/app/api/trips/[tripId]/route";
+import { DELETE, PATCH, PUT } from "@/app/api/trips/[tripId]/route";
 import { createE2EAccessToken } from "@/lib/e2eAuth";
 import { loadE2ETrip, replaceE2ETrips } from "@/lib/e2eTripStore";
 import { createBlankTrip, createExampleTrip } from "@/lib/tripFactories";
@@ -12,7 +12,7 @@ const user: SessionUser = {
 };
 
 const buildRequest = (
-  method: "PATCH" | "DELETE",
+  method: "PATCH" | "DELETE" | "PUT",
   tripId: string,
   body?: unknown,
   authenticated = true,
@@ -73,6 +73,60 @@ describe("/api/trips/[tripId]", () => {
       version: 2,
     });
     expect(loadE2ETrip(user, trip.id)?.name).toBe("Renamed trip");
+  });
+
+  it("saves a route snapshot as part of the trip document", async () => {
+    const trip = createExampleTrip(user.id, "Snapshot trip");
+    replaceE2ETrips(user, {
+      schemaVersion: 2,
+      activeTripId: trip.id,
+      trips: [trip],
+    });
+
+    const routeSnapshot = {
+      signature: "road-home-stop-1",
+      fetchedAt: "2026-04-04T09:00:00.000Z",
+      estimates: [
+        {
+          id: "road-home-stop-1",
+          fromId: "home",
+          fromLabel: "Home",
+          toId: "stop-1",
+          toLabel: "First stop",
+          kind: "road" as const,
+          distanceKm: 124.3,
+          durationMinutes: 152,
+          bufferedDurationMinutes: 185,
+          provider: "openrouteservice_driving_car",
+          fetchedAt: "2026-04-04T09:00:00.000Z",
+          confidence: "live" as const,
+          date: "2026-08-05",
+          relatedStopId: "stop_stay_1",
+        },
+      ],
+    };
+
+    const response = await PUT(
+      buildRequest("PUT", trip.id, {
+        trip: {
+          ...trip,
+          routeSnapshot,
+        },
+        expectedVersion: trip.version,
+      }) as never,
+      buildContext(trip.id) as never,
+    );
+    const payload = (await response.json()) as {
+      trip: {
+        version: number;
+        routeSnapshot?: typeof routeSnapshot | null;
+      };
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.trip.version).toBe(2);
+    expect(payload.trip.routeSnapshot).toMatchObject(routeSnapshot);
+    expect(loadE2ETrip(user, trip.id)?.routeSnapshot).toMatchObject(routeSnapshot);
   });
 
   it("deletes a trip when another trip remains", async () => {

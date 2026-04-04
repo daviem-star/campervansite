@@ -6,12 +6,12 @@ import TodayActionsPanel from "@/components/planner/TodayActionsPanel";
 import { TodayAction } from "@/types/trip";
 
 type TodayStatusControlProps = {
-  activeTripName: string | null;
+  todayTripName: string | null;
   actions: TodayAction[];
 };
 
 export default function TodayStatusControl({
-  activeTripName,
+  todayTripName,
   actions,
 }: TodayStatusControlProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -57,7 +57,7 @@ export default function TodayStatusControl({
         <span className="min-w-0">
           <span className="planner-title-sm block text-app-text">Today</span>
           <span className="planner-meta block truncate text-app-muted">
-            {activeTripName ?? "No active trip"}
+            {todayTripName ?? "No Today trip"}
           </span>
         </span>
 
@@ -77,7 +77,7 @@ export default function TodayStatusControl({
           <div className="fixed inset-0 z-30 bg-app-overlay/30 lg:hidden" />
 
           <div className="fixed inset-x-4 top-[5.25rem] z-40 max-h-[min(70vh,36rem)] overflow-y-auto lg:absolute lg:right-0 lg:left-auto lg:top-[calc(100%+0.75rem)] lg:w-[24rem] lg:max-w-[24rem]">
-            <TodayActionsPanel actions={actions} tripName={activeTripName} />
+            <TodayActionsPanel actions={actions} tripName={todayTripName} />
           </div>
         </>
       ) : null}

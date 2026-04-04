@@ -5,6 +5,7 @@ import {
   FerryStop,
   LegacyAppData,
   LegacyTrip,
+  PersistedRouteSnapshot,
   Trip,
   TripStop,
 } from "@/types/trip";
@@ -22,6 +23,26 @@ const ensureStopOrder = (stops: TripStop[]): TripStop[] => {
       ...stop,
       order: index,
     }));
+};
+
+const normalizeRouteSnapshot = (value: unknown): PersistedRouteSnapshot | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const signature = typeof value.signature === "string" ? value.signature : "";
+  const fetchedAt = typeof value.fetchedAt === "string" ? value.fetchedAt : "";
+  const estimates = Array.isArray(value.estimates) ? value.estimates : [];
+
+  if (!signature || !fetchedAt) {
+    return null;
+  }
+
+  return {
+    signature,
+    fetchedAt,
+    estimates: estimates.filter((estimate) => isRecord(estimate)) as PersistedRouteSnapshot["estimates"],
+  };
 };
 
 export const getDefaultFerryCheckInBufferMinutes = (ferry: Pick<FerryStop, "departureAt" | "checkInBy">): number => {
@@ -88,6 +109,7 @@ export const normalizeTrip = (
     timezone: APP_TIMEZONE,
     home: normalizePlaceRef(trip.home),
     ownerUserId,
+    routeSnapshot: normalizeRouteSnapshot(trip.routeSnapshot),
     version: typeof trip.version === "number" && Number.isFinite(trip.version) ? trip.version : 1,
     createdAt: trip.createdAt ?? nowIso(),
     updatedAt: trip.updatedAt ?? nowIso(),

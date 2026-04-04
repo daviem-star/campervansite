@@ -8,17 +8,20 @@ import {
   RenameTripInput,
   SessionUser,
   Trip,
+  TripPreferences,
   TripSummary,
 } from "@/types/trip";
 
 const LEGACY_STORAGE_KEY = "campervan_trip_planner_v1";
-const ACTIVE_TRIP_PREFERENCE_PREFIX = "campervan_trip_planner_active_trip";
+const LEGACY_LOADED_TRIP_PREFERENCE_PREFIX = "campervan_trip_planner_active_trip";
+const LOADED_TRIP_PREFERENCE_PREFIX = "campervan_trip_planner_loaded_trip";
+const TODAY_TRIP_PREFERENCE_PREFIX = "campervan_trip_planner_today_trip";
 const FIRST_TRIP_SETUP_PREFIX = "campervan_trip_planner_first_trip_setup";
 
 export interface TripRepository {
   listTrips(): Promise<TripSummary[]>;
   loadTrip(tripId: string, options?: { cacheOffline?: boolean }): Promise<Trip>;
-  saveTrip(trip: Trip): Promise<Trip>;
+  saveTrip(trip: Trip, options?: { cacheOffline?: boolean }): Promise<Trip>;
   createTrip(input: CreateTripInput): Promise<Trip>;
   renameTrip(tripId: string, input: RenameTripInput): Promise<TripSummary>;
   deleteTrip(tripId: string): Promise<DeleteTripResponse>;
@@ -36,26 +39,58 @@ export class TripConflictError extends Error {
   }
 }
 
-const resolveActiveTripPreferenceKey = (userId: string): string =>
-  `${ACTIVE_TRIP_PREFERENCE_PREFIX}:${userId}`;
+const resolveLoadedTripPreferenceKey = (userId: string): string =>
+  `${LOADED_TRIP_PREFERENCE_PREFIX}:${userId}`;
+
+const resolveLegacyLoadedTripPreferenceKey = (userId: string): string =>
+  `${LEGACY_LOADED_TRIP_PREFERENCE_PREFIX}:${userId}`;
+
+const resolveTodayTripPreferenceKey = (userId: string): string =>
+  `${TODAY_TRIP_PREFERENCE_PREFIX}:${userId}`;
 
 const resolveFirstTripSetupKey = (userId: string): string =>
   `${FIRST_TRIP_SETUP_PREFIX}:${userId}`;
 
-export const getPreferredActiveTripId = (userId: string): string | null => {
+export const getPreferredLoadedTripId = (userId: string): string | null => {
   if (typeof window === "undefined") {
     return null;
   }
 
-  return window.localStorage.getItem(resolveActiveTripPreferenceKey(userId));
+  return (
+    window.localStorage.getItem(resolveLoadedTripPreferenceKey(userId)) ??
+    window.localStorage.getItem(resolveLegacyLoadedTripPreferenceKey(userId))
+  );
 };
 
-export const setPreferredActiveTripId = (userId: string, tripId: string): void => {
+export const setPreferredLoadedTripId = (userId: string, tripId: string): void => {
   if (typeof window === "undefined") {
     return;
   }
 
-  window.localStorage.setItem(resolveActiveTripPreferenceKey(userId), tripId);
+  window.localStorage.setItem(resolveLoadedTripPreferenceKey(userId), tripId);
+  window.localStorage.removeItem(resolveLegacyLoadedTripPreferenceKey(userId));
+};
+
+export const getCachedTodayTripId = (userId: string): string | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.localStorage.getItem(resolveTodayTripPreferenceKey(userId));
+};
+
+export const setCachedTodayTripId = (userId: string, tripId: string | null): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const key = resolveTodayTripPreferenceKey(userId);
+  if (tripId) {
+    window.localStorage.setItem(key, tripId);
+    return;
+  }
+
+  window.localStorage.removeItem(key);
 };
 
 export const hasResolvedFirstTripSetup = (userId: string): boolean => {
@@ -185,7 +220,10 @@ export class CloudTripRepository implements TripRepository {
     return payload.trip;
   }
 
-  async saveTrip(trip: Trip): Promise<Trip> {
+  async saveTrip(
+    trip: Trip,
+    options: { cacheOffline?: boolean } = {},
+  ): Promise<Trip> {
     const payload = await this.request<{ trip: Trip }>(`/api/trips/${trip.id}`, {
       method: "PUT",
       body: JSON.stringify({
@@ -193,7 +231,9 @@ export class CloudTripRepository implements TripRepository {
         expectedVersion: trip.version,
       }),
     });
-    await writeCachedActiveTrip(payload.trip);
+    if (options.cacheOffline ?? true) {
+      await writeCachedActiveTrip(payload.trip);
+    }
     return payload.trip;
   }
 
@@ -233,6 +273,17 @@ export class CloudTripRepository implements TripRepository {
   async getCachedActiveTrip(): Promise<Trip | null> {
     return await readCachedActiveTrip();
   }
+
+  async getTripPreferences(): Promise<TripPreferences> {
+    return await this.request<TripPreferences>("/api/trip-preferences");
+  }
+
+  async saveTripPreferences(preferences: TripPreferences): Promise<TripPreferences> {
+    return await this.request<TripPreferences>("/api/trip-preferences", {
+      method: "PUT",
+      body: JSON.stringify(preferences),
+    });
+  }
 }
 
 export const readLegacyLocalTrips = (): AppData | null => {
@@ -248,7 +299,7 @@ export const hasLegacyLocalTripData = (): boolean => {
 };
 
 export const pickInitialCloudTripId = (trips: TripSummary[], user: SessionUser): string | null => {
-  const preferred = getPreferredActiveTripId(user.id);
+  const preferred = getPreferredLoadedTripId(user.id);
   if (preferred && trips.some((trip) => trip.id === preferred)) {
     return preferred;
   }

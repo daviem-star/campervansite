@@ -10,13 +10,13 @@ const defaultExpandedWarningSeverities: ValidationWarning["severity"][] = ["high
 type DashboardTripDetailsPanelProps = {
   trip: Trip | null;
   loadedTripId: string | null;
-  activeTripId: string | null;
+  todayTripId: string | null;
   canManageTrips: boolean;
   canDeleteTrip: boolean;
   isWorking: boolean;
   isOfflineReadOnly: boolean;
   isPreviewing: boolean;
-  isActivating: boolean;
+  isUpdatingTodayTrip: boolean;
   routeEstimates: TravelLegEstimate[];
   routeLegCount: number;
   routeStatus: "fresh" | "stale" | "unavailable";
@@ -25,7 +25,7 @@ type DashboardTripDetailsPanelProps = {
   warnings: ValidationWarning[];
   onRefreshRouteInsights?: () => void;
   onOpenTrip?: () => void;
-  onToggleActiveTrip?: () => void;
+  onToggleTodayTrip?: () => void;
   onRenameTrip?: () => void;
   onDeleteTrip?: () => void;
 };
@@ -36,13 +36,13 @@ const actionButtonClass =
 export default function DashboardTripDetailsPanel({
   trip,
   loadedTripId,
-  activeTripId,
+  todayTripId,
   canManageTrips,
   canDeleteTrip,
   isWorking,
   isOfflineReadOnly,
   isPreviewing,
-  isActivating,
+  isUpdatingTodayTrip,
   routeEstimates,
   routeLegCount,
   routeStatus,
@@ -51,13 +51,13 @@ export default function DashboardTripDetailsPanel({
   warnings,
   onRefreshRouteInsights,
   onOpenTrip,
-  onToggleActiveTrip,
+  onToggleTodayTrip,
   onRenameTrip,
   onDeleteTrip,
 }: DashboardTripDetailsPanelProps) {
   const costSummary = trip ? getCostSummary(trip) : { totalNights: 0, totalCost: 0 };
   const isLoaded = trip?.id === loadedTripId;
-  const isActive = trip?.id === activeTripId;
+  const isTodayTrip = trip?.id === todayTripId;
 
   return (
     <div className="space-y-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
@@ -74,9 +74,9 @@ export default function DashboardTripDetailsPanel({
                       Loaded
                     </span>
                   ) : null}
-                  {isActive ? (
+                  {isTodayTrip ? (
                     <span className="rounded-full border border-state-info-border bg-state-info-surface px-2.5 py-0.5 text-[11px] font-semibold text-state-info">
-                      Active
+                      Today trip
                     </span>
                   ) : null}
                 </div>
@@ -120,15 +120,19 @@ export default function DashboardTripDetailsPanel({
                 <>
                   <button
                     type="button"
-                    onClick={onToggleActiveTrip}
-                    disabled={isWorking || isOfflineReadOnly || isActivating}
+                    onClick={onToggleTodayTrip}
+                    disabled={isWorking || isOfflineReadOnly || isUpdatingTodayTrip}
                     className={`${actionButtonClass} ${
-                      isActive
+                      isTodayTrip
                         ? "border-state-info-border bg-state-info-surface text-state-info"
                         : "planner-button-secondary"
                     }`}
                   >
-                    {isActivating ? "Updating..." : isActive ? "Clear active" : "Set active"}
+                    {isUpdatingTodayTrip
+                      ? "Updating..."
+                      : isTodayTrip
+                        ? "Clear Today trip"
+                        : "Set Today trip"}
                   </button>
                   <button
                     type="button"

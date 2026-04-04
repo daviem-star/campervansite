@@ -10,7 +10,7 @@ type TripsPanelProps = {
   trips: TripSummary[];
   loadedTripId: string | null;
   previewTripId: string | null;
-  activeTripId: string | null;
+  todayTripId: string | null;
   hasLegacyImport: boolean;
   isOfflineReadOnly: boolean;
   isWorking: boolean;
@@ -24,7 +24,7 @@ export default function TripsPanel({
   trips,
   loadedTripId,
   previewTripId,
-  activeTripId,
+  todayTripId,
   hasLegacyImport,
   isOfflineReadOnly,
   isWorking,
@@ -91,7 +91,7 @@ export default function TripsPanel({
         {trips.map((trip) => {
           const isLoaded = trip.id === loadedTripId;
           const isPreviewed = trip.id === previewTripId;
-          const isActive = trip.id === activeTripId;
+          const isTodayTrip = trip.id === todayTripId;
           const isPreviewing = trip.id === isPreviewingTripId;
 
           return (
@@ -115,9 +115,9 @@ export default function TripsPanel({
                       Loaded
                     </span>
                   ) : null}
-                  {isActive ? (
+                  {isTodayTrip ? (
                     <span className="rounded-full border border-state-info-border bg-state-info-surface px-2.5 py-0.5 text-[11px] font-semibold text-state-info">
-                      Active
+                      Today trip
                     </span>
                   ) : null}
                 </div>

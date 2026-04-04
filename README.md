@@ -1,6 +1,6 @@
 # Campervan Trip Planner
 
-A Next.js App Router trip planner for campervan travel. The app now ships an auth-first beta planner with a cloud trip library, a single active trip workspace, and deterministic local/test flows for confidence work before launch.
+A Next.js App Router trip planner for campervan travel. The app now ships an auth-first beta planner with a cloud trip library, a single loaded trip workspace, and deterministic local/test flows for confidence work before launch.
 
 ## Current Status
 
@@ -15,6 +15,7 @@ A Next.js App Router trip planner for campervan travel. The app now ships an aut
 - The left rail is app-level only for now and keeps `Dashboard` as the single planner destination, while account and sync controls stay in utility chrome.
 - `Dashboard` pairs the trip library with a matched detail panel so users can preview trip overview details, route realism, and severity-grouped warnings before opening a trip.
 - Opening a trip follows a nested in-app flow: `Dashboard -> Trip Overview -> Trip Itinerary`, with breadcrumb context and top-level trip tabs.
+- Users can assign a separate persisted `Today trip` for alerts without changing which trip is currently loaded into the workspace.
 - Signed-in onboarding creates a cloud-backed starter example trip automatically, or offers a one-time import/local-choice flow when legacy browser data exists.
 - Cloud mode includes email magic-link auth, trip CRUD, sync messaging, conflict recovery, and offline read-only reopening of the last synced trip.
 - Forced demo mode and local test sign-in remain available for deterministic local preview and E2E work.
@@ -30,18 +31,21 @@ The main remaining gap is hosted activation and live-service validation, not mis
   - `ferry`
   - `point_of_interest`
 - Preview a trip on `Dashboard` by selecting it from the library, then open it into the nested `Overview` and `Itinerary` trip workspace.
+- Assign any trip as the persisted `Today trip` so today-drop alerts keep following the same selected trip across reloads and devices.
 - Use a day-first `Itinerary` workspace with a draggable timeline, sticky day navigation, direct add/edit controls, and explicit draft `Save` / `Cancel` actions.
 - Visualize the itinerary in a split workspace with a linked route map, selected-stop inspector, and road-following road legs when live routing is available, plus ferry port markers and ferry segments.
 - Show trip-day navigation, a selected-day snapshot, today actions, summary-first route insights, and severity-grouped validation warnings.
 - Search for places in the stop editor with a deliberate submitted lookup and preserve separate routing coordinates when route access data is available.
 - Store campsite metadata such as booking status, hookups, hardstanding, amenities, phone, and website.
 - Store ferry metadata such as operator, booking reference, vehicle details, and check-in buffers.
+- Persist the last manually refreshed route snapshot with each trip so saved route detail stays available across devices and offline, even when older than the latest itinerary.
 - Cache the last synced cloud trip so it can be reopened offline in read-only mode.
 
 ## Services Required For Full Mode
 
 - Supabase: email magic-link auth, session verification, and cloud trip persistence.
 - OpenRouteService: live route estimates and snapped route-access coordinates. The app falls back when this is not configured.
+  Route refresh is manual; the app reuses the last saved route snapshot until you request a new refresh.
 - Vercel: intended preview and production hosting target.
 - Nominatim: live geocode lookup for place search. No extra key is currently required.
 - Map tiles: configurable via environment variable, falling back to OpenStreetMap raster tiles for private preview use.
@@ -68,7 +72,7 @@ Optional local-only and test flags are also documented in `.env.example`:
 
 `NEXT_PUBLIC_E2E_AUTH_BYPASS` and `E2E_AUTH_BYPASS` enable the explicit local test-user and E2E routes without replacing real Supabase magic-link auth. Local development can keep both enabled at the same time.
 
-Supabase schema setup lives in `supabase/migrations/20260328_trip_documents.sql`.
+Supabase schema setup lives in `supabase/migrations/20260328_trip_documents.sql` and `supabase/migrations/20260404_user_trip_preferences.sql`.
 
 ## Local Development
 

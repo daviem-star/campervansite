@@ -78,6 +78,7 @@ export type Trip = {
   timezone: "Europe/London";
   home: PlaceRef;
   stops: TripStop[];
+  routeSnapshot?: PersistedRouteSnapshot | null;
   ownerUserId: string | null;
   version: number;
   createdAt: string;
@@ -107,6 +108,10 @@ export type RenameTripInput = {
 
 export type DeleteTripResponse = {
   deletedTripId: string;
+};
+
+export type TripPreferences = {
+  todayTripId: string | null;
 };
 
 export type AppData = {
@@ -216,6 +221,12 @@ export type TravelLegEstimate = {
   date: string;
   relatedStopId?: string;
   geometry?: RouteLineString;
+};
+
+export type PersistedRouteSnapshot = {
+  signature: string;
+  fetchedAt: string;
+  estimates: TravelLegEstimate[];
 };
 
 export type SyncStatus = "idle" | "saving" | "saved" | "offline" | "error";

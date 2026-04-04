@@ -38,7 +38,11 @@ import {
   pushPlannerScreen,
   replacePlannerScreen,
 } from "@/lib/plannerNavigation";
-import { readCachedRouteEstimateSet, writeCachedRouteEstimateSet } from "@/lib/routeEstimateCache";
+import {
+  getRouteEstimateCacheState,
+  readCachedRouteEstimateSet,
+  writeCachedRouteEstimateSet,
+} from "@/lib/routeEstimateCache";
 import {
   buildTripTravelLegPayload,
   fetchTravelLegEstimates,
@@ -63,9 +67,11 @@ import { useTripStore } from "@/store/useTripStore";
 import {
   NewTripStop,
   PlannerNoticeTone,
+  PersistedRouteSnapshot,
   SelectedEntity,
   StopType,
   TravelLegEstimate,
+  TravelLegRequest,
   Trip,
   TripStop,
   TripSummary,
@@ -114,6 +120,71 @@ const defaultExpandedWarningSeverities: ValidationWarning["severity"][] = ["high
 
 const cloneTrip = (trip: Trip): Trip => structuredClone(trip);
 
+const describeRouteSnapshotAge = (fetchedAt: string, now: number = Date.now()): string => {
+  const timestamp = new Date(fetchedAt).getTime();
+  if (!Number.isFinite(timestamp)) {
+    return "an unknown age";
+  }
+
+  const elapsedMs = Math.max(0, now - timestamp);
+  const elapsedMinutes = Math.floor(elapsedMs / 60_000);
+  const elapsedHours = Math.floor(elapsedMs / 3_600_000);
+  const elapsedDays = Math.floor(elapsedMs / 86_400_000);
+
+  if (elapsedDays >= 1) {
+    return `${elapsedDays} day${elapsedDays === 1 ? "" : "s"} old`;
+  }
+
+  if (elapsedHours >= 1) {
+    return `${elapsedHours} hour${elapsedHours === 1 ? "" : "s"} old`;
+  }
+
+  if (elapsedMinutes >= 1) {
+    return `${elapsedMinutes} minute${elapsedMinutes === 1 ? "" : "s"} old`;
+  }
+
+  return "just refreshed";
+};
+
+const buildRoutePanelFromSnapshot = (
+  snapshot: PersistedRouteSnapshot,
+  requests: TravelLegRequest[],
+  signature: string,
+  now: number = Date.now(),
+): RoutePanelState => {
+  const signatureMatches = snapshot.signature === signature;
+  const estimates = signatureMatches
+    ? mergeTravelEstimateMetadata(snapshot.estimates, requests)
+    : snapshot.estimates;
+  const cacheState = getRouteEstimateCacheState(snapshot.fetchedAt, now);
+  const ageLabel = describeRouteSnapshotAge(snapshot.fetchedAt, now);
+
+  if (!signatureMatches) {
+    return {
+      estimates,
+      isRefreshing: false,
+      status: "stale",
+      statusMessage: `Saved route timings are ${ageLabel} and out of date for this itinerary. Refresh when you want newer drive estimates.`,
+    };
+  }
+
+  if (cacheState === "stale") {
+    return {
+      estimates,
+      isRefreshing: false,
+      status: "stale",
+      statusMessage: `Saved route timings are ${ageLabel}. Refresh when you want newer drive estimates.`,
+    };
+  }
+
+  return {
+    estimates,
+    isRefreshing: false,
+    status: "fresh",
+    statusMessage: null,
+  };
+};
+
 const dashboardIcon = () => {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -129,6 +200,7 @@ export default function PlannerApp() {
     data,
     tripSummaries,
     tripCache,
+    todayTripId,
     isLoading,
     error,
     notice,
@@ -150,6 +222,8 @@ export default function PlannerApp() {
     startWithExampleTrip,
     loadCloudTrip,
     previewCloudTrip,
+    saveRouteSnapshot,
+    setTodayTripId,
     renameTrip,
     deleteTrip,
     resetToSeed,
@@ -171,9 +245,8 @@ export default function PlannerApp() {
   const [tripToRename, setTripToRename] = useState<TripSummary | null>(null);
   const [isManagingTrips, setIsManagingTrips] = useState(false);
   const [previewTripId, setPreviewTripId] = useState<string | null>(null);
-  const [activeTripId, setActiveTripId] = useState<string | null>(null);
   const [isPreviewingTripId, setIsPreviewingTripId] = useState<string | null>(null);
-  const [isActivatingTripId, setIsActivatingTripId] = useState<string | null>(null);
+  const [isUpdatingTodayTripId, setIsUpdatingTodayTripId] = useState<string | null>(null);
   const [draftTrip, setDraftTrip] = useState<Trip | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{
@@ -196,7 +269,7 @@ export default function PlannerApp() {
   }, [data]);
   const displayTrip = plannerInteractionMode === "edit" && draftTrip ? draftTrip : loadedTrip;
   const previewTrip = previewTripId ? tripCache[previewTripId] ?? null : null;
-  const activeTrip = activeTripId ? tripCache[activeTripId] ?? null : null;
+  const todayTrip = todayTripId ? tripCache[todayTripId] ?? null : null;
   const currentScreenEntry = useMemo(
     () => getCurrentPlannerScreen(screenStack),
     [screenStack],
@@ -209,11 +282,7 @@ export default function PlannerApp() {
     if (previewTripId && !tripSummaries.some((trip) => trip.id === previewTripId)) {
       setPreviewTripId(null);
     }
-
-    if (activeTripId && !tripSummaries.some((trip) => trip.id === activeTripId)) {
-      setActiveTripId(null);
-    }
-  }, [activeTripId, previewTripId, tripSummaries]);
+  }, [previewTripId, tripSummaries]);
 
   useEffect(() => {
     if (!loadedTrip && isTripScreen) {
@@ -326,6 +395,44 @@ export default function PlannerApp() {
     previewTrip,
   ]);
 
+  const resolveBaseRoutePanelState = async (
+    currentTrip: Trip,
+    currentRequests: TravelLegRequest[],
+    currentSignature: string,
+  ): Promise<RoutePanelState> => {
+    const persistedSnapshot = currentTrip.routeSnapshot ?? null;
+    if (persistedSnapshot) {
+      return buildRoutePanelFromSnapshot(
+        persistedSnapshot,
+        currentRequests,
+        currentSignature,
+      );
+    }
+
+    const cached = await readCachedRouteEstimateSet(currentSignature);
+    const cachedEstimates = cached.entry
+      ? mergeTravelEstimateMetadata(cached.entry.estimates, currentRequests)
+      : [];
+
+    if (cached.entry) {
+      return {
+        estimates: cachedEstimates,
+        isRefreshing: false,
+        status: "stale",
+        statusMessage: `Showing locally cached route timings from this device (${describeRouteSnapshotAge(
+          cached.entry.cachedAt,
+        )}). Refresh once to save them with this trip.`,
+      };
+    }
+
+    return {
+      estimates: [],
+      isRefreshing: false,
+      status: "stale",
+      statusMessage: "No saved route timings yet. Refresh to calculate and save them with this trip.",
+    };
+  };
+
   const syncLoadedRoutePanel = async (fetchFresh: boolean) => {
     const currentTrip = loadedTripRef.current;
     const currentRequests = loadedRouteRequestsRef.current;
@@ -338,40 +445,25 @@ export default function PlannerApp() {
 
     const refreshId = loadedRouteRefreshCounterRef.current + 1;
     loadedRouteRefreshCounterRef.current = refreshId;
-    const cached = await readCachedRouteEstimateSet(currentSignature);
+    const basePanel = await resolveBaseRoutePanelState(
+      currentTrip,
+      currentRequests,
+      currentSignature,
+    );
     if (loadedRouteRefreshCounterRef.current !== refreshId) {
       return;
     }
 
-    const cachedEstimates = cached.entry
-      ? mergeTravelEstimateMetadata(cached.entry.estimates, currentRequests)
-      : [];
-
-    setLoadedRoutePanel((current) => ({
-      ...current,
-      estimates: cachedEstimates,
-      status: cached.entry ? (cached.state === "fresh" ? "fresh" : "stale") : "fresh",
-      statusMessage:
-        cached.state === "stale"
-          ? "Showing saved route timings until you refresh them."
-          : null,
-      isRefreshing: false,
-    }));
+    setLoadedRoutePanel(basePanel);
 
     if (!fetchFresh) {
       return;
     }
 
-    setLoadedRoutePanel((current) => ({
-      ...current,
-      estimates: cachedEstimates,
+    setLoadedRoutePanel({
+      ...basePanel,
       isRefreshing: true,
-      status: cached.entry ? (cached.state === "fresh" ? "fresh" : "stale") : current.status,
-      statusMessage:
-        cached.state === "stale"
-          ? "Showing saved route timings while a refresh runs."
-          : current.statusMessage,
-    }));
+    });
 
     try {
       const estimates = await fetchTravelLegEstimates(currentRequests);
@@ -380,12 +472,35 @@ export default function PlannerApp() {
       }
 
       const mergedEstimates = mergeTravelEstimateMetadata(estimates, currentRequests);
-      await writeCachedRouteEstimateSet(currentSignature, mergedEstimates);
+      const fetchedAt = nowIso();
+      await writeCachedRouteEstimateSet(currentSignature, mergedEstimates, fetchedAt);
+
+      const savedTrip = await saveRouteSnapshot(currentTrip.id, {
+        signature: currentSignature,
+        fetchedAt,
+        estimates: mergedEstimates,
+      });
+      if (loadedRouteRefreshCounterRef.current !== refreshId) {
+        return;
+      }
+
+      if (savedTrip?.routeSnapshot) {
+        setLoadedRoutePanel(
+          buildRoutePanelFromSnapshot(
+            savedTrip.routeSnapshot,
+            currentRequests,
+            currentSignature,
+          ),
+        );
+        return;
+      }
+
       setLoadedRoutePanel({
         estimates: mergedEstimates,
         isRefreshing: false,
-        status: "fresh",
-        statusMessage: null,
+        status: "stale",
+        statusMessage:
+          "Refreshed route timings are only available on this device until the trip can be saved.",
       });
     } catch (caught) {
       if (loadedRouteRefreshCounterRef.current !== refreshId) {
@@ -393,14 +508,14 @@ export default function PlannerApp() {
       }
 
       setLoadedRoutePanel({
-        estimates: cachedEstimates,
+        ...basePanel,
         isRefreshing: false,
-        status: cached.entry ? "stale" : "unavailable",
+        status: basePanel.estimates.length > 0 ? "stale" : "unavailable",
         statusMessage:
-          cached.entry
+          basePanel.estimates.length > 0
             ? caught instanceof Error
-              ? `${caught.message} Showing the last successful route timings instead.`
-              : "Unable to refresh route estimates. Showing the last successful timings instead."
+              ? `${caught.message} Showing the last saved route timings instead.`
+              : "Unable to refresh route estimates. Showing the last saved route timings instead."
             : caught instanceof Error
               ? caught.message
               : "Unable to refresh route estimates.",
@@ -420,40 +535,25 @@ export default function PlannerApp() {
 
     const refreshId = previewRouteRefreshCounterRef.current + 1;
     previewRouteRefreshCounterRef.current = refreshId;
-    const cached = await readCachedRouteEstimateSet(currentSignature);
+    const basePanel = await resolveBaseRoutePanelState(
+      currentTrip,
+      currentRequests,
+      currentSignature,
+    );
     if (previewRouteRefreshCounterRef.current !== refreshId) {
       return;
     }
 
-    const cachedEstimates = cached.entry
-      ? mergeTravelEstimateMetadata(cached.entry.estimates, currentRequests)
-      : [];
-
-    setPreviewRoutePanel((current) => ({
-      ...current,
-      estimates: cachedEstimates,
-      status: cached.entry ? (cached.state === "fresh" ? "fresh" : "stale") : "fresh",
-      statusMessage:
-        cached.state === "stale"
-          ? "Showing saved route timings until you refresh them."
-          : null,
-      isRefreshing: false,
-    }));
+    setPreviewRoutePanel(basePanel);
 
     if (!fetchFresh) {
       return;
     }
 
-    setPreviewRoutePanel((current) => ({
-      ...current,
-      estimates: cachedEstimates,
+    setPreviewRoutePanel({
+      ...basePanel,
       isRefreshing: true,
-      status: cached.entry ? (cached.state === "fresh" ? "fresh" : "stale") : current.status,
-      statusMessage:
-        cached.state === "stale"
-          ? "Showing saved route timings while a refresh runs."
-          : current.statusMessage,
-    }));
+    });
 
     try {
       const estimates = await fetchTravelLegEstimates(currentRequests);
@@ -462,12 +562,35 @@ export default function PlannerApp() {
       }
 
       const mergedEstimates = mergeTravelEstimateMetadata(estimates, currentRequests);
-      await writeCachedRouteEstimateSet(currentSignature, mergedEstimates);
+      const fetchedAt = nowIso();
+      await writeCachedRouteEstimateSet(currentSignature, mergedEstimates, fetchedAt);
+
+      const savedTrip = await saveRouteSnapshot(currentTrip.id, {
+        signature: currentSignature,
+        fetchedAt,
+        estimates: mergedEstimates,
+      });
+      if (previewRouteRefreshCounterRef.current !== refreshId) {
+        return;
+      }
+
+      if (savedTrip?.routeSnapshot) {
+        setPreviewRoutePanel(
+          buildRoutePanelFromSnapshot(
+            savedTrip.routeSnapshot,
+            currentRequests,
+            currentSignature,
+          ),
+        );
+        return;
+      }
+
       setPreviewRoutePanel({
         estimates: mergedEstimates,
         isRefreshing: false,
-        status: "fresh",
-        statusMessage: null,
+        status: "stale",
+        statusMessage:
+          "Refreshed route timings are only available on this device until the trip can be saved.",
       });
     } catch (caught) {
       if (previewRouteRefreshCounterRef.current !== refreshId) {
@@ -475,14 +598,14 @@ export default function PlannerApp() {
       }
 
       setPreviewRoutePanel({
-        estimates: cachedEstimates,
+        ...basePanel,
         isRefreshing: false,
-        status: cached.entry ? "stale" : "unavailable",
+        status: basePanel.estimates.length > 0 ? "stale" : "unavailable",
         statusMessage:
-          cached.entry
+          basePanel.estimates.length > 0
             ? caught instanceof Error
-              ? `${caught.message} Showing the last successful route timings instead.`
-              : "Unable to refresh route estimates. Showing the last successful timings instead."
+              ? `${caught.message} Showing the last saved route timings instead.`
+              : "Unable to refresh route estimates. Showing the last saved route timings instead."
             : caught instanceof Error
               ? caught.message
               : "Unable to refresh route estimates.",
@@ -491,20 +614,58 @@ export default function PlannerApp() {
   };
 
   useEffect(() => {
-    void syncLoadedRoutePanel(false);
-  }, [loadedRouteSignature]);
+    const currentTrip = loadedTripRef.current;
+    const currentRequests = loadedRouteRequestsRef.current;
+    const currentSignature = loadedRouteSignatureRef.current;
 
-  useEffect(() => {
-    void syncPreviewRoutePanel(false);
-  }, [previewRouteSignature]);
-
-  useEffect(() => {
-    if (!loadedTrip) {
+    if (!currentTrip || currentRequests.length === 0) {
+      startTransition(() => setLoadedRoutePanel(defaultRoutePanelState));
       return;
     }
 
-    void syncLoadedRoutePanel(true);
-  }, [loadedTrip]);
+    const refreshId = loadedRouteRefreshCounterRef.current + 1;
+    loadedRouteRefreshCounterRef.current = refreshId;
+
+    void (async () => {
+      const basePanel = await resolveBaseRoutePanelState(
+        currentTrip,
+        currentRequests,
+        currentSignature,
+      );
+      if (loadedRouteRefreshCounterRef.current !== refreshId) {
+        return;
+      }
+
+      setLoadedRoutePanel(basePanel);
+    })();
+  }, [loadedRouteSignature, loadedTrip?.id]);
+
+  useEffect(() => {
+    const currentTrip = previewTripRef.current;
+    const currentRequests = previewRouteRequestsRef.current;
+    const currentSignature = previewRouteSignatureRef.current;
+
+    if (!currentTrip || currentRequests.length === 0) {
+      startTransition(() => setPreviewRoutePanel(defaultRoutePanelState));
+      return;
+    }
+
+    const refreshId = previewRouteRefreshCounterRef.current + 1;
+    previewRouteRefreshCounterRef.current = refreshId;
+
+    void (async () => {
+      const basePanel = await resolveBaseRoutePanelState(
+        currentTrip,
+        currentRequests,
+        currentSignature,
+      );
+      if (previewRouteRefreshCounterRef.current !== refreshId) {
+        return;
+      }
+
+      setPreviewRoutePanel(basePanel);
+    })();
+  }, [previewRouteSignature, previewTrip?.id]);
 
   const tripDays = useMemo(() => (displayTrip ? getTripDays(displayTrip) : []), [displayTrip]);
   const effectiveSelectedDate = tripDays.includes(selectedDate)
@@ -524,7 +685,12 @@ export default function PlannerApp() {
     [displayTrip, loadedRoutePanel.estimates],
   );
 
-  const todayActions = useMemo(() => (activeTrip ? getTodayActions(activeTrip) : []), [activeTrip]);
+  const todayTripSummary = useMemo(
+    () => (todayTripId ? tripSummaries.find((trip) => trip.id === todayTripId) ?? null : null),
+    [todayTripId, tripSummaries],
+  );
+  const todayTripName = todayTrip?.name ?? todayTripSummary?.name ?? null;
+  const todayActions = useMemo(() => (todayTrip ? getTodayActions(todayTrip) : []), [todayTrip]);
   const costSummary = useMemo(
     () => (displayTrip ? getCostSummary(displayTrip) : { totalNights: 0, totalCost: 0 }),
     [displayTrip],
@@ -827,21 +993,13 @@ export default function PlannerApp() {
     }
   };
 
-  const handleToggleActiveTrip = async (tripId: string) => {
-    if (activeTripId === tripId) {
-      setActiveTripId(null);
-      return;
-    }
-
-    setIsActivatingTripId(tripId);
+  const handleToggleTodayTrip = async (tripId: string) => {
+    setIsUpdatingTodayTripId(tripId);
 
     try {
-      const trip = await previewCloudTrip(tripId);
-      if (trip) {
-        setActiveTripId(trip.id);
-      }
+      await setTodayTripId(todayTripId === tripId ? null : tripId);
     } finally {
-      setIsActivatingTripId((current) => (current === tripId ? null : current));
+      setIsUpdatingTodayTripId((current) => (current === tripId ? null : current));
     }
   };
 
@@ -1158,7 +1316,7 @@ export default function PlannerApp() {
               trips={tripSummaries}
               loadedTripId={loadedTrip?.id ?? null}
               previewTripId={previewTripId}
-              activeTripId={activeTripId}
+              todayTripId={todayTripId}
               hasLegacyImport={hasLegacyImport}
               isOfflineReadOnly={isOfflineReadOnly}
               isWorking={isTripLibraryBusy}
@@ -1183,13 +1341,15 @@ export default function PlannerApp() {
           <DashboardTripDetailsPanel
             trip={dashboardTrip}
             loadedTripId={loadedTrip?.id ?? null}
-            activeTripId={activeTripId}
+            todayTripId={todayTripId}
             canManageTrips={isCloudTripLibraryAvailable && !!dashboardTripSummary}
             canDeleteTrip={tripSummaries.length > 1}
             isWorking={isTripLibraryBusy}
             isOfflineReadOnly={isOfflineReadOnly}
             isPreviewing={dashboardTrip ? isPreviewingTripId === dashboardTrip.id : false}
-            isActivating={dashboardTrip ? isActivatingTripId === dashboardTrip.id : false}
+            isUpdatingTodayTrip={
+              dashboardTrip ? isUpdatingTodayTripId === dashboardTrip.id : false
+            }
             routeEstimates={dashboardRoutePanel.estimates}
             routeLegCount={dashboardRouteRequests.length}
             routeStatus={dashboardRoutePanel.status}
@@ -1204,8 +1364,8 @@ export default function PlannerApp() {
                 : undefined
             }
             onOpenTrip={dashboardTrip ? () => void handleOpenTrip(dashboardTrip.id) : undefined}
-            onToggleActiveTrip={
-              dashboardTrip ? () => void handleToggleActiveTrip(dashboardTrip.id) : undefined
+            onToggleTodayTrip={
+              dashboardTrip ? () => void handleToggleTodayTrip(dashboardTrip.id) : undefined
             }
             onRenameTrip={dashboardTripSummary ? () => setTripToRename(dashboardTripSummary) : undefined}
             onDeleteTrip={
@@ -1538,12 +1698,12 @@ export default function PlannerApp() {
 
               <div className="flex items-center gap-3">
                 <div className="rounded-2xl border border-app-border bg-app-surface px-3 py-2">
-                  <p className="planner-eyebrow text-app-muted">Active trip</p>
+                  <p className="planner-eyebrow text-app-muted">Today trip</p>
                   <p className="planner-title-sm mt-1 text-app-text">
-                    {activeTrip?.name ?? "No active trip"}
+                    {todayTripName ?? "No Today trip"}
                   </p>
                 </div>
-                <TodayStatusControl activeTripName={activeTrip?.name ?? null} actions={todayActions} />
+                <TodayStatusControl todayTripName={todayTripName} actions={todayActions} />
               </div>
             </header>
 
@@ -1594,12 +1754,12 @@ export default function PlannerApp() {
 
                   <div className="flex items-center gap-2">
                     <div className="rounded-2xl border border-app-border bg-app-surface px-3 py-2">
-                      <p className="planner-eyebrow text-app-muted">Active trip</p>
+                      <p className="planner-eyebrow text-app-muted">Today trip</p>
                       <p className="planner-title-sm mt-1 max-w-[9rem] truncate text-app-text">
-                        {activeTrip?.name ?? "No active trip"}
+                        {todayTripName ?? "No Today trip"}
                       </p>
                     </div>
-                    <TodayStatusControl activeTripName={activeTrip?.name ?? null} actions={todayActions} />
+                    <TodayStatusControl todayTripName={todayTripName} actions={todayActions} />
                   </div>
                 </div>
               </div>

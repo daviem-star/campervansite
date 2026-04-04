@@ -6,7 +6,7 @@ import {
   toTripDocumentRow,
   TripDocumentRow,
 } from "@/lib/tripDocuments";
-import { AppData, SessionUser, Trip, TripSummary } from "@/types/trip";
+import { AppData, SessionUser, Trip, TripPreferences, TripSummary } from "@/types/trip";
 
 type SaveTripResult =
   | {
@@ -19,6 +19,7 @@ type SaveTripResult =
     };
 
 type E2ETripStore = Map<string, Map<string, TripDocumentRow>>;
+type E2ETripPreferenceStore = Map<string, TripPreferences>;
 
 const getStore = (): E2ETripStore => {
   const globalState = globalThis as typeof globalThis & {
@@ -30,6 +31,36 @@ const getStore = (): E2ETripStore => {
   }
 
   return globalState.__campvervanE2ETripStore;
+};
+
+const getPreferenceStore = (): E2ETripPreferenceStore => {
+  const globalState = globalThis as typeof globalThis & {
+    __campvervanE2ETripPreferenceStore?: E2ETripPreferenceStore;
+  };
+
+  if (!globalState.__campvervanE2ETripPreferenceStore) {
+    globalState.__campvervanE2ETripPreferenceStore = new Map<string, TripPreferences>();
+  }
+
+  return globalState.__campvervanE2ETripPreferenceStore;
+};
+
+const readStoredTripPreferences = (user: SessionUser): TripPreferences => {
+  const store = getPreferenceStore();
+  return store.get(user.id) ?? { todayTripId: null };
+};
+
+const sanitizeStoredTripPreferences = (user: SessionUser) => {
+  const rows = ensureUserRows(user);
+  const store = getPreferenceStore();
+  const existing = readStoredTripPreferences(user);
+
+  if (existing.todayTripId && !rows.has(existing.todayTripId)) {
+    store.set(user.id, { todayTripId: null });
+    return;
+  }
+
+  store.set(user.id, existing);
 };
 
 const ensureUserRows = (user: SessionUser): Map<string, TripDocumentRow> => {
@@ -56,6 +87,7 @@ const ensureUserRows = (user: SessionUser): Map<string, TripDocumentRow> => {
 };
 
 export const listE2ETrips = (user: SessionUser): TripSummary[] => {
+  sanitizeStoredTripPreferences(user);
   const rows = ensureUserRows(user);
   return Array.from(rows.values())
     .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
@@ -63,9 +95,26 @@ export const listE2ETrips = (user: SessionUser): TripSummary[] => {
 };
 
 export const loadE2ETrip = (user: SessionUser, tripId: string): Trip | null => {
+  sanitizeStoredTripPreferences(user);
   const rows = ensureUserRows(user);
   const row = rows.get(tripId);
   return row ? rowToTrip(row) : null;
+};
+
+export const getE2ETripPreferences = (user: SessionUser): TripPreferences => {
+  sanitizeStoredTripPreferences(user);
+  return readStoredTripPreferences(user);
+};
+
+export const saveE2ETripPreferences = (
+  user: SessionUser,
+  preferences: TripPreferences,
+): TripPreferences => {
+  const nextPreferences: TripPreferences = {
+    todayTripId: preferences.todayTripId ?? null,
+  };
+  getPreferenceStore().set(user.id, nextPreferences);
+  return nextPreferences;
 };
 
 export const saveE2ETrip = (
@@ -154,6 +203,7 @@ export const deleteE2ETrip = (
   }
 
   rows.delete(tripId);
+  sanitizeStoredTripPreferences(user);
   return { ok: true };
 };
 
@@ -214,6 +264,8 @@ export const seedE2ETrips = (user: SessionUser, data: AppData): TripSummary[] =>
     rows.set(row.trip_id, row);
   });
 
+  sanitizeStoredTripPreferences(user);
+
   return Array.from(rows.values()).map(rowToTripSummary);
 };
 
@@ -232,5 +284,6 @@ export const replaceE2ETrips = (user: SessionUser, data: AppData | null): TripSu
   }
 
   store.set(user.id, rows);
+  sanitizeStoredTripPreferences(user);
   return Array.from(rows.values()).map(rowToTripSummary);
 };

@@ -22,7 +22,7 @@ export default function TodayActionsPanel({ actions, tripName = null }: TodayAct
           <p className="planner-copy mt-2 text-app-muted">
             {tripName
               ? `Time-critical steps and ferry checkpoints for ${tripName}.`
-              : "Choose an active trip from Dashboard to see what needs attention today."}
+              : "Choose a Today trip from Dashboard to see what needs attention today."}
           </p>
         </div>
         <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
@@ -31,7 +31,7 @@ export default function TodayActionsPanel({ actions, tripName = null }: TodayAct
       </div>
 
       {!tripName ? (
-        <p className="planner-copy text-app-muted">No active trip selected.</p>
+        <p className="planner-copy text-app-muted">No Today trip selected.</p>
       ) : actions.length === 0 ? (
         <p className="planner-copy text-app-muted">No time-critical actions due today.</p>
       ) : (
