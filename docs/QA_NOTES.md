@@ -87,6 +87,7 @@ For each issue, record:
 - [ ] Top-left account/status icon opens cleanly and exposes auth/sync controls
 - [ ] `Dashboard`, `Overview`, and `Itinerary` each expose a working `View map` launcher on mobile
 - [ ] `Overview` is trip-only and does not contain account or sync controls
+- [ ] Loaded-trip shell keeps the compact summary visible while `Overview` starts with the trip map instead of a duplicate overview card
 - [ ] Day chip selection scrolls to the correct itinerary section
 - [ ] Map interactions select and highlight itinerary items
 - [ ] Today actions are readable and correctly formatted
@@ -108,6 +109,9 @@ For each issue, record:
 - [ ] Lower itinerary sections remain reachable and their `Edit` actions stay clickable
 - [ ] Itinerary auto-scroll keeps the top toolbar and rail visible instead of shifting the whole planner upward
 - [ ] `Overview` remains trip-only and does not contain auth or sync controls
+- [ ] Loaded-trip shell shows the compact trip summary and `Overview` no longer repeats a standalone `Trip overview` card
+- [ ] Desktop/tablet `Overview` shows the larger route map above `Warnings` and `Route realism`
+- [ ] Desktop/tablet `Overview` only reveals the selected-stop helper after choosing a stop, and that helper stays embedded on the map instead of below it
 - [ ] Top-left account/status popup holds auth, sync, and demo-only reset controls
 - [ ] View mode hides mutation controls until switching to `Edit mode`
 - [ ] Offline read-only state keeps the itinerary mode toggle disabled and the itinerary non-mutable

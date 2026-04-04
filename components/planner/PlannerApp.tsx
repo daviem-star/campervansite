@@ -19,7 +19,6 @@ import TodayStatusControl from "@/components/planner/TodayStatusControl";
 import TravelInsightsPanel, {
   getRouteConfidenceSnapshot,
 } from "@/components/planner/TravelInsightsPanel";
-import TripHeader from "@/components/planner/TripHeader";
 import TripCreateModal from "@/components/planner/TripCreateModal";
 import TripRenameModal from "@/components/planner/TripRenameModal";
 import TripsPanel from "@/components/planner/TripsPanel";
@@ -1247,10 +1246,21 @@ export default function PlannerApp() {
       return null;
     }
 
+    const summaryTrip = displayTrip ?? loadedTrip;
+    const summaryPillClass =
+      "inline-flex items-center gap-2 rounded-full border border-app-border/80 bg-app-surface/92 px-3 py-1.5 text-sm shadow-[0_10px_24px_rgb(var(--color-app-overlay)_/_0.05)]";
+    const warningSummaryClass =
+      loadedValidationWarnings.length > 0
+        ? "border-brand-secondary/35 bg-brand-secondary/16 text-brand-secondary-variant"
+        : "border-state-success-border bg-state-success-surface text-state-success";
+
     return (
-      <section className="overflow-hidden rounded-[24px] border border-app-border/80 bg-app-surface shadow-[0_18px_42px_rgb(var(--color-app-overlay)_/_0.08)]">
-        <div className="border-b border-app-border/80 bg-[linear-gradient(155deg,rgb(var(--color-brand-primary)_/_0.08),rgb(var(--color-app-surface))_50%,rgb(var(--color-brand-secondary)_/_0.08))] px-4 py-4 sm:px-5 sm:py-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+      <section
+        data-testid="trip-workspace-header"
+        className="overflow-hidden rounded-[24px] border border-app-border/80 bg-app-surface shadow-[0_18px_42px_rgb(var(--color-app-overlay)_/_0.08)]"
+      >
+        <div className="border-b border-app-border/80 bg-[linear-gradient(155deg,rgb(var(--color-brand-primary)_/_0.08),rgb(var(--color-app-surface))_50%,rgb(var(--color-brand-secondary)_/_0.08))] px-4 py-3.5 sm:px-5 sm:py-3.5">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 text-sm text-app-muted">
                 <button
@@ -1263,30 +1273,72 @@ export default function PlannerApp() {
                 <span aria-hidden="true" className="text-app-border">
                   &gt;
                 </span>
-                <span className="truncate font-medium text-app-text">{loadedTrip.name}</span>
+                <span className="truncate font-medium text-app-text">{summaryTrip.name}</span>
               </div>
 
-              <h2 className="planner-title-xl mt-3 text-app-text">{loadedTrip.name}</h2>
+              <h2 className="planner-title-lg mt-2 text-app-text">{summaryTrip.name}</h2>
 
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
-                  {formatTripDateRange(loadedTrip)}
-                </span>
-                <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
-                  {tripDays.length} {tripDays.length === 1 ? "day" : "days"}
-                </span>
-                <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
-                  {loadedRouteConfidence.summary} routing
-                </span>
-                {currentScreenEntry.screen === "trip-itinerary" ? (
-                  <span
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                      plannerInteractionMode === "edit" ? "planner-pill-active" : "planner-pill"
-                    }`}
-                  >
-                    {plannerInteractionMode === "edit" ? "Editing draft" : "Review mode"}
+              <div
+                data-testid="trip-workspace-header-summary"
+                className="mt-2.5 space-y-2"
+              >
+                <div className="flex flex-wrap gap-2">
+                  <span className={`${summaryPillClass} min-w-0`}>
+                    <span className="planner-eyebrow text-app-muted">Dates</span>
+                    <span className="truncate font-medium text-app-text">
+                      {formatTripDateRange(summaryTrip)}
+                    </span>
                   </span>
-                ) : null}
+                  <span className={summaryPillClass}>
+                    <span className="planner-eyebrow text-app-muted">Trip length</span>
+                    <span className="font-medium text-app-text">
+                      {tripDays.length} {tripDays.length === 1 ? "day" : "days"}
+                    </span>
+                  </span>
+                  <span className={`${summaryPillClass} min-w-0 max-w-full`}>
+                    <span className="planner-eyebrow text-app-muted">Home base</span>
+                    <span className="truncate font-medium text-app-text">
+                      {summaryTrip.home.label}
+                    </span>
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <span className={summaryPillClass}>
+                    <span className="planner-eyebrow text-app-muted">Estimated cost</span>
+                    <span className="font-medium text-app-text">
+                      GBP {costSummary.totalCost.toFixed(2)}
+                    </span>
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm shadow-[0_10px_24px_rgb(var(--color-app-overlay)_/_0.05)] ${warningSummaryClass}`}
+                  >
+                    <span className="planner-eyebrow">Warnings</span>
+                    <span className="font-medium">
+                      {loadedValidationWarnings.length} open
+                    </span>
+                  </span>
+                  <span className={summaryPillClass}>
+                    <span className="planner-eyebrow text-app-muted">Routing</span>
+                    <span className="font-medium text-app-text">
+                      {loadedRouteConfidence.summary}
+                    </span>
+                  </span>
+                  {currentScreenEntry.screen === "trip-itinerary" ? (
+                    <span
+                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm shadow-[0_10px_24px_rgb(var(--color-app-overlay)_/_0.05)] ${
+                        plannerInteractionMode === "edit"
+                          ? "border-brand-primary/25 bg-brand-primary/10 text-brand-primary"
+                          : "border-app-border/80 bg-app-surface/92 text-app-text"
+                      }`}
+                    >
+                      <span className="planner-eyebrow text-app-muted">Workspace</span>
+                      <span className="font-medium">
+                        {plannerInteractionMode === "edit" ? "Editing draft" : "Review mode"}
+                      </span>
+                    </span>
+                  ) : null}
+                </div>
               </div>
             </div>
 
@@ -1306,7 +1358,7 @@ export default function PlannerApp() {
                       : "desktop-panel-itinerary"
                   }
                   onClick={() => switchTripScreen(item.screen)}
-                  className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                  className={`rounded-full border px-3.5 py-1.5 text-sm font-semibold transition ${
                     currentScreenEntry.screen === item.screen
                       ? "border-brand-primary/25 bg-brand-primary/10 text-brand-primary shadow-[0_10px_26px_rgb(var(--color-app-overlay)_/_0.08)]"
                       : "border-app-border bg-app-surface text-app-muted hover:bg-app-surface-muted hover:text-app-text"
@@ -1325,32 +1377,22 @@ export default function PlannerApp() {
   const renderOverviewPanel = () => (
     <div
       data-testid="overview-scroll-region"
-      className="space-y-5 pr-1 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-y-auto"
+      className="space-y-4 pr-1 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-y-auto"
     >
-      {displayTrip ? (
-        <TripHeader
-          tripName={displayTrip.name}
-          homeLabel={displayTrip.home.label}
-          dateRangeLabel={formatTripDateRange(displayTrip)}
-          totalNights={costSummary.totalNights}
-          totalCost={costSummary.totalCost}
-          warningCount={loadedValidationWarnings.length}
-          routeConfidenceLabel={loadedRouteConfidence.summary}
-        />
-      ) : null}
-
       <TripMapPreviewPanel
         trip={displayTrip}
         markers={loadedMapData.markers}
         segments={loadedMapData.segments}
         routeSummary={loadedRouteMapSummary}
+        density="compact"
+        selectionSummaryPlacement="map-overlay"
         selectedEntity={effectiveSelectedEntity}
         selectionOrigin={selectionOrigin}
         selectedDetails={selectedEntityDetails}
         onSelectEntity={onSelectEntityFromMap}
         onOpenMobileMap={() => openMobileMapOverlay("overview")}
         title="Map"
-        description="Preview the full route here, then carry the same selection into the itinerary workspace."
+        description="Preview the route here and keep the same selection when you move into Itinerary."
         mobileCtaLabel="View map"
         mobileCtaDescription="Open the current trip route in a dedicated full-screen map view."
         panelTestId="overview-trip-map-panel"
@@ -1360,6 +1402,7 @@ export default function PlannerApp() {
 
       <ValidationWarningsPanel
         key={`overview-warnings-${displayTrip?.id ?? "none"}`}
+        testId="overview-warnings-panel"
         warnings={loadedValidationWarnings}
         title="Warnings"
         description="High and medium issues stay upfront so you can judge trip health quickly."
@@ -1367,10 +1410,12 @@ export default function PlannerApp() {
         collapseLowSeverity
         showSeverityCounts
         compactHealthyState
+        density="compact"
       />
 
       <TravelInsightsPanel
         key={`overview-route-${displayTrip?.id ?? "none"}`}
+        testId="overview-route-insights-panel"
         estimates={loadedRoutePanel.estimates}
         legCount={loadedRouteRequests.length}
         status={loadedRoutePanel.status}
@@ -1380,6 +1425,7 @@ export default function PlannerApp() {
         description="A quick read on whether the current route still looks grounded."
         showDetailsByDefault={false}
         collapsibleDetails
+        density="compact"
       />
     </div>
   );
@@ -1491,20 +1537,20 @@ export default function PlannerApp() {
           <div
             data-testid="desktop-itinerary-scroll-region"
             data-itinerary-scroll-container="true"
-            className="min-h-0 px-4 py-4 sm:px-5 sm:py-5 lg:overflow-y-auto"
+            className="min-h-0 px-4 py-4 sm:px-5 sm:py-4 lg:overflow-y-auto"
           >
-            <div className="space-y-5">
-              <section className="rounded-[26px] border border-app-border/80 bg-[linear-gradient(160deg,rgb(var(--color-brand-primary)_/_0.08),rgb(var(--color-app-surface))_48%,rgb(var(--color-brand-secondary)_/_0.08))] px-4 py-4 shadow-[0_18px_40px_rgb(var(--color-app-overlay)_/_0.08)] sm:px-5 sm:py-5">
-                <div className="flex flex-col gap-4">
+            <div className="space-y-4">
+              <section className="rounded-[26px] border border-app-border/80 bg-[linear-gradient(160deg,rgb(var(--color-brand-primary)_/_0.08),rgb(var(--color-app-surface))_48%,rgb(var(--color-brand-secondary)_/_0.08))] px-4 py-4 shadow-[0_18px_40px_rgb(var(--color-app-overlay)_/_0.08)] sm:px-5 sm:py-4">
+                <div className="flex flex-col gap-3.5">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <p className="planner-eyebrow planner-section-label">Itinerary workspace</p>
-                      <h3 className="planner-title-lg mt-2 text-app-text">
+                      <h3 className="planner-title-lg mt-1.5 text-app-text">
                         {currentItineraryDay
                           ? `${formatDayChip(currentItineraryDay.date)} · ${formatDateOnly(currentItineraryDay.date)}`
                           : "Build your route day by day"}
                       </h3>
-                      <p className="planner-copy mt-2 text-app-muted">
+                      <p className="planner-copy-sm mt-1.5 text-app-muted">
                         {currentItineraryDay?.activeStay
                           ? `Base: ${currentItineraryDay.activeStay.title}`
                           : "Select a day to review movements, base coverage, and stop details."}
@@ -1575,9 +1621,9 @@ export default function PlannerApp() {
                     </p>
                   ) : null}
 
-                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(260px,0.72fr)]">
-                    <div className="rounded-[22px] border border-app-border bg-app-surface/85 p-3.5">
-                      <div className="mb-3 flex items-center justify-between">
+                  <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(260px,0.72fr)]">
+                    <div className="rounded-[22px] border border-app-border bg-app-surface/85 p-3">
+                      <div className="mb-2.5 flex items-center justify-between">
                         <h4 className="planner-title-sm text-app-text">Trip days</h4>
                         <span className="planner-meta text-app-muted">
                           {tripDays.length} {tripDays.length === 1 ? "day" : "days"}
@@ -1590,9 +1636,9 @@ export default function PlannerApp() {
                       />
                     </div>
 
-                    <div className="rounded-[22px] border border-app-border bg-app-surface/85 p-4">
+                    <div className="rounded-[22px] border border-app-border bg-app-surface/85 p-3.5">
                       <p className="planner-eyebrow text-app-muted">Day snapshot</p>
-                      <div className="mt-3 grid gap-3 sm:grid-cols-3 xl:grid-cols-2">
+                      <div className="mt-2.5 grid gap-2.5 sm:grid-cols-3 xl:grid-cols-2">
                         <div>
                           <p className="planner-title-lg text-app-text">
                             {currentItineraryDay?.stopCount ?? 0}
@@ -1670,7 +1716,7 @@ export default function PlannerApp() {
             </div>
           </div>
 
-          <aside className="border-t border-app-border bg-app-surface-muted/35 px-4 py-4 sm:px-5 sm:py-5 lg:min-h-0 lg:overflow-y-auto lg:border-l lg:border-t-0">
+          <aside className="border-t border-app-border bg-app-surface-muted/35 px-4 py-4 sm:px-5 sm:py-4 lg:min-h-0 lg:overflow-y-auto lg:border-l lg:border-t-0">
             <div className="space-y-4 lg:sticky lg:top-0">
               <ItineraryInspector
                 selectedDate={effectiveSelectedDate}
@@ -1715,7 +1761,10 @@ export default function PlannerApp() {
                     View map
                   </button>
                 </div>
-                <div className="hidden h-[280px] overflow-hidden rounded-[20px] border border-app-border bg-app-surface md:block lg:h-[340px]">
+                <div
+                  data-testid="itinerary-desktop-map-panel"
+                  className="hidden h-[320px] overflow-hidden rounded-[20px] border border-app-border bg-app-surface md:block lg:h-[390px]"
+                >
                   {renderPlannerMap()}
                 </div>
               </section>

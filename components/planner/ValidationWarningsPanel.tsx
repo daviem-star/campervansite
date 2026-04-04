@@ -26,6 +26,8 @@ type ValidationWarningsPanelProps = {
   collapseLowSeverity?: boolean;
   showSeverityCounts?: boolean;
   compactHealthyState?: boolean;
+  density?: "default" | "compact";
+  testId?: string;
 };
 
 export default function ValidationWarningsPanel({
@@ -37,7 +39,10 @@ export default function ValidationWarningsPanel({
   collapseLowSeverity = false,
   showSeverityCounts = false,
   compactHealthyState = false,
+  density = "default",
+  testId,
 }: ValidationWarningsPanelProps) {
+  const isCompact = density === "compact";
   const groupedWarnings = useMemo(
     () => groupValidationWarningsBySeverity(warnings),
     [warnings],
@@ -75,21 +80,32 @@ export default function ValidationWarningsPanel({
     : hasElevatedWarnings
       ? "text-state-warning"
       : "planner-section-label-accent";
+  const sectionClass = `rounded-[24px] border border-app-border/80 bg-app-surface px-4 ${
+    isCompact ? "py-3.5 sm:px-5 sm:py-4" : "py-4 sm:px-5 sm:py-5"
+  }`;
+  const warningCardClass = `rounded-[18px] border ${isCompact ? "px-3 py-2.5" : "px-3.5 py-3"}`;
 
   if (emptyMessage) {
     return (
-      <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
+      <section data-testid={testId} className={sectionClass}>
         <p className="planner-eyebrow planner-section-label">{title}</p>
-        <p className="planner-copy mt-3 text-app-muted">{emptyMessage}</p>
+        <p className={`${isCompact ? "planner-copy-sm mt-2.5" : "planner-copy mt-3"} text-app-muted`}>
+          {emptyMessage}
+        </p>
       </section>
     );
   }
 
   if (warnings.length === 0 && !compactHealthyState) {
     return (
-      <section className="tone-success rounded-[24px] border px-4 py-4 sm:px-5 sm:py-5">
+      <section
+        data-testid={testId}
+        className={`tone-success rounded-[24px] border px-4 ${
+          isCompact ? "py-3.5 sm:px-5 sm:py-4" : "py-4 sm:px-5 sm:py-5"
+        }`}
+      >
         <p className="planner-eyebrow text-state-success">{title}</p>
-        <p className="planner-copy mt-3 font-medium">
+        <p className={`${isCompact ? "planner-copy-sm mt-2.5" : "planner-copy mt-3"} font-medium`}>
           Route realism and itinerary validation look healthy for the current plan.
         </p>
       </section>
@@ -98,11 +114,16 @@ export default function ValidationWarningsPanel({
 
   if (!hasElevatedWarnings && compactHealthyState) {
     return (
-      <section className="tone-success rounded-[20px] border px-4 py-3.5 sm:px-5 sm:py-4">
+      <section
+        data-testid={testId}
+        className={`tone-success rounded-[20px] border px-4 ${
+          isCompact ? "py-3 sm:px-5 sm:py-3.5" : "py-3.5 sm:px-5 sm:py-4"
+        }`}
+      >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className="planner-eyebrow text-state-success">{title}</p>
-            <p className="planner-copy mt-2 font-medium">
+            <p className={`${isCompact ? "planner-copy-sm mt-1.5" : "planner-copy mt-2"} font-medium`}>
               {warnings.length === 0
                 ? "No high or medium warnings for the current plan."
                 : "No high or medium warnings. Low-severity notes are available if you want extra context."}
@@ -124,11 +145,11 @@ export default function ValidationWarningsPanel({
 
         {lowSeverityWarnings.length > 0 &&
         (!collapseLowSeverity || isLowSeverityExpanded) ? (
-          <ul className="mt-3 space-y-2">
+          <ul className={`space-y-2 ${isCompact ? "mt-2.5" : "mt-3"}`}>
             {lowSeverityWarnings.map((warning) => (
               <li
                 key={warning.id}
-                className={`rounded-[18px] border px-3.5 py-3 ${plannerValidationToneClass[warning.severity]}`}
+                className={`${warningCardClass} ${plannerValidationToneClass[warning.severity]}`}
               >
                 <div className="flex items-center justify-between gap-3">
                   <p className="planner-title-sm">{warning.label}</p>
@@ -146,19 +167,23 @@ export default function ValidationWarningsPanel({
   }
 
   return (
-    <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+    <section data-testid={testId} className={sectionClass}>
+      <div className={`flex flex-wrap items-start justify-between gap-3 ${isCompact ? "mb-4" : "mb-5"}`}>
         <div className="min-w-0 flex-1">
           <p className={`planner-eyebrow ${headerLabelClass}`}>{title}</p>
-          <p className="planner-title-md mt-2 text-app-text">{elevatedWarningSummary}</p>
-          <p className="planner-copy mt-2 text-app-muted">{description}</p>
+          <p className={`${isCompact ? "planner-title-sm mt-1.5" : "planner-title-md mt-2"} text-app-text`}>
+            {elevatedWarningSummary}
+          </p>
+          <p className={`${isCompact ? "planner-copy-sm mt-1.5" : "planner-copy mt-2"} text-app-muted`}>
+            {description}
+          </p>
         </div>
         <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${headerCountClass}`}>
           {hasElevatedWarnings ? elevatedWarningCount : warnings.length}
         </span>
       </div>
 
-      <div className="space-y-4">
+      <div className={isCompact ? "space-y-3" : "space-y-4"}>
         {validationWarningSeverityOrder.map((severity) => {
           const severityWarnings = groupedWarnings[severity];
 
@@ -175,13 +200,13 @@ export default function ValidationWarningsPanel({
               : defaultExpandedSeverities.includes(severity);
 
           return (
-            <section key={severity} className="space-y-2">
+            <section key={severity} className={isCompact ? "space-y-1.5" : "space-y-2"}>
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="planner-title-sm text-app-text">
                     {validationWarningGroupMeta[severity].label}
                   </p>
-                  <p className="planner-copy-sm mt-1 text-app-muted">
+                  <p className={`planner-copy-sm text-app-muted ${isCompact ? "mt-0.5" : "mt-1"}`}>
                     {validationWarningGroupMeta[severity].description}
                   </p>
                 </div>
@@ -206,11 +231,11 @@ export default function ValidationWarningsPanel({
               </div>
 
               {isExpanded ? (
-                <ul className="space-y-2">
+                <ul className={isCompact ? "space-y-1.5" : "space-y-2"}>
                   {severityWarnings.map((warning) => (
                     <li
                       key={warning.id}
-                      className={`rounded-[18px] border px-3.5 py-3 ${plannerValidationToneClass[warning.severity]}`}
+                      className={`${warningCardClass} ${plannerValidationToneClass[warning.severity]}`}
                     >
                       <div className="flex items-center justify-between gap-3">
                         <p className="planner-title-sm">{warning.label}</p>

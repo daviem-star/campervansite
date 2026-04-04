@@ -16,6 +16,8 @@ type TripMapPreviewPanelProps = {
   markers: MapMarker[];
   segments: MapSegment[];
   routeSummary: PlannerMapRouteSummary;
+  density?: "default" | "compact";
+  selectionSummaryPlacement?: "below-map" | "map-overlay";
   selectedEntity: SelectedEntity;
   selectionOrigin?: "itinerary" | "map" | "system";
   selectedDetails: SelectedEntityDetails | null;
@@ -36,6 +38,8 @@ export default function TripMapPreviewPanel({
   markers,
   segments,
   routeSummary,
+  density = "default",
+  selectionSummaryPlacement = "below-map",
   selectedEntity,
   selectionOrigin = "system",
   selectedDetails,
@@ -50,15 +54,22 @@ export default function TripMapPreviewPanel({
   mobileButtonTestId,
   selectionSummaryTestId,
 }: TripMapPreviewPanelProps) {
+  const isCompact = density === "compact";
+  const usesMapOverlaySummary = selectionSummaryPlacement === "map-overlay";
+
   return (
     <section
       data-testid={panelTestId}
-      className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 shadow-[0_18px_40px_rgb(var(--color-app-overlay)_/_0.08)] sm:px-5 sm:py-5"
+      className={`rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 shadow-[0_18px_40px_rgb(var(--color-app-overlay)_/_0.08)] sm:px-5 ${
+        isCompact ? "sm:py-4" : "sm:py-5"
+      }`}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className={`flex flex-wrap items-start justify-between ${isCompact ? "gap-2" : "gap-3"}`}>
         <div>
           <p className="planner-eyebrow planner-section-label">{title}</p>
-          <p className="planner-copy-sm mt-2 text-app-muted">{description}</p>
+          <p className={`planner-copy-sm text-app-muted ${isCompact ? "mt-1.5" : "mt-2"}`}>
+            {description}
+          </p>
         </div>
       </div>
 
@@ -82,8 +93,13 @@ export default function TripMapPreviewPanel({
             </div>
           </div>
 
-          <div className="mt-4 hidden md:block">
-            <div className="h-[360px] overflow-hidden rounded-[20px] border border-app-border bg-app-surface lg:h-[420px]">
+          <div className={`${isCompact ? "mt-3" : "mt-4"} hidden md:block`}>
+            <div
+              data-testid={panelTestId ? `${panelTestId}-frame` : undefined}
+              className={`relative overflow-hidden rounded-[20px] border border-app-border bg-app-surface ${
+                isCompact ? "h-[400px] lg:h-[480px]" : "h-[360px] lg:h-[420px]"
+              }`}
+            >
               <PlannerMap
                 trip={trip}
                 markers={markers}
@@ -92,17 +108,31 @@ export default function TripMapPreviewPanel({
                 selectedEntity={selectedEntity}
                 selectionOrigin={selectionOrigin}
                 onSelectEntity={onSelectEntity}
+                showSelectionChip={false}
                 isVisible
                 testRegistryKey={panelTestId}
                 className="h-full w-full rounded-[18px] border border-app-border bg-app-surface"
               />
+
+              {usesMapOverlaySummary ? (
+                <MapSelectionSummary
+                  testId={selectionSummaryTestId}
+                  selectedDetails={selectedDetails}
+                  density="compact"
+                  presentation="map-overlay"
+                  hideWhenEmpty
+                />
+              ) : null}
             </div>
 
-            <MapSelectionSummary
-              testId={selectionSummaryTestId}
-              selectedDetails={selectedDetails}
-              className="mt-4"
-            />
+            {!usesMapOverlaySummary ? (
+              <MapSelectionSummary
+                testId={selectionSummaryTestId}
+                selectedDetails={selectedDetails}
+                density={density}
+                className={isCompact ? "mt-3" : "mt-4"}
+              />
+            ) : null}
           </div>
         </>
       )}

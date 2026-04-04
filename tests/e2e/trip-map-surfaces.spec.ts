@@ -5,6 +5,22 @@ import { createTestUser, getLegacySeedData, primeSignedInSession, seedCloudTrips
 const visibleByTestId = (page: Page, testId: string) =>
   page.locator(`[data-testid="${testId}"]:visible`);
 
+const expectHeightAtLeast = async (
+  page: Page,
+  testId: string,
+  minimumHeight: number,
+) => {
+  await expect
+    .poll(
+      async () => {
+        const box = await visibleByTestId(page, testId).boundingBox();
+        return box?.height ?? 0;
+      },
+      { timeout: 10_000 },
+    )
+    .toBeGreaterThan(minimumHeight);
+};
+
 const prepareSignedInPlanner = async (page: Page) => {
   const user = createTestUser("trip-map");
   await primeSignedInSession(page, user);
@@ -85,10 +101,35 @@ test("shows a dashboard preview map and opens trips into overview with the map v
 
   await visibleByTestId(page, "dashboard-open-trip-button").click();
 
+  await expect(visibleByTestId(page, "trip-workspace-header")).toBeVisible();
+  await expect(visibleByTestId(page, "trip-workspace-header-summary")).toContainText(
+    /Home base/i,
+  );
+
+  const overviewRegion = visibleByTestId(page, "overview-scroll-region");
   const overviewMapPanel = visibleByTestId(page, "overview-trip-map-panel");
   await expect(overviewMapPanel).toBeVisible();
   await expect(overviewMapPanel.getByLabel("Trip map")).toBeVisible();
+  await expect(overviewRegion.getByText(/^Trip overview$/i)).toHaveCount(0);
+  await expect(page.locator('[data-testid="overview-map-selection-summary"]')).toHaveCount(0);
+  await expectHeightAtLeast(page, "overview-trip-map-panel-frame", 450);
+  await expect(visibleByTestId(page, "overview-warnings-panel")).toBeVisible();
+  await expect(visibleByTestId(page, "overview-route-insights-panel")).toBeVisible();
   await expect(visibleByTestId(page, "desktop-panel-overview")).toBeVisible();
+
+  const mapBox = await visibleByTestId(page, "overview-trip-map-panel").boundingBox();
+  const warningsBox = await visibleByTestId(page, "overview-warnings-panel").boundingBox();
+  const routeInsightsBox = await visibleByTestId(page, "overview-route-insights-panel").boundingBox();
+  expect(mapBox).not.toBeNull();
+  expect(warningsBox).not.toBeNull();
+  expect(routeInsightsBox).not.toBeNull();
+  expect(mapBox!.y).toBeLessThan(warningsBox!.y);
+  expect(warningsBox!.y).toBeLessThan(routeInsightsBox!.y);
+
+  await visibleByTestId(page, "desktop-panel-itinerary").click();
+  await expect(visibleByTestId(page, "desktop-panel-itinerary-region")).toBeVisible();
+  await expect(visibleByTestId(page, "planner-mode-toggle")).toBeVisible();
+  await expectHeightAtLeast(page, "itinerary-desktop-map-panel", 360);
 });
 
 test("updates dashboard and overview selection summaries from map interactions", async ({ page }) => {

@@ -73,6 +73,7 @@ type PlannerMapProps = {
   className?: string;
   isVisible?: boolean;
   testRegistryKey?: string;
+  showSelectionChip?: boolean;
 };
 
 const routeChipToneClass = {
@@ -246,6 +247,7 @@ export default function PlannerMap({
   className,
   isVisible = true,
   testRegistryKey,
+  showSelectionChip = true,
 }: PlannerMapProps) {
   const mapCanvasRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -963,7 +965,7 @@ export default function PlannerMap({
       return {
         tone: "neutral" as const,
         title: "Routing in progress",
-        detail: "Road geometry is still loading, so direct placeholder lines stay hidden for now.",
+        detail: "Awaiting snapped road geometry.",
       };
     }
 
@@ -974,7 +976,7 @@ export default function PlannerMap({
           routeSummary.fallbackRoadLegs === 1
             ? "1 fallback road leg"
             : `${routeSummary.fallbackRoadLegs} fallback road legs`,
-        detail: "Fallback road legs are shown as direct dashed lines until live routing is available.",
+        detail: "Shown as dashed direct lines.",
       };
     }
 
@@ -982,7 +984,7 @@ export default function PlannerMap({
       return {
         tone: "neutral" as const,
         title: "Refreshing route geometry",
-        detail: "Live road routing is already visible and will update if fresher data arrives.",
+        detail: "Visible routes will update if fresher data arrives.",
       };
     }
 
@@ -1002,37 +1004,35 @@ export default function PlannerMap({
         <div ref={mapCanvasRef} className="h-full w-full" aria-label="Trip map" />
       )}
 
-      <div className="pointer-events-none absolute left-3 right-3 top-3 z-10 flex items-start justify-between gap-3">
-        <div className="pointer-events-auto flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface/95 p-2 shadow-sm backdrop-blur">
-            <button
-              type="button"
-              onClick={() => {
-                const map = mapRef.current;
-                if (map) {
-                  fitOverview(map);
-                  popupRef.current?.remove();
-                  popupRef.current = null;
-                }
-              }}
-              className="planner-button-secondary rounded-lg border px-3 py-1.5 text-xs font-semibold transition"
-            >
-              Reset Map
-            </button>
-          </div>
+      <div className="pointer-events-none absolute left-4 right-4 top-4 z-10 flex items-start justify-between gap-3">
+        <div className="pointer-events-auto flex flex-wrap items-start gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              const map = mapRef.current;
+              if (map) {
+                fitOverview(map);
+                popupRef.current?.remove();
+                popupRef.current = null;
+              }
+            }}
+            className="planner-button-secondary rounded-full border border-app-border bg-app-surface/95 px-3 py-1.5 text-[11px] font-semibold shadow-sm backdrop-blur transition"
+          >
+            Reset Map
+          </button>
 
           {routeStatusChip ? (
             <div
               data-testid="map-route-status-chip"
-              className={`max-w-xs rounded-xl border px-3 py-2 text-xs shadow-sm backdrop-blur ${routeChipToneClass[routeStatusChip.tone]}`}
+              className={`max-w-[220px] rounded-2xl border px-3 py-2 text-[11px] shadow-sm backdrop-blur ${routeChipToneClass[routeStatusChip.tone]}`}
             >
-              <p className="font-semibold">{routeStatusChip.title}</p>
-              <p className="mt-1 leading-5">{routeStatusChip.detail}</p>
+              <p className="font-semibold leading-4">{routeStatusChip.title}</p>
+              <p className="mt-0.5 leading-4 opacity-80">{routeStatusChip.detail}</p>
             </div>
           ) : null}
         </div>
 
-        {currentSelectionTitle ? (
+        {showSelectionChip && currentSelectionTitle ? (
           <div className="pointer-events-auto rounded-xl border border-brand-primary/22 bg-app-surface/95 px-3 py-2 text-xs text-app-muted shadow-sm backdrop-blur">
             <p className="font-semibold text-app-text">Selected</p>
             <p>{currentSelectionTitle}</p>

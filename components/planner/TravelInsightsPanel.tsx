@@ -22,6 +22,8 @@ type TravelInsightsPanelProps = {
   description?: string;
   showDetailsByDefault?: boolean;
   collapsibleDetails?: boolean;
+  density?: "default" | "compact";
+  testId?: string;
 };
 
 type RouteConfidenceSnapshot = {
@@ -93,7 +95,10 @@ export default function TravelInsightsPanel({
   description = "Live and cached drive estimates across the current campervan plan.",
   showDetailsByDefault = true,
   collapsibleDetails = false,
+  density = "default",
+  testId,
 }: TravelInsightsPanelProps) {
+  const isCompact = density === "compact";
   const totalDistanceKm = estimates.reduce((sum, estimate) => sum + estimate.distanceKm, 0);
   const totalBufferedMinutes = estimates.reduce(
     (sum, estimate) => sum + estimate.bufferedDurationMinutes,
@@ -105,11 +110,18 @@ export default function TravelInsightsPanel({
   const shouldShowDetails = !collapsibleDetails || isDetailsExpanded;
 
   return (
-    <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+    <section
+      data-testid={testId}
+      className={`rounded-[24px] border border-app-border/80 bg-app-surface px-4 ${
+        isCompact ? "py-3.5 sm:px-5 sm:py-4" : "py-4 sm:px-5 sm:py-5"
+      }`}
+    >
+      <div className={`flex flex-wrap items-start justify-between gap-3 ${isCompact ? "mb-3.5" : "mb-4"}`}>
         <div>
           <p className="planner-eyebrow planner-section-label">{title}</p>
-          <p className="planner-copy mt-2 text-app-muted">{description}</p>
+          <p className={`${isCompact ? "planner-copy-sm mt-1.5" : "planner-copy mt-2"} text-app-muted`}>
+            {description}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
@@ -129,13 +141,21 @@ export default function TravelInsightsPanel({
       </div>
 
       {statusMessage && status !== "fresh" ? (
-        <div className={`planner-copy mb-4 rounded-2xl border px-4 py-3 ${plannerRouteStatusToneClass[status]}`}>
+        <div
+          className={`planner-copy rounded-2xl border px-4 ${
+            isCompact ? "mb-3.5 py-2.5" : "mb-4 py-3"
+          } ${plannerRouteStatusToneClass[status]}`}
+        >
           {statusMessage}
         </div>
       ) : null}
 
       {isRefreshing ? (
-        <div className="planner-copy tone-info mb-4 rounded-2xl border px-4 py-3">
+        <div
+          className={`planner-copy tone-info rounded-2xl border px-4 ${
+            isCompact ? "mb-3.5 py-2.5" : "mb-4 py-3"
+          }`}
+        >
           Refreshing route estimates and travel buffers...
         </div>
       ) : null}
@@ -145,32 +165,46 @@ export default function TravelInsightsPanel({
           {emptyMessage ?? "Add more trip stops to generate route estimates."}
         </p>
       ) : status === "unavailable" && estimates.length === 0 ? (
-        <div className="planner-copy tone-error rounded-2xl border px-4 py-4">
+        <div
+          className={`planner-copy tone-error rounded-2xl border px-4 ${
+            isCompact ? "py-3.5" : "py-4"
+          }`}
+        >
           {statusMessage ?? "Route timings are unavailable right now."}
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className={isCompact ? "space-y-3" : "space-y-4"}>
           <div className="overflow-hidden rounded-[20px] border border-app-border/80 bg-app-surface-muted/45">
             <div className="grid gap-px bg-app-border/70 sm:grid-cols-3">
-              <div className="bg-app-surface/85 px-4 py-4">
+              <div className={`bg-app-surface/85 px-4 ${isCompact ? "py-3.5" : "py-4"}`}>
                 <p className="planner-eyebrow text-app-muted">Buffered drive time</p>
-                <p className="planner-title-lg mt-2 text-app-text">
+                <p className={`${isCompact ? "planner-title-md mt-1.5" : "planner-title-lg mt-2"} text-app-text`}>
                   {formatDurationMinutes(totalBufferedMinutes)}
                 </p>
               </div>
-              <div className="bg-app-surface/85 px-4 py-4">
+              <div className={`bg-app-surface/85 px-4 ${isCompact ? "py-3.5" : "py-4"}`}>
                 <p className="planner-eyebrow text-app-muted">Road legs</p>
-                <p className="planner-title-lg mt-2 text-app-text">{legCount}</p>
+                <p className={`${isCompact ? "planner-title-md mt-1.5" : "planner-title-lg mt-2"} text-app-text`}>
+                  {legCount}
+                </p>
               </div>
-              <div className="bg-app-surface/85 px-4 py-4">
+              <div className={`bg-app-surface/85 px-4 ${isCompact ? "py-3.5" : "py-4"}`}>
                 <p className="planner-eyebrow text-app-muted">Routing confidence</p>
-                <p className="planner-title-lg mt-2 text-app-text">{routeConfidence.summary}</p>
-                <p className="planner-copy-sm mt-1 text-app-muted">{routeConfidence.detail}</p>
+                <p className={`${isCompact ? "planner-title-md mt-1.5" : "planner-title-lg mt-2"} text-app-text`}>
+                  {routeConfidence.summary}
+                </p>
+                <p className={`planner-copy-sm text-app-muted ${isCompact ? "mt-0.5" : "mt-1"}`}>
+                  {routeConfidence.detail}
+                </p>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-app-border/70 pt-4">
+          <div
+            className={`flex flex-wrap items-center justify-between gap-3 border-t border-app-border/70 ${
+              isCompact ? "pt-3" : "pt-4"
+            }`}
+          >
             <div>
               <p className="planner-copy-sm font-medium text-app-text">
                 Estimated road distance {totalDistanceKm.toFixed(1)} km.
@@ -195,9 +229,9 @@ export default function TravelInsightsPanel({
           </div>
 
           {shouldShowDetails ? (
-            <div className="space-y-4">
+            <div className={isCompact ? "space-y-3" : "space-y-4"}>
               {groupedEstimates.map((group) => (
-                <div key={group.date} className="space-y-2">
+                <div key={group.date} className={isCompact ? "space-y-1.5" : "space-y-2"}>
                   <div className="flex items-center justify-between">
                     <h4 className="planner-title-sm text-app-text">{formatDateOnly(group.date)}</h4>
                     <span className="planner-meta text-app-muted">
@@ -205,11 +239,13 @@ export default function TravelInsightsPanel({
                     </span>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className={isCompact ? "space-y-1.5" : "space-y-2"}>
                     {group.estimates.map((estimate) => (
                       <article
                         key={estimate.id}
-                        className="rounded-[18px] border border-app-border bg-app-surface px-3.5 py-3.5"
+                        className={`rounded-[18px] border border-app-border bg-app-surface ${
+                          isCompact ? "px-3 py-3" : "px-3.5 py-3.5"
+                        }`}
                       >
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                           <div>
@@ -229,7 +265,11 @@ export default function TravelInsightsPanel({
                           </span>
                         </div>
 
-                        <div className="planner-copy mt-3 grid gap-2 text-app-text sm:grid-cols-3">
+                        <div
+                          className={`planner-copy grid gap-2 text-app-text sm:grid-cols-3 ${
+                            isCompact ? "mt-2.5" : "mt-3"
+                          }`}
+                        >
                           <div>
                             <p className="planner-eyebrow text-app-muted">Distance</p>
                             <p className="mt-1">{estimate.distanceKm.toFixed(1)} km</p>
