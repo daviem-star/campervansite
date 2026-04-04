@@ -211,6 +211,48 @@ describe("tripDerived", () => {
     });
   });
 
+  it("matches road estimates by travel context id when relatedStopId is missing", () => {
+    const trip = buildTrip();
+    const mapData = getMapData(trip, [
+      {
+        id: "road-home-stay-1",
+        fromId: "home",
+        fromLabel: "Home",
+        toId: "stay-1",
+        toLabel: "Camp one",
+        kind: "road",
+        distanceKm: 42,
+        durationMinutes: 50,
+        bufferedDurationMinutes: 68,
+        provider: "openrouteservice_driving_car",
+        fetchedAt: new Date().toISOString(),
+        confidence: "live",
+        date: "2026-04-03",
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            { lat: 56, lng: -4 },
+            { lat: 56.12, lng: -4.03 },
+            { lat: 56.2, lng: -4.1 },
+          ],
+        },
+      },
+    ]);
+
+    expect(mapData.segments.find((segment) => segment.id === "road-stay-1")).toMatchObject({
+      routeStatus: "live",
+      routeConfidence: "live",
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          { lat: 56, lng: -4 },
+          { lat: 56.12, lng: -4.03 },
+          { lat: 56.2, lng: -4.1 },
+        ],
+      },
+    });
+  });
+
   it("builds a stable travel-leg signature from ordered route requests", () => {
     const trip = buildTrip();
     const requests = buildTravelEstimateRequests(trip);

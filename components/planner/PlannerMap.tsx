@@ -8,6 +8,20 @@ import { formatDateOnly, formatDateTime } from "@/lib/date";
 import { findStopById } from "@/lib/tripDerived";
 import { MapMarker, MapSegment, SelectedEntity, StopType, Trip } from "@/types/trip";
 
+declare global {
+  interface Window {
+    __plannerMapRegistry?: Record<
+      string,
+      Array<{
+        getClientPointForEntity: (
+          entity: Exclude<SelectedEntity, null>,
+        ) => { x: number; y: number } | null;
+        selectEntity: (entity: Exclude<SelectedEntity, null>) => void;
+      }>
+    >;
+  }
+}
+
 const DEFAULT_MAP_TILE_URL_TEMPLATE = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const DEFAULT_MAP_TILE_ATTRIBUTION = "&copy; OpenStreetMap contributors";
 const MAP_TILE_URL_TEMPLATE =
@@ -58,6 +72,7 @@ type PlannerMapProps = {
   onSelectEntity: (entity: Exclude<SelectedEntity, null>) => void;
   className?: string;
   isVisible?: boolean;
+  testRegistryKey?: string;
 };
 
 const routeChipToneClass = {
@@ -230,6 +245,7 @@ export default function PlannerMap({
   onSelectEntity,
   className,
   isVisible = true,
+  testRegistryKey,
 }: PlannerMapProps) {
   const mapCanvasRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -880,6 +896,58 @@ export default function PlannerMap({
     selectionOrigin,
     trip,
   ]);
+
+  useEffect(() => {
+    if (
+      !testRegistryKey ||
+      process.env.NEXT_PUBLIC_E2E_AUTH_BYPASS !== "1" ||
+      typeof window === "undefined"
+    ) {
+      return;
+    }
+
+    const registry = window.__plannerMapRegistry ?? {};
+    const entry = {
+      getClientPointForEntity: (entity: Exclude<SelectedEntity, null>) => {
+        const map = mapRef.current;
+        const center = getSelectionCenter(entity);
+
+        if (!map || !center) {
+          return null;
+        }
+
+        const point = map.project(center);
+        const rect = map.getCanvas().getBoundingClientRect();
+
+        return {
+          x: rect.left + point.x,
+          y: rect.top + point.y,
+        };
+      },
+      selectEntity: (entity: Exclude<SelectedEntity, null>) => {
+        onSelectEntityRef.current(entity);
+      },
+    };
+    registry[testRegistryKey] = [...(registry[testRegistryKey] ?? []), entry];
+    window.__plannerMapRegistry = registry;
+
+    return () => {
+      const entries = window.__plannerMapRegistry?.[testRegistryKey];
+      if (!entries) {
+        return;
+      }
+
+      const nextEntries = entries.filter((candidate) => candidate !== entry);
+      if (nextEntries.length === 0) {
+        if (window.__plannerMapRegistry) {
+          delete window.__plannerMapRegistry[testRegistryKey];
+        }
+        return;
+      }
+
+      window.__plannerMapRegistry![testRegistryKey] = nextEntries;
+    };
+  }, [getSelectionCenter, testRegistryKey]);
 
   const currentSelectionTitle = selectedTitle(trip, selectedEntity);
   const routeStatusChip = useMemo(() => {

@@ -942,20 +942,6 @@ export const getMapData = (
 } => {
   const markers: MapMarker[] = [markerForPlace("home", "home", trip.home, `Home: ${trip.home.label}`)];
   const segments: MapSegment[] = [];
-  const roadGeometryByStopId = new Map(
-    estimates.flatMap((estimate) => {
-      if (
-        estimate.kind !== "road" ||
-        !estimate.relatedStopId ||
-        !estimate.geometry ||
-        estimate.geometry.coordinates.length < 2
-      ) {
-        return [];
-      }
-
-      return [[estimate.relatedStopId, estimate.geometry] as const];
-    }),
-  );
   const roadEstimateByStopId = new Map(
     estimates.flatMap((estimate) => {
       if (estimate.kind !== "road" || !estimate.relatedStopId) {
@@ -965,6 +951,28 @@ export const getMapData = (
       return [[estimate.relatedStopId, estimate] as const];
     }),
   );
+  const roadEstimateById = new Map(
+    estimates.flatMap((estimate) => (estimate.kind === "road" ? [[estimate.id, estimate] as const] : [])),
+  );
+  const roadContextIdByStopId = new Map(
+    buildTravelLegContexts(trip).flatMap((context) => {
+      if (!context.relatedStopId) {
+        return [];
+      }
+
+      return [[context.relatedStopId, context.id] as const];
+    }),
+  );
+
+  const getRoadEstimateForStop = (stopId: string): TravelLegEstimate | undefined => {
+    const estimate = roadEstimateByStopId.get(stopId);
+    if (estimate) {
+      return estimate;
+    }
+
+    const contextId = roadContextIdByStopId.get(stopId);
+    return contextId ? roadEstimateById.get(contextId) : undefined;
+  };
 
   const getRoadSegmentRouteState = (
     stopId: string,
@@ -972,7 +980,7 @@ export const getMapData = (
     routeStatus: MapRoadRenderState;
     routeConfidence?: TravelLegEstimate["confidence"];
   } => {
-    const estimate = roadEstimateByStopId.get(stopId);
+    const estimate = getRoadEstimateForStop(stopId);
 
     if (!estimate) {
       return {
@@ -998,6 +1006,7 @@ export const getMapData = (
 
   orderedStops.forEach((stop) => {
     if (stop.type === "stay") {
+      const roadEstimate = getRoadEstimateForStop(stop.id);
       const roadState = getRoadSegmentRouteState(stop.id);
       markers.push({
         ...markerForPlace(stop.id, "stay", stop.place, stop.title),
@@ -1012,7 +1021,7 @@ export const getMapData = (
         stopId: stop.id,
         entityKind: "stay",
         geometry: anchorRouteGeometry(
-          roadGeometryByStopId.get(stop.id),
+          roadEstimate?.geometry,
           previous.coordinates,
           stop.place.coordinates,
         ),
@@ -1024,6 +1033,7 @@ export const getMapData = (
     }
 
     if (stop.type === "point_of_interest") {
+      const roadEstimate = getRoadEstimateForStop(stop.id);
       const roadState = getRoadSegmentRouteState(stop.id);
       markers.push({
         ...markerForPlace(stop.id, "poi", stop.place, stop.title),
@@ -1038,7 +1048,7 @@ export const getMapData = (
         stopId: stop.id,
         entityKind: "point_of_interest",
         geometry: anchorRouteGeometry(
-          roadGeometryByStopId.get(stop.id),
+          roadEstimate?.geometry,
           previous.coordinates,
           stop.place.coordinates,
         ),
@@ -1049,6 +1059,7 @@ export const getMapData = (
       return;
     }
 
+    const roadEstimate = getRoadEstimateForStop(stop.id);
     const roadState = getRoadSegmentRouteState(stop.id);
 
     markers.push(
@@ -1074,7 +1085,7 @@ export const getMapData = (
       stopId: stop.id,
       entityKind: "ferry",
       geometry: anchorRouteGeometry(
-        roadGeometryByStopId.get(stop.id),
+        roadEstimate?.geometry,
         previous.coordinates,
         stop.departurePort.coordinates,
       ),

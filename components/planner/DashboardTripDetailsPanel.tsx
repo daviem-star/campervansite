@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import TravelInsightsPanel from "@/components/planner/TravelInsightsPanel";
 import ValidationWarningsPanel from "@/components/planner/ValidationWarningsPanel";
 import { formatTripDateRange, getCostSummary } from "@/lib/tripDerived";
@@ -23,6 +25,7 @@ type DashboardTripDetailsPanelProps = {
   routeStatusMessage: string | null;
   isRefreshingRouteInsights: boolean;
   warnings: ValidationWarning[];
+  mapPreview?: ReactNode;
   onRefreshRouteInsights?: () => void;
   onOpenTrip?: () => void;
   onToggleTodayTrip?: () => void;
@@ -49,6 +52,7 @@ export default function DashboardTripDetailsPanel({
   routeStatusMessage,
   isRefreshingRouteInsights,
   warnings,
+  mapPreview,
   onRefreshRouteInsights,
   onOpenTrip,
   onToggleTodayTrip,
@@ -109,6 +113,7 @@ export default function DashboardTripDetailsPanel({
               {onOpenTrip ? (
                 <button
                   type="button"
+                  data-testid="dashboard-open-trip-button"
                   onClick={onOpenTrip}
                   disabled={isWorking && !isLoaded}
                   className={`${actionButtonClass} planner-button-primary`}
@@ -156,6 +161,8 @@ export default function DashboardTripDetailsPanel({
           ) : null}
         </div>
       </section>
+
+      {mapPreview}
 
       <TravelInsightsPanel
         estimates={routeEstimates}

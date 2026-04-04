@@ -79,13 +79,13 @@ For each issue, record:
 
 ### Mobile
 
-- [ ] Default tab is `Today`
-- [ ] Signed-in cloud mode exposes a standalone `Trips` control plus grouped `Overview`, `Itinerary`, `Today`, and `Map` tabs
+- [ ] Default screen is `Dashboard`
+- [ ] Signed-in cloud mode exposes the dashboard-first flow with nested `Overview` and `Itinerary`, plus full-screen map launchers instead of a dedicated `Map` tab
 - [ ] Demo mode or missing cloud config hides `Trips`
 - [ ] Tab switching preserves selection/highlights (`Trips` / `Overview` / `Itinerary` / `Today`)
 - [ ] The tab row remains horizontally usable without crushing labels
 - [ ] Top-left account/status icon opens cleanly and exposes auth/sync controls
-- [ ] Itinerary tab keeps fixed controls with the inline map above the scrollable itinerary list
+- [ ] `Dashboard`, `Overview`, and `Itinerary` each expose a working `View map` launcher on mobile
 - [ ] `Overview` is trip-only and does not contain account or sync controls
 - [ ] Day chip selection scrolls to the correct itinerary section
 - [ ] Map interactions select and highlight itinerary items
@@ -101,7 +101,7 @@ For each issue, record:
 
 ### Desktop
 
-- [ ] Authenticated desktop defaults to the `Itinerary` panel with the map visible inside that panel
+- [ ] Authenticated desktop defaults to `Dashboard`, with a visible trip map preview before opening a trip
 - [ ] Signed-in cloud mode shows the top-left account/status control, a separate `Trips` selector, and `Overview`, `Itinerary`, and `Today` in the left rail
 - [ ] Demo mode hides `Trips` while keeping the rest of the planner usable
 - [x] Left rail switches cleanly between `Trips`, `Overview`, `Itinerary`, and `Today` when the trip library is available

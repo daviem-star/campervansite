@@ -23,7 +23,7 @@ The current shell now presents that through a dashboard-first nested workflow ra
 - Desktop and mobile both default to `Dashboard`.
 - The left rail is app-level only and currently keeps a single planner destination:
   - `Dashboard`
-- `Dashboard` owns the trip library plus a side-by-side trip detail preview.
+- `Dashboard` owns the trip library plus a side-by-side trip detail and map preview.
 - Opening a trip creates a nested in-app flow:
   - `Dashboard`
   - `Trip Overview`
@@ -46,12 +46,14 @@ The current shell now presents that through a dashboard-first nested workflow ra
   - import local trips
 - `Trip Overview`
   - compact trip summary
+  - read-only trip map preview with linked stop selection
   - severity-grouped warnings with healthy-state collapse
   - summary-first travel insights with expandable route details
 - `Itinerary`
   - day strip
   - edit lock
   - stop create/edit/delete
+  - linked desktop/tablet map plus mobile full-screen map launcher
 - `Today`
   - selected trip travel-day actions from the status control
 - Account/status popup

@@ -10,6 +10,8 @@ import ItineraryInspector from "@/components/planner/ItineraryInspector";
 import PlannerAuthGate from "@/components/planner/PlannerAuthGate";
 import PlannerBrandBadge from "@/components/planner/PlannerBrandBadge";
 import PlannerMap from "@/components/planner/PlannerMap";
+import PlannerMobileMapOverlay from "@/components/planner/PlannerMobileMapOverlay";
+import TripMapPreviewPanel from "@/components/planner/TripMapPreviewPanel";
 import { plannerNoticeToneClass } from "@/components/planner/plannerTheme";
 import StopEditorModal from "@/components/planner/StopEditorModal";
 import StopTimeline from "@/components/planner/StopTimeline";
@@ -63,6 +65,7 @@ import {
   reorderStopsById,
   ensureStopOrder,
 } from "@/lib/tripDerived";
+import { getPlannerMapRouteSummary, type PlannerMapRouteSummary } from "@/lib/plannerMap";
 import { useTripStore } from "@/store/useTripStore";
 import {
   NewTripStop,
@@ -86,19 +89,13 @@ type EditorState = {
 };
 
 type SelectionOrigin = "itinerary" | "map" | "system";
+type MobileMapOverlayContext = "overview" | "dashboard" | "itinerary";
 type RouteInsightsState = "fresh" | "stale" | "unavailable";
 type RoutePanelState = {
   estimates: TravelLegEstimate[];
   isRefreshing: boolean;
   status: RouteInsightsState;
   statusMessage: string | null;
-};
-type MapRouteSummary = {
-  totalRoadLegs: number;
-  pendingRoadLegs: number;
-  liveRoadLegs: number;
-  fallbackRoadLegs: number;
-  isRefreshing: boolean;
 };
 
 const defaultEditorState: EditorState = {
@@ -249,6 +246,10 @@ export default function PlannerApp() {
   const [isUpdatingTodayTripId, setIsUpdatingTodayTripId] = useState<string | null>(null);
   const [draftTrip, setDraftTrip] = useState<Trip | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [dashboardSelectedEntity, setDashboardSelectedEntity] = useState<SelectedEntity>(null);
+  const [dashboardSelectionOrigin, setDashboardSelectionOrigin] =
+    useState<SelectionOrigin>("system");
+  const [mobileMapOverlay, setMobileMapOverlay] = useState<MobileMapOverlayContext | null>(null);
   const [saveFeedback, setSaveFeedback] = useState<{
     tone: PlannerNoticeTone;
     text: string;
@@ -677,7 +678,7 @@ export default function PlannerApp() {
     [displayTrip, loadedRoutePanel.estimates],
   );
 
-  const mapData = useMemo(
+  const loadedMapData = useMemo(
     () =>
       displayTrip
         ? getMapData(displayTrip, loadedRoutePanel.estimates)
@@ -713,6 +714,13 @@ export default function PlannerApp() {
   const dashboardValidationWarnings = isCloudTripLibraryAvailable
     ? previewValidationWarnings
     : loadedValidationWarnings;
+  const dashboardMapData = useMemo(
+    () =>
+      dashboardTrip
+        ? getMapData(dashboardTrip, dashboardRoutePanel.estimates)
+        : { markers: [], segments: [] },
+    [dashboardRoutePanel.estimates, dashboardTrip],
+  );
   const dashboardTripSummary = useMemo(
     () =>
       dashboardTrip
@@ -729,20 +737,26 @@ export default function PlannerApp() {
       ? selectedEntity
       : null;
   }, [displayTrip, selectedEntity]);
+  const effectiveDashboardSelectedEntity = useMemo<SelectedEntity>(() => {
+    if (!dashboardTrip || !dashboardSelectedEntity) {
+      return null;
+    }
+
+    return dashboardTrip.stops.some((stop) => stop.id === dashboardSelectedEntity.stopId)
+      ? dashboardSelectedEntity
+      : null;
+  }, [dashboardSelectedEntity, dashboardTrip]);
   const inlineNotice = notice?.surface === "inline" ? notice : null;
   const accountNotice = notice?.surface === "account" ? notice : null;
   const authNotice = notice?.surface === "auth" ? notice : null;
-  const routeMapSummary = useMemo<MapRouteSummary>(() => {
-    const roadSegments = mapData.segments.filter((segment) => segment.type === "road");
-
-    return {
-      totalRoadLegs: roadSegments.length,
-      pendingRoadLegs: roadSegments.filter((segment) => segment.routeStatus === "pending").length,
-      liveRoadLegs: roadSegments.filter((segment) => segment.routeStatus === "live").length,
-      fallbackRoadLegs: roadSegments.filter((segment) => segment.routeStatus === "fallback").length,
-      isRefreshing: loadedRoutePanel.isRefreshing,
-    };
-  }, [loadedRoutePanel.isRefreshing, mapData.segments]);
+  const loadedRouteMapSummary = useMemo<PlannerMapRouteSummary>(
+    () => getPlannerMapRouteSummary(loadedMapData.segments, loadedRoutePanel.isRefreshing),
+    [loadedMapData.segments, loadedRoutePanel.isRefreshing],
+  );
+  const dashboardRouteMapSummary = useMemo<PlannerMapRouteSummary>(
+    () => getPlannerMapRouteSummary(dashboardMapData.segments, dashboardRoutePanel.isRefreshing),
+    [dashboardMapData.segments, dashboardRoutePanel.isRefreshing],
+  );
 
   const canEditTrip = plannerInteractionMode === "edit" && !isOfflineReadOnly;
   const currentItineraryDay = useMemo(
@@ -755,6 +769,17 @@ export default function PlannerApp() {
         ? getSelectedEntityDetails(displayTrip, effectiveSelectedEntity, loadedRoutePanel.estimates)
         : null,
     [displayTrip, effectiveSelectedEntity, loadedRoutePanel.estimates],
+  );
+  const dashboardSelectedEntityDetails = useMemo(
+    () =>
+      dashboardTrip
+        ? getSelectedEntityDetails(
+            dashboardTrip,
+            effectiveDashboardSelectedEntity,
+            dashboardRoutePanel.estimates,
+          )
+        : null,
+    [dashboardRoutePanel.estimates, dashboardTrip, effectiveDashboardSelectedEntity],
   );
   const isTripLibraryBusy = isLoading || isManagingTrips || syncStatus === "saving";
   const shellTitle =
@@ -782,6 +807,26 @@ export default function PlannerApp() {
 
     return JSON.stringify(draftTrip) !== JSON.stringify(loadedTrip);
   }, [draftTrip, loadedTrip, plannerInteractionMode]);
+
+  useEffect(() => {
+    setDashboardSelectedEntity(null);
+    setDashboardSelectionOrigin("system");
+  }, [dashboardTrip?.id]);
+
+  useEffect(() => {
+    if (!mobileMapOverlay) {
+      return;
+    }
+
+    if (mobileMapOverlay === "dashboard" && !dashboardTrip) {
+      setMobileMapOverlay(null);
+      return;
+    }
+
+    if (mobileMapOverlay !== "dashboard" && !displayTrip) {
+      setMobileMapOverlay(null);
+    }
+  }, [dashboardTrip, displayTrip, mobileMapOverlay]);
 
   const confirmDiscardDraftChanges = (actionLabel: string) => {
     if (!hasDraftChanges) {
@@ -974,6 +1019,15 @@ export default function PlannerApp() {
 
   const onSelectEntityFromMap = (entity: Exclude<SelectedEntity, null>) => {
     selectEntity(entity, "map");
+  };
+
+  const onSelectEntityFromDashboardMap = (entity: Exclude<SelectedEntity, null>) => {
+    setDashboardSelectionOrigin("map");
+    setDashboardSelectedEntity(entity);
+  };
+
+  const openMobileMapOverlay = (context: MobileMapOverlayContext) => {
+    setMobileMapOverlay(context);
   };
 
   const handlePreviewTrip = async (tripId: string) => {
@@ -1246,7 +1300,11 @@ export default function PlannerApp() {
                 <button
                   key={item.screen}
                   type="button"
-                  data-testid={`trip-workspace-tab-${item.screen}`}
+                  data-testid={
+                    item.screen === "trip-overview"
+                      ? "desktop-panel-overview"
+                      : "desktop-panel-itinerary"
+                  }
                   onClick={() => switchTripScreen(item.screen)}
                   className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
                     currentScreenEntry.screen === item.screen
@@ -1280,6 +1338,25 @@ export default function PlannerApp() {
           routeConfidenceLabel={loadedRouteConfidence.summary}
         />
       ) : null}
+
+      <TripMapPreviewPanel
+        trip={displayTrip}
+        markers={loadedMapData.markers}
+        segments={loadedMapData.segments}
+        routeSummary={loadedRouteMapSummary}
+        selectedEntity={effectiveSelectedEntity}
+        selectionOrigin={selectionOrigin}
+        selectedDetails={selectedEntityDetails}
+        onSelectEntity={onSelectEntityFromMap}
+        onOpenMobileMap={() => openMobileMapOverlay("overview")}
+        title="Map"
+        description="Preview the full route here, then carry the same selection into the itinerary workspace."
+        mobileCtaLabel="View map"
+        mobileCtaDescription="Open the current trip route in a dedicated full-screen map view."
+        panelTestId="overview-trip-map-panel"
+        mobileButtonTestId="overview-mobile-map-button"
+        selectionSummaryTestId="overview-map-selection-summary"
+      />
 
       <ValidationWarningsPanel
         key={`overview-warnings-${displayTrip?.id ?? "none"}`}
@@ -1356,6 +1433,27 @@ export default function PlannerApp() {
             routeStatusMessage={dashboardRoutePanel.statusMessage}
             isRefreshingRouteInsights={dashboardRoutePanel.isRefreshing}
             warnings={dashboardValidationWarnings}
+            mapPreview={
+              <TripMapPreviewPanel
+                trip={dashboardTrip}
+                markers={dashboardMapData.markers}
+                segments={dashboardMapData.segments}
+                routeSummary={dashboardRouteMapSummary}
+                selectedEntity={effectiveDashboardSelectedEntity}
+                selectionOrigin={dashboardSelectionOrigin}
+                selectedDetails={dashboardSelectedEntityDetails}
+                onSelectEntity={onSelectEntityFromDashboardMap}
+                onOpenMobileMap={() => openMobileMapOverlay("dashboard")}
+                title="Map"
+                description="Preview the route before opening the trip, with stop details tied to the current map selection."
+                emptyMessage="Select a trip from the library to preview its map."
+                mobileCtaLabel="View map"
+                mobileCtaDescription="Open the previewed route in a dedicated full-screen map view."
+                panelTestId="dashboard-trip-map-panel"
+                mobileButtonTestId="dashboard-mobile-map-button"
+                selectionSummaryTestId="dashboard-map-selection-summary"
+              />
+            }
             onRefreshRouteInsights={
               dashboardTrip
                 ? isCloudTripLibraryAvailable
@@ -1579,7 +1677,7 @@ export default function PlannerApp() {
                 selectedDay={currentItineraryDay}
                 selectedDetails={selectedEntityDetails}
                 routeConfidence={loadedRouteConfidence}
-                routeSummary={routeMapSummary}
+                routeSummary={loadedRouteMapSummary}
                 routeStatus={loadedRoutePanel.status}
                 routeStatusMessage={loadedRoutePanel.statusMessage}
                 onRefreshRoute={() => void syncLoadedRoutePanel(true)}
@@ -1595,8 +1693,29 @@ export default function PlannerApp() {
                       Timeline selections stay linked to the current route view.
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    data-testid="itinerary-mobile-map-button"
+                    onClick={() => openMobileMapOverlay("itinerary")}
+                    className="planner-button-secondary rounded-full border px-3 py-1.5 text-xs font-semibold md:hidden"
+                  >
+                    View map
+                  </button>
                 </div>
-                <div className="h-[280px] overflow-hidden rounded-[20px] border border-app-border bg-app-surface lg:h-[340px]">
+                <div className="rounded-[20px] border border-app-border bg-app-surface-muted/45 px-4 py-4 md:hidden">
+                  <p className="planner-copy text-app-text">
+                    Open the route in a dedicated full-screen map view without pushing the
+                    inspector further down the page.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => openMobileMapOverlay("itinerary")}
+                    className="planner-button-secondary mt-4 rounded-full border px-4 py-2 text-sm font-semibold"
+                  >
+                    View map
+                  </button>
+                </div>
+                <div className="hidden h-[280px] overflow-hidden rounded-[20px] border border-app-border bg-app-surface md:block lg:h-[340px]">
                   {renderPlannerMap()}
                 </div>
               </section>
@@ -1610,9 +1729,9 @@ export default function PlannerApp() {
   const renderPlannerMap = () => (
     <PlannerMap
       trip={displayTrip!}
-      markers={mapData.markers}
-      segments={mapData.segments}
-      routeSummary={routeMapSummary}
+      markers={loadedMapData.markers}
+      segments={loadedMapData.segments}
+      routeSummary={loadedRouteMapSummary}
       selectedEntity={effectiveSelectedEntity}
       selectionOrigin={selectionOrigin}
       onSelectEntity={onSelectEntityFromMap}
@@ -1620,6 +1739,56 @@ export default function PlannerApp() {
       className="h-full w-full rounded-[18px] border border-app-border bg-app-surface"
     />
   );
+
+  const renderMobileMapOverlay = () => {
+    if (!mobileMapOverlay) {
+      return null;
+    }
+
+    if (mobileMapOverlay === "dashboard") {
+      if (!dashboardTrip) {
+        return null;
+      }
+
+      return (
+        <PlannerMobileMapOverlay
+          trip={dashboardTrip}
+          markers={dashboardMapData.markers}
+          segments={dashboardMapData.segments}
+          routeSummary={dashboardRouteMapSummary}
+          selectedEntity={effectiveDashboardSelectedEntity}
+          selectionOrigin={dashboardSelectionOrigin}
+          selectedDetails={dashboardSelectedEntityDetails}
+          contextLabel="Previewing the current dashboard route."
+          onSelectEntity={onSelectEntityFromDashboardMap}
+          onClose={() => setMobileMapOverlay(null)}
+        />
+      );
+    }
+
+    if (!displayTrip) {
+      return null;
+    }
+
+    return (
+      <PlannerMobileMapOverlay
+        trip={displayTrip}
+        markers={loadedMapData.markers}
+        segments={loadedMapData.segments}
+        routeSummary={loadedRouteMapSummary}
+        selectedEntity={effectiveSelectedEntity}
+        selectionOrigin={selectionOrigin}
+        selectedDetails={selectedEntityDetails}
+        contextLabel={
+          mobileMapOverlay === "overview"
+            ? "Reviewing the current trip route from Overview."
+            : "Reviewing the itinerary-linked map."
+        }
+        onSelectEntity={onSelectEntityFromMap}
+        onClose={() => setMobileMapOverlay(null)}
+      />
+    );
+  };
 
   const renderCurrentScreen = () => {
     if (currentScreenEntry.screen === "trip-itinerary" && loadedTrip) {
@@ -1815,6 +1984,8 @@ export default function PlannerApp() {
           onResetSeedAlignedToToday={resetToSeedAlignedToToday}
         />
       </div>
+
+      {renderMobileMapOverlay()}
 
       <StopEditorModal
         isOpen={editor.isOpen}
