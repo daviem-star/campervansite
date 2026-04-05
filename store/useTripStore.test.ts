@@ -1,13 +1,60 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { shouldReinitializeFromAuthEvent, withPerUserLock } from "@/store/useTripStore";
+import {
+  resolveAuthStateChangeAction,
+  withPerUserLock,
+} from "@/store/useTripStore";
 
 describe("useTripStore auth bootstrap guards", () => {
-  it("only reinitializes for real sign-in state changes", () => {
-    expect(shouldReinitializeFromAuthEvent("SIGNED_IN")).toBe(true);
-    expect(shouldReinitializeFromAuthEvent("SIGNED_OUT")).toBe(true);
-    expect(shouldReinitializeFromAuthEvent("INITIAL_SESSION")).toBe(false);
-    expect(shouldReinitializeFromAuthEvent("TOKEN_REFRESHED")).toBe(false);
+  it("refreshes in place for a same-user sign-in event", () => {
+    expect(
+      resolveAuthStateChangeAction({
+        event: "SIGNED_IN",
+        currentUserId: "user-1",
+        sessionUserId: "user-1",
+      }),
+    ).toBe("refresh_signed_in");
+  });
+
+  it("reinitializes when a sign-in event changes users or no user is loaded", () => {
+    expect(
+      resolveAuthStateChangeAction({
+        event: "SIGNED_IN",
+        currentUserId: null,
+        sessionUserId: "user-1",
+      }),
+    ).toBe("initialize");
+    expect(
+      resolveAuthStateChangeAction({
+        event: "SIGNED_IN",
+        currentUserId: "user-1",
+        sessionUserId: "user-2",
+      }),
+    ).toBe("initialize");
+  });
+
+  it("ignores non-sign-in auth churn and reinitializes on sign-out", () => {
+    expect(
+      resolveAuthStateChangeAction({
+        event: "SIGNED_OUT",
+        currentUserId: "user-1",
+        sessionUserId: null,
+      }),
+    ).toBe("initialize");
+    expect(
+      resolveAuthStateChangeAction({
+        event: "INITIAL_SESSION",
+        currentUserId: "user-1",
+        sessionUserId: "user-1",
+      }),
+    ).toBe("ignore");
+    expect(
+      resolveAuthStateChangeAction({
+        event: "TOKEN_REFRESHED",
+        currentUserId: "user-1",
+        sessionUserId: "user-1",
+      }),
+    ).toBe("ignore");
   });
 
   it("reuses the same in-flight starter bootstrap for a user", async () => {

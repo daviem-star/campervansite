@@ -7,6 +7,7 @@ import {
   primeSignedInSession,
   primeSignedOutState,
   seedCloudTrips,
+  triggerSameUserSignedInAuthEvent,
 } from "./helpers";
 
 const mockHomeSearch = async (
@@ -396,6 +397,34 @@ test("loads a signed-in cloud trip and saves an edit", async ({ page }) => {
 
   await expect(itineraryScrollRegion(page).getByText(/Barra Sands Campsite Updated/i).first()).toBeVisible();
   await expectAccountNotice(page, /Cloud trip saved successfully/i);
+});
+
+test("keeps unsaved stop edits open during a passive same-user auth refresh", async ({
+  page,
+}) => {
+  const user = createTestUser("passive-refresh");
+  await primeSignedInSession(page, user);
+  await seedCloudTrips(page, user, getLegacySeedData());
+
+  await page.goto("/");
+  await openPreviewedTrip(page);
+  await itineraryTab(page).click();
+  await enterEditMode(page);
+
+  await page.getByRole("button", { name: /^Edit$/ }).first().dispatchEvent("click");
+  await expect(page.getByRole("heading", { name: /Edit stop/i })).toBeVisible();
+
+  const notesField = page.locator("textarea").first();
+
+  await page.getByPlaceholder("Stop title").fill("Unsaved Barra Draft");
+  await notesField.fill("Keep these unsaved notes around.");
+
+  await triggerSameUserSignedInAuthEvent(page);
+
+  await expect(modeToggle(page)).toContainText(/Editing draft/i);
+  await expect(page.getByRole("heading", { name: /Edit stop/i })).toBeVisible();
+  await expect(page.getByPlaceholder("Stop title")).toHaveValue("Unsaved Barra Draft");
+  await expect(notesField).toHaveValue("Keep these unsaved notes around.");
 });
 
 test("switches between view mode and edit mode without changing trip data", async ({ page }) => {

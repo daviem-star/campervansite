@@ -158,3 +158,28 @@ export const primeStaleRouteEstimateCache = async (page: Page) => {
     },
   );
 };
+
+export const triggerSameUserSignedInAuthEvent = async (page: Page) => {
+  await page.waitForFunction(
+    () =>
+      Boolean(
+        (
+          window as Window & {
+            __plannerTestHooks__?: {
+              emitSameUserSignedInAuthEvent?: () => Promise<void>;
+            };
+          }
+        ).__plannerTestHooks__?.emitSameUserSignedInAuthEvent,
+      ),
+  );
+
+  await page.evaluate(async () => {
+    await (
+      window as Window & {
+        __plannerTestHooks__?: {
+          emitSameUserSignedInAuthEvent?: () => Promise<void>;
+        };
+      }
+    ).__plannerTestHooks__?.emitSameUserSignedInAuthEvent?.();
+  });
+};

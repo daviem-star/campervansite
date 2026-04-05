@@ -142,8 +142,30 @@ const describeTodayTripPreferenceError = (error: unknown): string => {
   return error.message;
 };
 
-export const shouldReinitializeFromAuthEvent = (event: string): boolean => {
-  return event === "SIGNED_IN" || event === "SIGNED_OUT";
+export type AuthStateChangeAction = "ignore" | "initialize" | "refresh_signed_in";
+
+export const resolveAuthStateChangeAction = (params: {
+  event: string;
+  currentUserId: string | null;
+  sessionUserId: string | null;
+}): AuthStateChangeAction => {
+  if (params.event === "SIGNED_OUT") {
+    return "initialize";
+  }
+
+  if (params.event !== "SIGNED_IN") {
+    return "ignore";
+  }
+
+  if (
+    !params.currentUserId ||
+    !params.sessionUserId ||
+    params.currentUserId !== params.sessionUserId
+  ) {
+    return "initialize";
+  }
+
+  return "refresh_signed_in";
 };
 
 export const withPerUserLock = async <T>(
@@ -247,6 +269,15 @@ type PlannerMode = "demo" | "cloud";
 type FirstTripSetup = "none" | "choose_source";
 type PlannerInteractionMode = "view" | "edit";
 
+declare global {
+  interface Window {
+    __plannerTestHooks__?: {
+      emitSameUserSignedInAuthEvent: () => Promise<void>;
+      refreshSignedInSession: () => Promise<void>;
+    };
+  }
+}
+
 type TripStoreState = {
   data: AppData | null;
   tripSummaries: TripSummary[];
@@ -264,6 +295,7 @@ type TripStoreState = {
   firstTripSetup: FirstTripSetup;
   plannerInteractionMode: PlannerInteractionMode;
   initialize: () => Promise<void>;
+  refreshSignedInSession: () => Promise<void>;
   loadData: () => Promise<void>;
   signInWithMagicLink: (email: string) => Promise<void>;
   signInAsTestUser: () => Promise<void>;
@@ -290,6 +322,146 @@ type TripStoreState = {
   reorderStops: (activeId: string, overId: string) => Promise<void>;
 };
 
+const shouldApplySignedInRefresh = (
+  get: () => TripStoreState,
+  userId: string,
+): boolean => {
+  const state = get();
+  return state.authStatus === "signed_in" && state.user?.id === userId;
+};
+
+const mergeRefreshedTripCache = (
+  state: TripStoreState,
+  refreshedCache: Record<string, Trip>,
+): Record<string, Trip> => {
+  const nextCache = {
+    ...state.tripCache,
+    ...refreshedCache,
+  };
+  const activeTrip = state.data ? getActiveTrip(state.data) : null;
+  if (activeTrip) {
+    nextCache[activeTrip.id] = activeTrip;
+  }
+
+  return nextCache;
+};
+
+const refreshSignedInSessionState = async (
+  set: (partial: Partial<TripStoreState>) => void,
+  get: () => TripStoreState,
+  user: SessionUser,
+) => {
+  if (!shouldApplySignedInRefresh(get, user.id)) {
+    return;
+  }
+
+  const cloudRepository = getCloudRepository();
+
+  try {
+    const summaries = await cloudRepository.listTrips();
+    if (!shouldApplySignedInRefresh(get, user.id)) {
+      return;
+    }
+
+    let todayTripState: {
+      todayTripId: string | null;
+      tripCache: Record<string, Trip>;
+    } = {
+      todayTripId: null,
+      tripCache: {},
+    };
+
+    try {
+      todayTripState = await loadTodayTripSelection(user, summaries, cloudRepository);
+    } catch {
+      setCachedTodayTripId(user.id, null);
+    }
+
+    if (!shouldApplySignedInRefresh(get, user.id)) {
+      return;
+    }
+
+    const state = get();
+    set({
+      authStatus: "signed_in",
+      user,
+      tripSummaries: sortTripSummaries(summaries),
+      tripCache: mergeRefreshedTripCache(state, todayTripState.tripCache),
+      todayTripId: todayTripState.todayTripId,
+      isLoading: false,
+      error: null,
+      notice: state.notice?.surface === "inline" ? null : state.notice,
+      mode: "cloud",
+      syncStatus: summaries.length > 0 || state.data ? "saved" : "idle",
+      isOfflineReadOnly: false,
+      hasLegacyImport: hasLegacyLocalTripData(),
+      firstTripSetup: state.firstTripSetup,
+    });
+  } catch (error) {
+    if (!shouldApplySignedInRefresh(get, user.id)) {
+      return;
+    }
+
+    const state = get();
+    set({
+      authStatus: "signed_in",
+      user,
+      isLoading: false,
+      error:
+        state.data || state.tripSummaries.length > 0
+          ? "Unable to refresh cloud sync right now. Keeping your current trip loaded."
+          : error instanceof Error
+            ? error.message
+            : "Unable to refresh cloud trip data.",
+      notice: createNotice(
+        state.data || state.tripSummaries.length > 0
+          ? "Your current trip stays open while sync recovers."
+          : "Reconnect or reload to continue setting up your trip.",
+        "inline",
+        "warning",
+      ),
+      syncStatus: state.syncStatus === "offline" ? "offline" : "error",
+      isOfflineReadOnly: state.isOfflineReadOnly,
+      hasLegacyImport: hasLegacyLocalTripData(),
+      firstTripSetup: state.firstTripSetup,
+    });
+  }
+};
+
+const registerPlannerTestHooks = (
+  set: (partial: Partial<TripStoreState>) => void,
+  get: () => TripStoreState,
+) => {
+  if (typeof window === "undefined" || process.env.NODE_ENV === "production") {
+    return;
+  }
+
+  window.__plannerTestHooks__ = {
+    emitSameUserSignedInAuthEvent: async () => {
+      const client = getSupabaseClient();
+      if (!client) {
+        throw new Error("Supabase client is not configured.");
+      }
+
+      const { data } = await client.auth.getSession();
+      const session = data.session;
+      if (!session?.user || typeof session.access_token !== "string") {
+        throw new Error("No browser session is available.");
+      }
+
+      emitBrowserE2ESignIn(session.user, session.access_token);
+    },
+    refreshSignedInSession: async () => {
+      const state = get();
+      if (!state.user) {
+        throw new Error("No signed-in user is available.");
+      }
+
+      await refreshSignedInSessionState(set, get, state.user);
+    },
+  };
+};
+
 const bindAuthListener = (
   set: (partial: Partial<TripStoreState>) => void,
   get: () => TripStoreState,
@@ -305,11 +477,23 @@ const bindAuthListener = (
 
   authListenerBound = true;
   client.auth.onAuthStateChange((event, session) => {
-    if (!shouldReinitializeFromAuthEvent(event)) {
+    const action = resolveAuthStateChangeAction({
+      event,
+      currentUserId: get().user?.id ?? null,
+      sessionUserId: session?.user?.id ?? null,
+    });
+
+    if (action === "ignore") {
       return;
     }
 
     set({ authStatus: session?.user ? "signed_in" : "signed_out" });
+
+    if (action === "refresh_signed_in" && session?.user) {
+      void refreshSignedInSessionState(set, get, mapUser(session.user));
+      return;
+    }
+
     void get().initialize();
   });
 };
@@ -334,8 +518,9 @@ const bindConnectivityListeners = (
   });
 
   window.addEventListener("online", () => {
-    if (get().authStatus === "signed_in") {
-      void get().initialize();
+    const state = get();
+    if (state.authStatus === "signed_in" && state.user) {
+      void refreshSignedInSessionState(set, get, state.user);
     }
   });
 };
@@ -711,6 +896,8 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
   plannerInteractionMode: "view",
 
   initialize: async () => {
+    registerPlannerTestHooks(set, get);
+
     set({
       isLoading: true,
       error: null,
@@ -759,6 +946,15 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
     }
 
     await loadSignedInMode(set, get, sessionUser);
+  },
+
+  refreshSignedInSession: async () => {
+    const state = get();
+    if (state.authStatus !== "signed_in" || !state.user) {
+      return;
+    }
+
+    await refreshSignedInSessionState(set, get, state.user);
   },
 
   loadData: async () => {
