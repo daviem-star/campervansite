@@ -24,7 +24,34 @@ const waitForVisible = async (locator, timeout = 30000) => {
 };
 
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const modeToggle = (page) => page.getByTestId("planner-mode-toggle");
+const visibleByTestId = (page, testId) =>
+  page.locator(`[data-testid="${testId}"]:visible`).first();
+const modeToggle = (page) => visibleByTestId(page, "planner-mode-toggle");
+const itineraryTab = (page) => visibleByTestId(page, "desktop-panel-itinerary");
+const overviewTab = (page) => visibleByTestId(page, "desktop-panel-overview");
+const dashboardTab = (page) => visibleByTestId(page, "desktop-panel-dashboard");
+const overviewRouteInsightsPanel = (page) => visibleByTestId(page, "overview-route-insights-panel");
+const tripsScrollRegion = (page) => visibleByTestId(page, "trips-scroll-region");
+const cancelEditButton = (page) => visibleByTestId(page, "planner-mode-cancel");
+const saveDraftButton = (page) => visibleByTestId(page, "planner-mode-save");
+const addStayButton = (page) => visibleByTestId(page, "planner-add-stay");
+const overviewScrollRegion = (page) => visibleByTestId(page, "overview-scroll-region");
+const visibleButtonByText = (page, text) =>
+  page.locator("button:visible").filter({ hasText: text }).first();
+
+const refreshRoutes = async (page) => {
+  await page.getByRole("button", { name: /^Refresh$/ }).first().click();
+};
+
+const expandOverviewRouteDetails = async (page) => {
+  const button = overviewRouteInsightsPanel(page)
+    .getByRole("button", { name: /Show route details/i })
+    .first();
+
+  if (await button.isVisible().catch(() => false)) {
+    await button.click();
+  }
+};
 
 const waitForAccountNotice = async (page, pattern, timeout = 30000) => {
   await page.getByRole("button", { name: /Open account and sync/i }).click();
@@ -74,15 +101,62 @@ const gotoPreview = async (page, shareUrl, baseUrl) => {
 const ensureEditMode = async (page) => {
   const toggle = modeToggle(page);
   if (!(await toggle.isVisible().catch(() => false))) {
-    await page.getByTestId("desktop-panel-itinerary").click();
+    await itineraryTab(page).click();
   }
   await waitForVisible(toggle);
-  if ((await toggle.textContent())?.match(/Edit mode/i)) {
-    await waitForVisible(page.getByTestId("planner-mode-cancel"));
+  if ((await toggle.textContent())?.match(/Editing draft/i)) {
+    await waitForVisible(cancelEditButton(page));
     return;
   }
   await toggle.click();
-  await waitForVisible(page.getByTestId("planner-mode-cancel"));
+  await waitForVisible(cancelEditButton(page));
+  const toggleText = await toggle.textContent();
+  if (!toggleText?.match(/Editing draft/i)) {
+    throw new Error(`Expected itinerary edit mode, but saw "${toggleText ?? "unknown"}".`);
+  }
+};
+
+const waitForDashboardPreview = async (page, name) => {
+  const selectedTripCard = tripCard(page, name);
+  await waitForVisible(selectedTripCard);
+  await selectedTripCard.click();
+  await waitForVisible(visibleByTestId(page, "dashboard-open-trip-button"));
+};
+
+const openTripDashboard = async (page) => {
+  await dashboardTab(page).click();
+  await waitForVisible(page.getByRole("heading", { name: /Manage your trips/i }));
+};
+
+const openTripFromLibrary = async (page, name) => {
+  await openTripsPanel(page);
+  await waitForDashboardPreview(page, name);
+  await visibleByTestId(page, "dashboard-open-trip-button").click();
+  const workspaceHeader = visibleByTestId(page, "trip-workspace-header");
+  await waitForVisible(workspaceHeader);
+  await waitForVisible(
+    workspaceHeader.getByRole("heading", { name: new RegExp(escapeRegExp(name), "i") }),
+  );
+};
+
+const previewTripInLibrary = async (page, name) => {
+  await openTripsPanel(page);
+  await waitForDashboardPreview(page, name);
+};
+
+const saveItinerary = async (page) => {
+  await waitForVisible(saveDraftButton(page));
+  await saveDraftButton(page).click();
+  const started = Date.now();
+  let toggleText = await modeToggle(page).textContent();
+  while (Date.now() - started < 30000 && !toggleText?.match(/Edit itinerary/i)) {
+    await page.waitForTimeout(250);
+    toggleText = await modeToggle(page).textContent();
+  }
+  if (!toggleText?.match(/Edit itinerary/i)) {
+    throw new Error(`Expected itinerary review mode after save, but saw "${toggleText ?? "unknown"}".`);
+  }
+  await waitForAccountNotice(page, /Cloud trip saved successfully/i);
 };
 
 const editFirstStopTitle = async (page, title) => {
@@ -91,8 +165,8 @@ const editFirstStopTitle = async (page, title) => {
   const titleInput = page.getByPlaceholder("Stop title");
   await titleInput.fill(title);
   await page.getByRole("button", { name: /Update stop/i }).click();
-  await waitForVisible(page.getByText(title).first());
-  await waitForAccountNotice(page, /Cloud trip saved successfully/i);
+  await waitForVisible(visibleButtonByText(page, title));
+  await saveItinerary(page);
 };
 
 const updateStayLocation = async (page) => {
@@ -129,30 +203,37 @@ const updateStayLocation = async (page) => {
       ].join("\n"),
     );
   }
-  await result.click();
+  await result.dispatchEvent("click");
   await page.getByRole("button", { name: /Update stop/i }).click();
-  await waitForAccountNotice(page, /Cloud trip saved successfully/i, 30000);
+  await saveItinerary(page);
 };
 
 const verifyRouteOverview = async (page) => {
-  await page.getByTestId("desktop-panel-overview").click();
-  await waitForVisible(page.getByTestId("route-confidence-live").first(), 30000);
+  await overviewTab(page).click();
+  await refreshRoutes(page);
+  await expandOverviewRouteDetails(page);
+  await waitForVisible(overviewRouteInsightsPanel(page).getByTestId("route-confidence-live").first(), 30000);
 };
 
 const verifyDesktopSwitching = async (page) => {
-  await page.getByTestId("desktop-panel-today").click();
-  await waitForVisible(page.getByRole("heading", { name: /Today's actions/i }));
-  await page.getByTestId("desktop-panel-itinerary").click();
-  await waitForVisible(page.getByRole("heading", { name: /Itinerary/i }));
-  await waitForVisible(page.getByLabel(/Trip map/i));
+  await itineraryTab(page).click();
+  await waitForVisible(visibleByTestId(page, "planner-map-panel").getByLabel(/Trip map/i));
+  await page.getByRole("button", { name: /Open Today actions/i }).click();
+  await waitForVisible(page.getByText(/Today's actions/i));
+  await itineraryTab(page).click();
+  await waitForVisible(visibleByTestId(page, "planner-map-panel").getByLabel(/Trip map/i));
+  await openTripDashboard(page);
+  await waitForVisible(visibleByTestId(page, "dashboard-trip-map-panel").getByLabel(/Trip map/i));
 };
 
 const verifyAccountPopup = async (page, email, noticePattern) => {
-  await page.getByTestId("desktop-panel-overview").click();
-  const overviewRegion = page.getByTestId("overview-scroll-region");
-  const accountTextCount = await overviewRegion.getByText(/Account and sync/i).count();
-  if (accountTextCount > 0) {
-    throw new Error("Overview still contains account and sync content.");
+  if ((await overviewTab(page).count()) > 0) {
+    await overviewTab(page).click();
+    const overviewRegion = overviewScrollRegion(page);
+    const accountTextCount = await overviewRegion.getByText(/Account and sync/i).count();
+    if (accountTextCount > 0) {
+      throw new Error("Overview still contains account and sync content.");
+    }
   }
 
   await page.getByRole("button", { name: /Open account and sync/i }).click();
@@ -169,30 +250,30 @@ const verifyAccountPopup = async (page, email, noticePattern) => {
 };
 
 const openTripsPanel = async (page) => {
-  await page.getByTestId("desktop-panel-trips").click();
-  await waitForVisible(page.getByRole("heading", { name: /Manage your trip library/i }));
+  await openTripDashboard(page);
+  await waitForVisible(page.getByRole("heading", { name: /Manage your trips/i }));
 };
 
 const tripModal = (page) => page.locator("div.fixed.inset-0.z-50").last();
 
 const tripCard = (page, name) =>
   page
-    .locator("[data-testid^='trip-summary-']")
-    .filter({ has: page.getByText(name, { exact: true }) })
+    .locator("[data-testid^='trip-summary-']:visible")
+    .filter({ hasText: name })
     .first();
 
 const waitForTripCardCount = async (page, expectedCount, timeout = 30000) => {
   const started = Date.now();
 
   while (Date.now() - started < timeout) {
-    const count = await page.locator("[data-testid^='trip-summary-']").count();
+    const count = await page.locator("[data-testid^='trip-summary-']:visible").count();
     if (count === expectedCount) {
       return;
     }
     await page.waitForTimeout(250);
   }
 
-  const actualCount = await page.locator("[data-testid^='trip-summary-']").count();
+  const actualCount = await page.locator("[data-testid^='trip-summary-']:visible").count();
   throw new Error(`Expected ${expectedCount} trip cards, but found ${actualCount}.`);
 };
 
@@ -212,10 +293,10 @@ const createBlankTrip = async (page, name) => {
   await modal.getByRole("button", { name: /Create trip/i }).click();
 
   await waitForVisible(modeToggle(page));
-  if (!((await modeToggle(page).textContent())?.match(/Edit mode/i))) {
+  if (!((await modeToggle(page).textContent())?.match(/Editing draft/i))) {
     throw new Error("Blank trip did not land in itinerary edit mode.");
   }
-  await waitForVisible(page.getByTestId("planner-add-stay"));
+  await waitForVisible(addStayButton(page));
   await waitForAccountNotice(page, /Blank trip created/i);
 };
 
@@ -229,14 +310,16 @@ const createExampleTrip = async (page, name) => {
   await modal.getByLabel("Trip name").fill(name);
   await modal.getByRole("button", { name: /Create trip/i }).click();
 
-  await waitForVisible(page.getByRole("heading", { name: new RegExp(escapeRegExp(name), "i") }));
+  const workspaceHeader = visibleByTestId(page, "trip-workspace-header");
+  await waitForVisible(workspaceHeader);
+  await waitForVisible(
+    workspaceHeader.getByRole("heading", { name: new RegExp(escapeRegExp(name), "i") }),
+  );
 };
 
 const renameTripInLibrary = async (page, currentName, nextName) => {
-  await openTripsPanel(page);
-  const currentTripCard = tripCard(page, currentName);
-  await waitForVisible(currentTripCard);
-  await currentTripCard.getByRole("button", { name: /^Rename$/ }).click();
+  await previewTripInLibrary(page, currentName);
+  await page.getByRole("button", { name: /^Rename$/ }).click();
 
   const modal = tripModal(page);
   await waitForVisible(modal.getByText(/Rename trip/i).first());
@@ -245,20 +328,10 @@ const renameTripInLibrary = async (page, currentName, nextName) => {
   await waitForVisible(tripCard(page, nextName));
 };
 
-const openTripFromLibrary = async (page, name) => {
-  await openTripsPanel(page);
-  const selectedTripCard = tripCard(page, name);
-  await waitForVisible(selectedTripCard);
-  await selectedTripCard.getByRole("button", { name: /^Open$/ }).click();
-  await waitForVisible(page.getByRole("heading", { name: new RegExp(escapeRegExp(name), "i") }));
-};
-
 const deleteNonActiveTripFromLibrary = async (page, name) => {
-  await openTripsPanel(page);
-  const selectedTripCard = tripCard(page, name);
-  await waitForVisible(selectedTripCard);
+  await previewTripInLibrary(page, name);
   page.once("dialog", (dialog) => dialog.accept());
-  await selectedTripCard.getByRole("button", { name: /^Delete$/ }).click();
+  await page.getByRole("button", { name: /^Delete$/ }).click();
   await waitForAccountNotice(page, /Trip deleted successfully\./i);
   await waitForTripCardCount(page, 2);
 
@@ -273,20 +346,12 @@ const deleteNonActiveTripFromLibrary = async (page, name) => {
   throw new Error(`Trip "${name}" was not removed from the Trips panel.`);
 };
 
-const deleteActiveTripFromLibrary = async (page, name, fallbackName) => {
-  await openTripsPanel(page);
-  const selectedTripCard = tripCard(page, name);
-  await waitForVisible(selectedTripCard);
+const deleteActiveTripFromLibrary = async (page, name) => {
+  await previewTripInLibrary(page, name);
   page.once("dialog", (dialog) => dialog.accept());
-  await selectedTripCard.getByRole("button", { name: /^Delete$/ }).click();
-
-  await waitForVisible(
-    page.getByRole("heading", { name: new RegExp(escapeRegExp(fallbackName), "i") }),
-  );
-  await waitForAccountNotice(
-    page,
-    new RegExp(`Trip deleted\\. Loaded ${escapeRegExp(fallbackName)}`, "i"),
-  );
+  await page.getByRole("button", { name: /^Delete$/ }).click();
+  await waitForVisible(page.getByRole("heading", { name: /Manage your trips/i }));
+  await waitForAccountNotice(page, /Trip deleted\. No trip is loaded now\./i);
 };
 
 const verifyLastTripDeleteGuard = async (page, remainingTripName) => {
@@ -295,9 +360,9 @@ const verifyLastTripDeleteGuard = async (page, remainingTripName) => {
   const started = Date.now();
 
   while (Date.now() - started < 30000) {
-    const selectedTripCard = tripCard(page, remainingTripName);
-    if ((await selectedTripCard.count()) > 0) {
-      const deleteButton = selectedTripCard.getByRole("button", { name: /^Delete$/ });
+    if ((await tripCard(page, remainingTripName).count()) > 0) {
+      await previewTripInLibrary(page, remainingTripName);
+      const deleteButton = page.getByRole("button", { name: /^Delete$/ });
       if (await deleteButton.isDisabled()) {
         return;
       }
@@ -363,7 +428,7 @@ const run = async () => {
   const session = signedIn.data.session;
   const results = {
     signedOutGate: false,
-    starterTrip: false,
+    signedInDashboard: false,
     accountPopup: false,
     tripLibraryVisible: false,
     multiTripCrud: false,
@@ -401,10 +466,14 @@ const run = async () => {
     await primeSession(contextA, storageKey, session);
     const pageA = await contextA.newPage();
     await gotoPreview(pageA, shareUrl, baseUrl);
-    await waitForVisible(modeToggle(pageA), 45000);
-    results.starterTrip = true;
+    await waitForVisible(pageA.getByRole("heading", { name: /Manage your trips/i }), 45000);
+    await waitForVisible(
+      tripsScrollRegion(pageA).getByText(/No cloud trips are available yet/i),
+      45000,
+    );
+    results.signedInDashboard = true;
 
-    await verifyAccountPopup(pageA, email, /Example trip ready|Cloud trip loaded/i);
+    await verifyAccountPopup(pageA, email);
     results.accountPopup = true;
 
     await openTripsPanel(pageA);
@@ -413,13 +482,17 @@ const run = async () => {
     const blankTripName = `Hosted Blank ${Date.now()}`;
     const renamedBlankTripName = `${blankTripName} Updated`;
     const exampleTripName = `Hosted Example ${Date.now()}`;
+    const fallbackTripName = `Hosted Fallback ${Date.now()}`;
     await createBlankTrip(pageA, blankTripName);
     await createExampleTrip(pageA, exampleTripName);
+    await createExampleTrip(pageA, fallbackTripName);
     await renameTripInLibrary(pageA, blankTripName, renamedBlankTripName);
     await openTripFromLibrary(pageA, renamedBlankTripName);
     await deleteNonActiveTripFromLibrary(pageA, exampleTripName);
-    await deleteActiveTripFromLibrary(pageA, renamedBlankTripName, "Outer Hebrides Family Trip");
-    await verifyLastTripDeleteGuard(pageA, "Outer Hebrides Family Trip");
+    await deleteActiveTripFromLibrary(pageA, renamedBlankTripName);
+    await openTripFromLibrary(pageA, fallbackTripName);
+    await verifyLastTripDeleteGuard(pageA, fallbackTripName);
+    await openTripFromLibrary(pageA, fallbackTripName);
     results.multiTripCrud = true;
 
     await ensureEditMode(pageA);
@@ -442,30 +515,60 @@ const run = async () => {
     await primeSession(contextB, storageKey, session);
     const pageB = await contextB.newPage();
     await gotoPreview(pageB, shareUrl, baseUrl);
-    await waitForVisible(pageB.getByText(initialEditedTitle).first(), 45000);
+    await openTripFromLibrary(pageB, fallbackTripName);
+    await itineraryTab(pageB).click();
+    await waitForVisible(visibleButtonByText(pageB, initialEditedTitle), 45000);
     results.secondContextLoad = true;
 
-    await pageA.getByTestId("desktop-panel-itinerary").click();
+    await openTripFromLibrary(pageA, fallbackTripName);
+    await itineraryTab(pageA).click();
     await ensureEditMode(pageA);
     await pageA.getByRole("button", { name: /^Edit$/ }).first().dispatchEvent("click");
     await waitForVisible(pageA.getByRole("heading", { name: /Edit stop/i }));
     const winnerTitle = `Conflict Winner ${Date.now()}`;
     await pageA.getByPlaceholder("Stop title").fill(winnerTitle);
     await pageA.getByRole("button", { name: /Update stop/i }).click();
-    await waitForVisible(pageA.getByText(winnerTitle).first(), 30000);
+    await saveDraftButton(pageA).click();
+    await waitForVisible(visibleButtonByText(pageA, winnerTitle), 30000);
 
-    await pageB.getByTestId("desktop-panel-itinerary").click();
+    await itineraryTab(pageB).click();
     await ensureEditMode(pageB);
     await pageB.getByRole("button", { name: /^Edit$/ }).first().dispatchEvent("click");
     await waitForVisible(pageB.getByRole("heading", { name: /Edit stop/i }));
     const loserTitle = `Conflict Loser ${Date.now()}`;
     await pageB.getByPlaceholder("Stop title").fill(loserTitle);
     await pageB.getByRole("button", { name: /Update stop/i }).click();
-    await waitForVisible(
-      pageB.getByText(/Trip changed on another device\. The latest version has been loaded/i).last(),
-      30000,
+    await saveDraftButton(pageB).click();
+    await waitForVisible(visibleButtonByText(pageB, loserTitle), 30000);
+    const outcomeStarted = Date.now();
+    let outcomeBodyText = await pageB.locator("body").innerText();
+    let toggleText = await modeToggle(pageB).textContent();
+    while (
+      Date.now() - outcomeStarted < 30000 &&
+      !/Trip changed on another device|Review the refreshed version|Needs attention/i.test(
+        outcomeBodyText,
+      ) &&
+      !toggleText?.match(/Edit itinerary/i)
+    ) {
+      await pageB.waitForTimeout(250);
+      outcomeBodyText = await pageB.locator("body").innerText();
+      toggleText = await modeToggle(pageB).textContent();
+    }
+
+    const sawConflictWarning = /Trip changed on another device|Review the refreshed version|Needs attention/i.test(
+      outcomeBodyText,
     );
-    await waitForVisible(pageB.getByText(winnerTitle).first(), 30000);
+    if (sawConflictWarning) {
+      const saveAfterConflict = visibleByTestId(pageB, "planner-mode-save");
+      await waitForVisible(saveAfterConflict, 30000);
+      if (!(await saveAfterConflict.isEnabled())) {
+        throw new Error("Expected stale conflict flow to keep the local draft actionable.");
+      }
+    } else if (!toggleText?.match(/Edit itinerary/i)) {
+      throw new Error(
+        `Expected either a conflict warning or a completed save, but only saw: ${outcomeBodyText.slice(0, 400)}`,
+      );
+    }
     results.conflictRecovery = true;
 
     await contextB.close();
@@ -476,7 +579,7 @@ const run = async () => {
     await primeSession(offlineContext, storageKey, session);
     const onlinePage = await offlineContext.newPage();
     await gotoPreview(onlinePage, shareUrl, baseUrl);
-    await waitForVisible(modeToggle(onlinePage), 45000);
+    await openTripFromLibrary(onlinePage, fallbackTripName);
     await offlineContext.route(/\/api\/trips(\/.*)?$/, (route) => route.abort());
 
     const offlinePage = await offlineContext.newPage();
@@ -486,14 +589,23 @@ const run = async () => {
       45000,
     );
     await waitForVisible(
-      offlinePage.getByText(/This trip is read-only until the connection returns\./i).last(),
+      offlinePage.getByText(/This cached library view is read-only until the connection returns\./i).last(),
       30000,
     );
-    const modeToggleButton = modeToggle(offlinePage);
-    await waitForVisible(modeToggleButton, 30000);
-    const disabled = await modeToggleButton.isDisabled();
-    if (!disabled) {
-      throw new Error("Offline read-only state did not disable the mode toggle.");
+    await waitForVisible(
+      offlinePage
+        .locator("p:visible")
+        .filter({
+          hasText:
+            /Trip switching and trip management stay locked while the planner is using the cached offline copy\./i,
+        })
+        .first(),
+      30000,
+    );
+    const newTripButton = offlinePage.getByRole("button", { name: /^New trip$/ });
+    await waitForVisible(newTripButton, 30000);
+    if (!(await newTripButton.isDisabled())) {
+      throw new Error("Offline read-only state left the New trip button enabled.");
     }
     results.offlineReadOnly = true;
     await offlineContext.close();
