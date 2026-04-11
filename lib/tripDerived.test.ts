@@ -451,6 +451,42 @@ describe("tripDerived", () => {
     });
   });
 
+  it("builds itinerary days for a trip with only a ferry stop", () => {
+    const trip = buildTrip();
+    trip.stops = [
+      {
+        id: "ferry-only",
+        order: 0,
+        type: "ferry",
+        title: "Uig to Lochmaddy",
+        departurePort: {
+          label: "Uig",
+          coordinates: { lat: 57.586, lng: -6.36 },
+        },
+        arrivalPort: {
+          label: "Lochmaddy",
+          coordinates: { lat: 57.598, lng: -7.16 },
+        },
+        departureAt: toIsoFromLocalInput("2026-04-11T13:30"),
+        arrivalAt: toIsoFromLocalInput("2026-04-11T15:00"),
+        checkInBy: toIsoFromLocalInput("2026-04-11T12:45"),
+        checkInBufferMinutes: 45,
+      },
+    ];
+
+    const days = getItineraryDays(trip);
+
+    expect(days).toHaveLength(1);
+    expect(days[0]).toMatchObject({
+      date: "2026-04-11",
+      stopCount: 1,
+      roadLegCount: 1,
+      pendingRoadLegCount: 1,
+      activeStay: null,
+    });
+    expect(days[0]?.rows.map((row) => row.kind)).toEqual(["travel", "stop"]);
+  });
+
   it("returns selected stop details with the related travel estimate", () => {
     const trip = buildTrip();
     const estimates: TravelLegEstimate[] = [

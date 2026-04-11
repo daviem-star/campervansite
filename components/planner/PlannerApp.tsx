@@ -116,6 +116,12 @@ const defaultExpandedWarningSeverities: ValidationWarning["severity"][] = ["high
 
 const cloneTrip = (trip: Trip): Trip => structuredClone(trip);
 
+const getRouteSnapshotKey = (trip: Trip | null): string => {
+  const snapshot = trip?.routeSnapshot;
+
+  return snapshot ? `${snapshot.signature}:${snapshot.fetchedAt}` : "";
+};
+
 const describeRouteSnapshotAge = (fetchedAt: string, now: number = Date.now()): string => {
   const timestamp = new Date(fetchedAt).getTime();
   if (!Number.isFinite(timestamp)) {
@@ -372,6 +378,8 @@ export default function PlannerApp() {
   const loadedRouteSignature = loadedRoutePayload.signature;
   const previewRouteRequests = previewRoutePayload.requests;
   const previewRouteSignature = previewRoutePayload.signature;
+  const loadedRouteSnapshotKey = getRouteSnapshotKey(displayTrip);
+  const previewRouteSnapshotKey = getRouteSnapshotKey(previewTrip);
   const loadedTripRef = useRef(displayTrip);
   const loadedRouteRequestsRef = useRef(loadedRouteRequests);
   const loadedRouteSignatureRef = useRef(loadedRouteSignature);
@@ -638,7 +646,7 @@ export default function PlannerApp() {
 
       setLoadedRoutePanel(basePanel);
     })();
-  }, [loadedRouteSignature, loadedTrip?.id]);
+  }, [loadedRouteSignature, loadedRouteSnapshotKey, loadedTrip?.id]);
 
   useEffect(() => {
     const currentTrip = previewTripRef.current;
@@ -665,7 +673,7 @@ export default function PlannerApp() {
 
       setPreviewRoutePanel(basePanel);
     })();
-  }, [previewRouteSignature, previewTrip?.id]);
+  }, [previewRouteSignature, previewRouteSnapshotKey, previewTrip?.id]);
 
   const tripDays = useMemo(() => (displayTrip ? getTripDays(displayTrip) : []), [displayTrip]);
   const effectiveSelectedDate = tripDays.includes(selectedDate)

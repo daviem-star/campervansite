@@ -637,6 +637,80 @@ test("shows fallback route status on the map when road legs use fallback estimat
   ).toBeVisible();
 });
 
+test("keeps dashboard preview map synced after refreshing an opened trip route", async ({
+  page,
+}) => {
+  const user = createTestUser("dashboard-route-sync");
+  await primeSignedInSession(page, user);
+  await primeStaleRouteEstimateCache(page);
+  await seedCloudTrips(page, user, getLegacySeedData());
+
+  await page.route("**/api/route-estimates", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      legs: Array<{
+        id: string;
+        fromId: string;
+        fromLabel: string;
+        toId: string;
+        toLabel: string;
+        date: string;
+        relatedStopId?: string;
+        from: { lat: number; lng: number };
+        to: { lat: number; lng: number };
+      }>;
+    };
+
+    await route.fulfill({
+      json: {
+        estimates: payload.legs.map((leg, index) => ({
+          id: leg.id,
+          fromId: leg.fromId,
+          fromLabel: leg.fromLabel,
+          toId: leg.toId,
+          toLabel: leg.toLabel,
+          kind: "road",
+          distanceKm: 40 + index * 5,
+          durationMinutes: 45 + index * 4,
+          bufferedDurationMinutes: 60 + index * 5,
+          provider: "openrouteservice_driving_car",
+          fetchedAt: "2026-04-02T09:00:00.000Z",
+          confidence: "live",
+          date: leg.date,
+          relatedStopId: leg.relatedStopId,
+          geometry: {
+            type: "LineString",
+            coordinates: [
+              { lat: leg.from.lat, lng: leg.from.lng },
+              {
+                lat: (leg.from.lat + leg.to.lat) / 2,
+                lng: (leg.from.lng + leg.to.lng) / 2,
+              },
+              { lat: leg.to.lat, lng: leg.to.lng },
+            ],
+          },
+        })),
+      },
+    });
+  });
+
+  await page.goto("/");
+  await waitForDashboardPreview(page);
+
+  const dashboardMapPanel = visibleByTestId(page, "dashboard-trip-map-panel");
+  await expect(dashboardMapPanel.getByTestId("map-route-status-chip")).toContainText(
+    /fallback road leg/i,
+  );
+
+  await visibleByTestId(page, "dashboard-open-trip-button").click();
+  await expect(visibleByTestId(page, "trip-workspace-header")).toBeVisible();
+  await refreshRoutes(page);
+  await expect(page.locator('[data-testid="map-route-status-chip"]:visible')).toHaveCount(0);
+
+  await goToDashboard(page);
+  await expect(dashboardMapPanel).toBeVisible();
+  await expect(dashboardMapPanel.getByTestId("map-route-status-chip")).toHaveCount(0);
+});
+
 test("stores separate routing coordinates for edited places and uses them for route estimates", async ({
   page,
 }) => {

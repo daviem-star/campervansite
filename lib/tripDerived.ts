@@ -194,16 +194,25 @@ const getSectionTimeMillis = (section: ItinerarySection): number => {
 };
 
 export const getTripDateRange = (trip: Trip): { start: string; end: string } | null => {
-  const stayStops = sortStaysByCheckIn(
-    sortStopsCanonical(trip.stops).filter((stop): stop is StayStop => stop.type === "stay"),
-  );
+  const dates = sortStopsCanonical(trip.stops).flatMap((stop) => {
+    if (stop.type === "stay") {
+      return [dateOnlyFromIso(stop.checkInAt), dateOnlyFromIso(stop.checkOutAt)];
+    }
 
-  if (stayStops.length === 0) {
+    if (stop.type === "ferry") {
+      return [dateOnlyFromIso(stop.departureAt), dateOnlyFromIso(stop.arrivalAt)];
+    }
+
+    return [stop.visitDate];
+  });
+
+  if (dates.length === 0) {
     return null;
   }
 
-  const start = dateOnlyFromIso(stayStops[0].checkInAt);
-  const end = dateOnlyFromIso(stayStops[stayStops.length - 1].checkOutAt);
+  const sortedDates = [...dates].sort((a, b) => a.localeCompare(b));
+  const start = sortedDates[0]!;
+  const end = sortedDates[sortedDates.length - 1]!;
 
   return { start, end };
 };

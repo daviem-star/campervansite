@@ -18,7 +18,7 @@ export default function DayStrip({ days, selectedDate, onSelect }: DayStripProps
   if (days.length === 0) {
     return (
       <div className="planner-copy rounded-[18px] border border-app-border bg-app-surface px-4 py-3 text-app-muted">
-        Add stays to see trip day navigation.
+        Add stops to see trip day navigation.
       </div>
     );
   }

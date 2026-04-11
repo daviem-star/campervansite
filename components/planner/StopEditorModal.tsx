@@ -1,6 +1,6 @@
 "use client";
 
-import { addDays, format, parseISO } from "date-fns";
+import { addDays, addMinutes, format, parseISO } from "date-fns";
 import { useEffect, useMemo, useState } from "react";
 
 import { todayDateInTimezone, toIsoFromLocalInput, toLocalInputFromIso } from "@/lib/date";
@@ -49,6 +49,44 @@ const buildDefaultFerryTimes = () => {
   };
 };
 
+const getPrimaryPlaceLabel = (place: PlaceRef | null): string => {
+  if (!place) {
+    return "";
+  }
+
+  return place.label.split(",")[0]?.trim() || place.label.trim();
+};
+
+const shiftPairedDateTime = (
+  previousStart: string,
+  previousEnd: string,
+  nextStart: string,
+): string | null => {
+  try {
+    const previousStartTime = new Date(toIsoFromLocalInput(previousStart)).getTime();
+    const previousEndTime = new Date(toIsoFromLocalInput(previousEnd)).getTime();
+    const nextStartIso = toIsoFromLocalInput(nextStart);
+    const durationMinutes = Math.round((previousEndTime - previousStartTime) / 60_000);
+
+    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+      return null;
+    }
+
+    return toLocalInputFromIso(addMinutes(new Date(nextStartIso), durationMinutes).toISOString());
+  } catch {
+    return null;
+  }
+};
+
+const addMinutesToLocalDateTime = (value: string, minutes: number): string | null => {
+  try {
+    const isoValue = toIsoFromLocalInput(value);
+    return toLocalInputFromIso(addMinutes(new Date(isoValue), minutes).toISOString());
+  } catch {
+    return null;
+  }
+};
+
 export default function StopEditorModal({
   isOpen,
   mode,
@@ -60,6 +98,7 @@ export default function StopEditorModal({
 }: StopEditorModalProps) {
   const [type, setType] = useState<StopType>(stopType);
   const [title, setTitle] = useState("");
+  const [isTitleManuallyEdited, setIsTitleManuallyEdited] = useState(false);
   const [notes, setNotes] = useState("");
 
   const [stayPlace, setStayPlace] = useState<PlaceRef | null>(null);
@@ -111,6 +150,52 @@ export default function StopEditorModal({
     return "Add point of interest";
   }, [mode, type]);
 
+  const generatedTitle = useMemo(() => {
+    if (type === "stay") {
+      return getPrimaryPlaceLabel(stayPlace);
+    }
+
+    if (type === "ferry") {
+      const departureLabel = getPrimaryPlaceLabel(ferryDeparturePort);
+      const arrivalLabel = getPrimaryPlaceLabel(ferryArrivalPort);
+      return departureLabel && arrivalLabel ? `${departureLabel} to ${arrivalLabel}` : "";
+    }
+
+    return getPrimaryPlaceLabel(poiPlace);
+  }, [ferryArrivalPort, ferryDeparturePort, poiPlace, stayPlace, type]);
+
+  const setGeneratedTitle = () => {
+    if (!generatedTitle) {
+      return;
+    }
+
+    setTitle(generatedTitle);
+    setIsTitleManuallyEdited(false);
+  };
+
+  const onTitleChange = (value: string) => {
+    setTitle(value);
+    setIsTitleManuallyEdited(value.trim().length > 0);
+  };
+
+  const onStayCheckInChange = (nextCheckInAt: string) => {
+    const shiftedCheckOutAt = shiftPairedDateTime(stayCheckInAt, stayCheckOutAt, nextCheckInAt);
+    setStayCheckInAt(nextCheckInAt);
+
+    if (shiftedCheckOutAt) {
+      setStayCheckOutAt(shiftedCheckOutAt);
+    }
+  };
+
+  const onFerryDepartureChange = (nextDepartureAt: string) => {
+    const shiftedArrivalAt = shiftPairedDateTime(ferryDepartureAt, ferryArrivalAt, nextDepartureAt);
+    setFerryDepartureAt(nextDepartureAt);
+
+    if (shiftedArrivalAt) {
+      setFerryArrivalAt(shiftedArrivalAt);
+    }
+  };
+
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -121,6 +206,7 @@ export default function StopEditorModal({
 
     if (mode === "edit" && initialStop) {
       setTitle(initialStop.title);
+      setIsTitleManuallyEdited(true);
       setNotes(initialStop.notes ?? "");
 
       if (initialStop.type === "stay") {
@@ -170,6 +256,7 @@ export default function StopEditorModal({
     const defaultFerry = buildDefaultFerryTimes();
 
     setTitle("");
+    setIsTitleManuallyEdited(false);
     setNotes("");
 
     setStayPlace(null);
@@ -200,6 +287,14 @@ export default function StopEditorModal({
     setPoiPlace(null);
     setPoiVisitDate(todayDateInTimezone());
   }, [initialStop, isOpen, mode, stopType]);
+
+  useEffect(() => {
+    if (!isOpen || isTitleManuallyEdited) {
+      return;
+    }
+
+    setTitle(generatedTitle);
+  }, [generatedTitle, isOpen, isTitleManuallyEdited]);
 
   useEffect(() => {
     if (type !== "ferry" || ferryCheckInManual) {
@@ -435,12 +530,23 @@ export default function StopEditorModal({
           ) : null}
 
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-[0.12em] text-app-muted">
-              Title
-            </label>
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <label className="block text-xs font-semibold uppercase tracking-[0.12em] text-app-muted">
+                Title
+              </label>
+              {generatedTitle ? (
+                <button
+                  type="button"
+                  onClick={setGeneratedTitle}
+                  className="text-xs font-semibold text-brand-primary"
+                >
+                  Reset title
+                </button>
+              ) : null}
+            </div>
             <input
               value={title}
-              onChange={(event) => setTitle(event.target.value)}
+              onChange={(event) => onTitleChange(event.target.value)}
               className="planner-input w-full rounded-xl border px-3 py-2 text-sm"
               placeholder="Stop title"
             />
@@ -475,7 +581,7 @@ export default function StopEditorModal({
                   <input
                     type="datetime-local"
                     value={stayCheckInAt}
-                    onChange={(event) => setStayCheckInAt(event.target.value)}
+                    onChange={(event) => onStayCheckInChange(event.target.value)}
                     className="planner-input w-full rounded-xl border px-3 py-2 text-sm"
                   />
                 </div>
@@ -491,6 +597,33 @@ export default function StopEditorModal({
                     className="planner-input w-full rounded-xl border px-3 py-2 text-sm"
                   />
                 </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="planner-meta text-app-muted">Checkout presets</span>
+                {[
+                  { label: "+1 night", minutes: 1_440 },
+                  { label: "+2 nights", minutes: 2_880 },
+                  { label: "+3 nights", minutes: 4_320 },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => {
+                      const nextCheckOutAt = addMinutesToLocalDateTime(
+                        stayCheckInAt,
+                        preset.minutes,
+                      );
+
+                      if (nextCheckOutAt) {
+                        setStayCheckOutAt(nextCheckOutAt);
+                      }
+                    }}
+                    className="planner-button-secondary rounded-lg border px-2.5 py-1 text-xs font-semibold transition"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
               </div>
 
               <div>
@@ -608,7 +741,7 @@ export default function StopEditorModal({
                   <input
                     type="datetime-local"
                     value={ferryDepartureAt}
-                    onChange={(event) => setFerryDepartureAt(event.target.value)}
+                    onChange={(event) => onFerryDepartureChange(event.target.value)}
                     className="planner-input w-full rounded-xl border px-3 py-2 text-sm"
                   />
                 </div>
@@ -623,6 +756,33 @@ export default function StopEditorModal({
                     className="planner-input w-full rounded-xl border px-3 py-2 text-sm"
                   />
                 </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="planner-meta text-app-muted">Arrival presets</span>
+                {[
+                  { label: "+45m", minutes: 45 },
+                  { label: "+1h", minutes: 60 },
+                  { label: "+1h30", minutes: 90 },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => {
+                      const nextArrivalAt = addMinutesToLocalDateTime(
+                        ferryDepartureAt,
+                        preset.minutes,
+                      );
+
+                      if (nextArrivalAt) {
+                        setFerryArrivalAt(nextArrivalAt);
+                      }
+                    }}
+                    className="planner-button-secondary rounded-lg border px-2.5 py-1 text-xs font-semibold transition"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
               </div>
 
               <div>
@@ -796,7 +956,13 @@ export default function StopEditorModal({
               disabled={isSaving}
               className="planner-button-primary rounded-xl border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed"
             >
-              {isSaving ? "Saving..." : mode === "edit" ? "Update stop" : "Add stop"}
+              {isSaving
+                ? mode === "edit"
+                  ? "Updating..."
+                  : "Adding..."
+                : mode === "edit"
+                  ? "Update stop"
+                  : "Add stop"}
             </button>
           </div>
         </form>
