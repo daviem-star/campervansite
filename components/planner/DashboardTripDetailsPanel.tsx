@@ -4,14 +4,13 @@ import type { ReactNode } from "react";
 
 import TravelInsightsPanel from "@/components/planner/TravelInsightsPanel";
 import ValidationWarningsPanel from "@/components/planner/ValidationWarningsPanel";
-import { formatTripDateRange, getCostSummary } from "@/lib/tripDerived";
+import { formatTripDateRange, getTripDays } from "@/lib/tripDerived";
 import { TravelLegEstimate, Trip, ValidationWarning } from "@/types/trip";
 
 const defaultExpandedWarningSeverities: ValidationWarning["severity"][] = ["high", "medium"];
 
 type DashboardTripDetailsPanelProps = {
   trip: Trip | null;
-  loadedTripId: string | null;
   todayTripId: string | null;
   canManageTrips: boolean;
   canDeleteTrip: boolean;
@@ -34,11 +33,10 @@ type DashboardTripDetailsPanelProps = {
 };
 
 const actionButtonClass =
-  "rounded-xl border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60";
+  "rounded-lg border px-3 py-1.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60";
 
 export default function DashboardTripDetailsPanel({
   trip,
-  loadedTripId,
   todayTripId,
   canManageTrips,
   canDeleteTrip,
@@ -59,63 +57,51 @@ export default function DashboardTripDetailsPanel({
   onRenameTrip,
   onDeleteTrip,
 }: DashboardTripDetailsPanelProps) {
-  const costSummary = trip ? getCostSummary(trip) : { totalNights: 0, totalCost: 0 };
-  const isLoaded = trip?.id === loadedTripId;
+  const tripDayCount = trip ? getTripDays(trip).length : 0;
   const isTodayTrip = trip?.id === todayTripId;
 
   return (
-    <div className="space-y-4 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
-      <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 sm:px-5 sm:py-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="space-y-3 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+      <section className="rounded-lg border border-app-border/80 bg-app-surface px-4 py-3.5 sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <p className="planner-eyebrow planner-section-label">Trip overview</p>
+            <p className="planner-eyebrow planner-section-label">Trip</p>
             {trip ? (
               <>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <h2 className="planner-title-lg text-app-text">{trip.name}</h2>
-                  {isLoaded ? (
-                    <span className="planner-pill-active rounded-full border bg-app-surface px-2.5 py-0.5 text-[11px] font-semibold">
-                      Loaded
-                    </span>
-                  ) : null}
-                  {isTodayTrip ? (
-                    <span className="rounded-full border border-state-info-border bg-state-info-surface px-2.5 py-0.5 text-[11px] font-semibold text-state-info">
-                      Today trip
-                    </span>
-                  ) : null}
-                </div>
-                <p className="planner-copy mt-2 flex flex-wrap items-center gap-2 text-app-muted">
-                  <span>{formatTripDateRange(trip)}</span>
-                  <span className="hidden text-app-border sm:inline">/</span>
-                  <span>Home base: {trip.home.label}</span>
-                  <span className="hidden text-app-border sm:inline">/</span>
-                  <span>
-                    {costSummary.totalNights} night{costSummary.totalNights === 1 ? "" : "s"}
+                <h2 className="planner-title-md mt-1 text-app-text">{trip.name}</h2>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <span className="planner-pill rounded-lg border px-2.5 py-1 text-xs font-semibold">
+                    {formatTripDateRange(trip)}
                   </span>
-                  <span className="hidden text-app-border sm:inline">/</span>
-                  <span>Estimated stay cost: GBP {costSummary.totalCost.toFixed(2)}</span>
-                </p>
+                  <span className="planner-pill rounded-lg border px-2.5 py-1 text-xs font-semibold">
+                    {tripDayCount} {tripDayCount === 1 ? "day" : "days"}
+                  </span>
+                  <span className="planner-pill rounded-lg border px-2.5 py-1 text-xs font-semibold">
+                    {warnings.length} warning{warnings.length === 1 ? "" : "s"}
+                  </span>
+                  <span className="planner-pill rounded-lg border px-2.5 py-1 text-xs font-semibold">
+                    {routeStatus === "fresh" ? "Live" : routeStatus === "stale" ? "Needs refresh" : "Unavailable"}
+                  </span>
+                </div>
                 {isPreviewing ? (
-                  <p className="planner-copy-sm mt-3 text-brand-primary">
-                    Loading this trip preview...
-                  </p>
+                  <p className="planner-meta mt-2 text-brand-primary">Loading preview...</p>
                 ) : null}
               </>
             ) : (
-              <p className="planner-copy mt-3 text-app-muted">
-                Select a trip from the library to inspect its saved details before opening it.
+              <p className="planner-copy-sm mt-2 text-app-muted">
+                Select a trip from the library to inspect it before opening.
               </p>
             )}
           </div>
 
           {trip ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {onOpenTrip ? (
                 <button
                   type="button"
                   data-testid="dashboard-open-trip-button"
                   onClick={onOpenTrip}
-                  disabled={isWorking && !isLoaded}
+                  disabled={isWorking}
                   className={`${actionButtonClass} planner-button-primary`}
                 >
                   Open
@@ -171,6 +157,11 @@ export default function DashboardTripDetailsPanel({
         statusMessage={routeStatusMessage}
         isRefreshing={isRefreshingRouteInsights}
         onRefresh={trip ? onRefreshRouteInsights : undefined}
+        title="Route"
+        description="Distance and live status."
+        showDetailsByDefault={false}
+        collapsibleDetails
+        density="compact"
         emptyMessage={
           trip ? null : "Select a trip on Dashboard to inspect saved route timings."
         }
@@ -179,10 +170,12 @@ export default function DashboardTripDetailsPanel({
       <ValidationWarningsPanel
         warnings={warnings}
         title="Warnings"
-        description="Grouped by severity so the highest-risk issues stay visible first."
+        description="Highest-risk issues stay visible first."
         defaultExpandedSeverities={defaultExpandedWarningSeverities}
         collapseLowSeverity
         showSeverityCounts
+        compactHealthyState
+        density="compact"
         emptyMessage={
           trip ? null : "Planning warnings will appear here when you preview a trip."
         }

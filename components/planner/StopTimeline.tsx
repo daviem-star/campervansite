@@ -155,7 +155,7 @@ function SortableStopCard({
         registerItemRef(stop.id)(element);
       }}
       style={style}
-      className={`rounded-[24px] border bg-app-surface p-4 shadow-[0_12px_28px_rgb(var(--color-app-overlay)_/_0.06)] transition ${
+      className={`scroll-mt-56 rounded-lg border bg-app-surface p-3 shadow-[0_8px_20px_rgb(var(--color-app-overlay)_/_0.05)] transition ${
         exactSelected
           ? "planner-selected"
           : daySelected
@@ -163,15 +163,15 @@ function SortableStopCard({
             : "border-app-border"
       } ${isDragging ? "shadow-[0_18px_38px_rgb(var(--color-app-overlay)_/_0.12)]" : ""}`}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-2.5">
         <span
-          className={`mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${stopToneClass[stop.type]}`}
+          className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${stopToneClass[stop.type]}`}
         >
-          <StopTypeIcon kind={stop.type} className="h-5 w-5" />
+          <StopTypeIcon kind={stop.type} className="h-4 w-4" />
         </span>
 
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className="planner-eyebrow text-app-muted">
               {stop.type === "stay" ? "Stay" : stop.type === "ferry" ? "Ferry" : "Point of interest"}
             </span>
@@ -184,11 +184,11 @@ function SortableStopCard({
               onSelectEntity({ kind: stop.type, stopId: stop.id });
               onView(stop);
             }}
-            className="mt-2 w-full text-left"
+            className="mt-1.5 w-full text-left"
           >
-            <h4 className="planner-title-lg text-app-text">{stop.title}</h4>
-            <p className="planner-copy mt-2 text-app-muted">{getStopLocationLabel(stop)}</p>
-            <p className="planner-copy-sm mt-2 text-app-muted">{getStopScheduleLabel(stop)}</p>
+            <h4 className="planner-title-md text-app-text">{stop.title}</h4>
+            <p className="planner-copy-sm mt-1 text-app-muted">{getStopLocationLabel(stop)}</p>
+            <p className="planner-meta mt-1 text-app-muted">{getStopScheduleLabel(stop)}</p>
           </button>
         </div>
 
@@ -201,7 +201,7 @@ function SortableStopCard({
               <button
                 type="button"
                 aria-label={`Reorder ${stop.title}`}
-                className="hidden cursor-grab rounded-full border border-app-border bg-app-surface px-3 py-1.5 text-xs font-semibold text-app-muted active:cursor-grabbing lg:inline-flex"
+                className="hidden cursor-grab rounded-lg border border-app-border bg-app-surface px-2.5 py-1 text-xs font-semibold text-app-muted active:cursor-grabbing lg:inline-flex"
                 {...attributes}
                 {...listeners}
               >
@@ -213,7 +213,7 @@ function SortableStopCard({
                   type="button"
                   onClick={() => onMove(stop.id, -1)}
                   disabled={!canMoveUp}
-                  className="planner-button-secondary rounded-full border px-2.5 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                  className="planner-button-secondary rounded-lg border px-2.5 py-1 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Up
                 </button>
@@ -221,7 +221,7 @@ function SortableStopCard({
                   type="button"
                   onClick={() => onMove(stop.id, 1)}
                   disabled={!canMoveDown}
-                  className="planner-button-secondary rounded-full border px-2.5 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+                  className="planner-button-secondary rounded-lg border px-2.5 py-1 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Down
                 </button>
@@ -232,7 +232,7 @@ function SortableStopCard({
           )}
 
           {isOfflineReadOnly ? (
-            <span className="tone-warning rounded-full border px-2.5 py-1 text-xs font-semibold">
+            <span className="tone-warning rounded-lg border px-2.5 py-1 text-xs font-semibold">
               Offline
             </span>
           ) : null}
@@ -240,7 +240,7 @@ function SortableStopCard({
           <button
             type="button"
             onClick={() => onView(stop)}
-            className="planner-button-primary rounded-full border px-3 py-1.5 text-xs font-semibold"
+            className="planner-button-primary rounded-lg border px-2.5 py-1 text-xs font-semibold"
           >
             View
           </button>
@@ -250,7 +250,7 @@ function SortableStopCard({
               type="button"
               onClick={() => onEdit(stop)}
               disabled={isOfflineReadOnly}
-              className="planner-button-secondary rounded-full border px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
+              className="planner-button-secondary rounded-lg border px-2.5 py-1 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-60"
             >
               Edit
             </button>
@@ -260,7 +260,7 @@ function SortableStopCard({
             <button
               type="button"
               onClick={() => onDelete(stop)}
-              className="planner-button-danger rounded-full border px-3 py-1.5 text-xs font-semibold"
+              className="planner-button-danger rounded-lg border px-2.5 py-1 text-xs font-semibold"
             >
               Delete
             </button>
@@ -347,7 +347,7 @@ export default function StopTimeline({
 
   if (days.length === 0) {
     return (
-      <div className="rounded-[24px] border border-dashed border-app-border bg-app-surface px-4 py-8 text-center">
+      <div className="rounded-lg border border-dashed border-app-border bg-app-surface px-4 py-8 text-center">
         <p className="planner-copy text-app-muted">
           Add stays, ferries, and points of interest to start shaping the route.
         </p>
@@ -358,7 +358,7 @@ export default function StopTimeline({
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
       <SortableContext items={stopOrder} strategy={verticalListSortingStrategy}>
-        <div className="space-y-6">
+        <div className="space-y-3">
           {visibleDays.map((day) => {
             const isBaseOnlyDay = day.rows.length === 0;
 
@@ -366,8 +366,8 @@ export default function StopTimeline({
               <section
                 key={day.date}
                 ref={registerDayRef(day.date)}
-                className={`rounded-[28px] border px-4 transition sm:px-5 ${
-                  isBaseOnlyDay ? "py-3 sm:py-3.5" : "py-4 sm:py-5"
+                className={`scroll-mt-56 rounded-lg border px-3 transition sm:px-4 ${
+                  isBaseOnlyDay ? "py-2.5 sm:py-3" : "py-3 sm:py-3.5"
                 } ${
                   day.date === selectedDate
                     ? "border-brand-primary/20 bg-brand-primary/5"
@@ -375,43 +375,43 @@ export default function StopTimeline({
                 }`}
               >
                 <div
-                  className={`flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between ${
-                    isBaseOnlyDay ? "" : "border-b border-app-border/70 pb-4"
+                  className={`flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between ${
+                    isBaseOnlyDay ? "" : "border-b border-app-border/70 pb-3"
                   }`}
                 >
                   <div className="min-w-0">
                     <button type="button" onClick={() => onSelectDate(day.date)} className="text-left">
                       <p className="planner-eyebrow planner-section-label">Day {formatDayNumber(day.date)}</p>
-                      <h3 className="planner-title-lg mt-2 text-app-text">
+                      <h3 className="planner-title-md mt-1 text-app-text">
                         {formatDayChip(day.date)} · {formatDateOnly(day.date)}
                       </h3>
                     </button>
-                    <p className="planner-copy mt-2 text-app-muted">
+                    <p className="planner-copy-sm mt-1 text-app-muted">
                       {day.activeStay
                         ? `Base: ${day.activeStay.title}`
                         : "No overnight base assigned to this day yet."}
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="planner-pill rounded-lg border px-2.5 py-1 text-xs font-semibold">
                       {day.stopCount} stop{day.stopCount === 1 ? "" : "s"}
                     </span>
-                    <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
+                    <span className="planner-pill rounded-lg border px-2.5 py-1 text-xs font-semibold">
                       {day.roadLegCount} road leg{day.roadLegCount === 1 ? "" : "s"}
                     </span>
                     {routeStatus === "fresh" && day.roadLegCount > 0 ? (
-                      <span className="rounded-full border border-brand-support/35 bg-brand-support/18 px-3 py-1 text-xs font-semibold text-brand-primary">
+                      <span className="rounded-lg border border-brand-support/35 bg-brand-support/18 px-2.5 py-1 text-xs font-semibold text-brand-primary">
                         Live
                       </span>
                     ) : null}
                     {routeStatus === "stale" && day.roadLegCount > 0 ? (
-                      <span className="tone-warning rounded-full border px-3 py-1 text-xs font-semibold">
+                      <span className="tone-warning rounded-lg border px-2.5 py-1 text-xs font-semibold">
                         Needs refresh
                       </span>
                     ) : null}
                     {routeStatus === "unavailable" && day.roadLegCount > 0 ? (
-                      <span className="tone-error rounded-full border px-3 py-1 text-xs font-semibold">
+                      <span className="tone-error rounded-lg border px-2.5 py-1 text-xs font-semibold">
                         Unavailable
                       </span>
                     ) : null}
@@ -419,23 +419,23 @@ export default function StopTimeline({
                 </div>
 
                 {day.rows.length > 0 ? (
-                  <div className="mt-5 space-y-3">
+                  <div className="mt-3 space-y-2">
                     {day.rows.map((row) =>
                       row.kind === "travel" ? (
                         <article
                           key={row.id}
-                          className="rounded-[22px] border border-dashed border-app-border bg-app-surface-muted/55 px-4 py-3.5"
+                          className="rounded-lg border border-dashed border-app-border bg-app-surface-muted/55 px-3 py-2.5"
                         >
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div>
                               <p className="planner-eyebrow text-app-muted">Travel leg</p>
-                              <p className="planner-copy mt-2 text-app-text">
+                              <p className="planner-copy-sm mt-1 text-app-text">
                                 {row.fromLabel} to {row.toLabel}
                               </p>
                             </div>
 
                             <span
-                              className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                              className={`rounded-lg border px-2.5 py-1 text-xs font-semibold ${
                                 row.estimate && routeStatus === "fresh"
                                   ? "tone-success"
                                   : "tone-warning"
@@ -448,11 +448,11 @@ export default function StopTimeline({
                           </div>
 
                           {row.estimate ? (
-                            <p className="planner-copy-sm mt-2 text-app-muted">
+                            <p className="planner-meta mt-1.5 text-app-muted">
                               {row.estimate.distanceKm.toFixed(1)} km
                             </p>
                           ) : (
-                            <p className="planner-copy-sm mt-2 text-app-muted">
+                            <p className="planner-meta mt-1.5 text-app-muted">
                               Refresh the route to calculate this leg.
                             </p>
                           )}

@@ -141,7 +141,7 @@ export default function PlannerMapCockpit({
       aria-modal="true"
       aria-label={`${trip.name} map cockpit`}
     >
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-app-border bg-app-surface shadow-[0_24px_70px_rgb(var(--color-app-overlay)_/_0.22)]">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-app-border bg-app-surface shadow-[0_24px_70px_rgb(var(--color-app-overlay)_/_0.22)]">
         <header className="flex min-h-12 items-center justify-between gap-3 border-b border-app-border bg-app-surface-muted/75 px-3 py-2">
           <div className="min-w-0">
             <p className="planner-eyebrow text-app-muted">Map cockpit</p>
@@ -170,7 +170,7 @@ export default function PlannerMapCockpit({
           </div>
         </header>
 
-        <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1.85fr)_minmax(330px,0.9fr)]">
+        <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,1.9fr)_minmax(310px,0.82fr)]">
           <div data-testid="planner-map-cockpit-map-surface" className="min-h-[56vh] lg:min-h-0">
             <PlannerMap
               trip={trip}
@@ -190,23 +190,23 @@ export default function PlannerMapCockpit({
             data-testid="planner-map-cockpit-side-panel"
             className="min-h-0 overflow-y-auto border-t border-app-border bg-app-surface lg:border-l lg:border-t-0"
           >
-            <div className="space-y-3 p-3">
+            <div className="space-y-2.5 p-2.5">
               <section className="grid grid-cols-3 overflow-hidden rounded-lg border border-app-border bg-app-surface-muted/50">
-                <div className="border-r border-app-border px-3 py-2">
+                <div className="border-r border-app-border px-2.5 py-1.5">
                   <p className="planner-eyebrow text-app-muted">Legs</p>
-                  <p className="planner-title-md mt-1 text-app-text">{roadLegCount}</p>
+                  <p className="planner-title-sm mt-0.5 text-app-text">{roadLegCount}</p>
                 </div>
-                <div className="border-r border-app-border px-3 py-2">
+                <div className="border-r border-app-border px-2.5 py-1.5">
                   <p className="planner-eyebrow text-app-muted">Distance</p>
-                  <p className="planner-title-md mt-1 text-app-text">{totalDistanceKm.toFixed(1)} km</p>
+                  <p className="planner-title-sm mt-0.5 text-app-text">{totalDistanceKm.toFixed(1)} km</p>
                 </div>
-                <div className="px-3 py-2">
+                <div className="px-2.5 py-1.5">
                   <p className="planner-eyebrow text-app-muted">Stops</p>
-                  <p className="planner-title-md mt-1 text-app-text">{totalStops}</p>
+                  <p className="planner-title-sm mt-0.5 text-app-text">{totalStops}</p>
                 </div>
               </section>
 
-              <section className="rounded-lg border border-app-border bg-app-surface-muted/40 px-3 py-2">
+              <section className="rounded-lg border border-app-border bg-app-surface-muted/40 px-2.5 py-2">
                 <div className="flex items-center justify-between gap-2">
                   <p className="planner-eyebrow text-app-muted">Route data</p>
                   <span className={`rounded-lg border px-2 py-0.5 text-[10px] font-semibold ${routeToneClass[routeStatus]}`}>
@@ -228,13 +228,12 @@ export default function PlannerMapCockpit({
               />
 
               <section className="rounded-lg border border-app-border bg-app-surface">
-                <div className="flex items-center justify-between border-b border-app-border px-3 py-2">
+                <div className="flex items-center justify-between border-b border-app-border px-2.5 py-2">
                   <div>
                     <p className="planner-eyebrow planner-section-label">Itinerary</p>
-                    <p className="planner-meta mt-1 text-app-muted">Rows select and focus the map.</p>
                   </div>
                   <span className="planner-pill rounded-lg border px-2 py-0.5 text-[10px] font-semibold">
-                    {itineraryDays.length} days
+                    {itineraryDays.length} active
                   </span>
                 </div>
 
@@ -247,11 +246,11 @@ export default function PlannerMapCockpit({
                       <button
                         type="button"
                         onClick={() => onSelectDate(day.date)}
-                        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left"
+                        className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left"
                       >
                         <span>
                           <span className="planner-eyebrow block text-app-muted">{formatDayChip(day.date)}</span>
-                          <span className="planner-title-sm mt-0.5 block text-app-text">
+                          <span className="planner-copy-sm mt-0.5 block font-semibold text-app-text">
                             {formatDateOnly(day.date)}
                           </span>
                         </span>
@@ -261,12 +260,12 @@ export default function PlannerMapCockpit({
                       </button>
 
                       {day.rows.length > 0 ? (
-                        <div className="space-y-1 px-2 pb-2">
+                        <div className="space-y-1 px-1.5 pb-1.5">
                           {day.rows.map((row) =>
                             row.kind === "travel" ? (
                               <div
                                 key={row.id}
-                                className="rounded-lg border border-dashed border-app-border bg-app-surface-muted/45 px-2.5 py-2"
+                                className="rounded-lg border border-dashed border-app-border bg-app-surface-muted/45 px-2 py-1.5"
                               >
                                 <div className="flex items-center justify-between gap-2">
                                   <p className="planner-eyebrow text-app-muted">Travel</p>
@@ -279,7 +278,7 @@ export default function PlannerMapCockpit({
                                       : "Refresh"}
                                   </span>
                                 </div>
-                                <p className="planner-meta mt-1 truncate text-app-muted">
+                                <p className="planner-meta mt-0.5 truncate text-app-muted">
                                   {row.fromLabel} to {row.toLabel}
                                 </p>
                               </div>
@@ -293,7 +292,7 @@ export default function PlannerMapCockpit({
                                     stopId: row.stop.id,
                                   })
                                 }
-                                className={`flex w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left transition ${
+                                className={`flex w-full items-start gap-2 rounded-lg border px-2 py-1.5 text-left transition ${
                                   selectedEntity?.stopId === row.stop.id
                                     ? "border-brand-primary/35 bg-brand-primary/10"
                                     : "border-app-border bg-app-surface hover:bg-app-surface-muted"
@@ -308,7 +307,7 @@ export default function PlannerMapCockpit({
                                 </span>
                                 <span className="min-w-0 flex-1">
                                   <span className="flex items-center justify-between gap-2">
-                                    <span className="planner-title-sm truncate text-app-text">
+                                    <span className="planner-copy-sm truncate font-semibold text-app-text">
                                       {row.stop.title}
                                     </span>
                                     <span className="planner-meta shrink-0 text-app-muted">
