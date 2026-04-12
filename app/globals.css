@@ -41,20 +41,20 @@
   --color-state-error: 149 35 35;
   --color-state-error-surface: 252 232 232;
   --color-state-error-border: 239 183 183;
-  --planner-font-size-eyebrow: 0.6875rem;
-  --planner-font-size-meta: 0.75rem;
+  --planner-font-size-eyebrow: 0.625rem;
+  --planner-font-size-meta: 0.6875rem;
   --planner-font-size-copy: 0.8125rem;
-  --planner-line-height-copy: 1.35rem;
+  --planner-line-height-copy: 1.15rem;
   --planner-font-size-copy-sm: 0.75rem;
-  --planner-line-height-copy-sm: 1.125rem;
-  --planner-font-size-title-sm: 0.9375rem;
-  --planner-font-size-title-md: 1rem;
-  --planner-font-size-title-lg: 1.125rem;
-  --planner-font-size-title-xl: clamp(1.25rem, 1.15rem + 0.5vw, 1.5rem);
-  --planner-font-size-title-hero: clamp(1.625rem, 1.25rem + 1.15vw, 2.125rem);
-  --planner-font-size-metric: clamp(1rem, 0.92rem + 0.45vw, 1.25rem);
-  --planner-letter-spacing-tight: -0.025em;
-  --planner-letter-spacing-eyebrow: 0.18em;
+  --planner-line-height-copy-sm: 1rem;
+  --planner-font-size-title-sm: 0.875rem;
+  --planner-font-size-title-md: 0.9375rem;
+  --planner-font-size-title-lg: 1rem;
+  --planner-font-size-title-xl: clamp(1.0625rem, 1rem + 0.22vw, 1.125rem);
+  --planner-font-size-title-hero: clamp(1.375rem, 1.2rem + 0.65vw, 1.75rem);
+  --planner-font-size-metric: clamp(0.9375rem, 0.9rem + 0.2vw, 1.0625rem);
+  --planner-letter-spacing-tight: 0;
+  --planner-letter-spacing-eyebrow: 0.08em;
 }
 
 :root[data-brand="campervan"][data-theme="dark"] {
@@ -368,7 +368,7 @@ button {
 }
 
 .maplibregl-ctrl-group {
-  border-radius: 16px !important;
+  border-radius: 8px !important;
   overflow: hidden;
   border: 1px solid rgb(var(--color-app-border)) !important;
   background: rgb(var(--color-app-surface)) !important;
@@ -376,6 +376,7 @@ button {
 }
 
 .maplibregl-popup-content {
+  border-radius: 8px !important;
   background: rgb(var(--color-app-surface)) !important;
   color: rgb(var(--color-app-text)) !important;
   border: 1px solid rgb(var(--color-app-border));

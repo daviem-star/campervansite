@@ -21,6 +21,7 @@ type StopEditorModalProps = {
   mode: "create" | "edit";
   stopType: StopType;
   initialStop: TripStop | null;
+  existingStops?: TripStop[];
   onClose: () => void;
   onCreate: (stop: NewTripStop) => Promise<void>;
   onUpdate: (stop: TripStop) => Promise<void>;
@@ -28,20 +29,28 @@ type StopEditorModalProps = {
 
 const buildDefaultStayTimes = () => {
   const today = todayDateInTimezone();
-  const nextDay = format(addDays(parseISO(`${today}T00:00:00Z`), 1), "yyyy-MM-dd");
+  return buildDefaultStayTimesForDate(today);
+};
+
+const buildDefaultStayTimesForDate = (date: string) => {
+  const nextDay = format(addDays(parseISO(`${date}T00:00:00Z`), 1), "yyyy-MM-dd");
   return {
-    checkInAt: `${today}T15:00`,
+    checkInAt: `${date}T15:00`,
     checkOutAt: `${nextDay}T11:00`,
   };
 };
 
 const buildDefaultFerryTimes = () => {
   const today = todayDateInTimezone();
-  const departureAt = `${today}T13:30`;
+  return buildDefaultFerryTimesForDate(today);
+};
+
+const buildDefaultFerryTimesForDate = (date: string) => {
+  const departureAt = `${date}T13:30`;
   const checkInBufferMinutes = 45;
   return {
     departureAt,
-    arrivalAt: `${today}T15:00`,
+    arrivalAt: `${date}T15:00`,
     checkInBy: toLocalInputFromIso(
       applyDefaultCheckInBy(toIsoFromLocalInput(departureAt), checkInBufferMinutes),
     ),
@@ -87,11 +96,35 @@ const addMinutesToLocalDateTime = (value: string, minutes: number): string | nul
   }
 };
 
+const getNextStopDateForStayOrFerry = (stop: TripStop): string | null => {
+  if (stop.type === "stay") {
+    return toLocalInputFromIso(stop.checkOutAt).slice(0, 10);
+  }
+
+  if (stop.type === "ferry") {
+    return toLocalInputFromIso(stop.arrivalAt).slice(0, 10);
+  }
+
+  return null;
+};
+
+const getDefaultDateFromStops = (stops: TripStop[]): string => {
+  const lastStayOrFerry = [...stops]
+    .sort((a, b) => a.order - b.order)
+    .filter((stop) => stop.type === "stay" || stop.type === "ferry")
+    .at(-1);
+
+  return lastStayOrFerry
+    ? (getNextStopDateForStayOrFerry(lastStayOrFerry) ?? todayDateInTimezone())
+    : todayDateInTimezone();
+};
+
 export default function StopEditorModal({
   isOpen,
   mode,
   stopType,
   initialStop,
+  existingStops = [],
   onClose,
   onCreate,
   onUpdate,
@@ -252,8 +285,9 @@ export default function StopEditorModal({
       return;
     }
 
-    const defaultStay = buildDefaultStayTimes();
-    const defaultFerry = buildDefaultFerryTimes();
+    const defaultDate = getDefaultDateFromStops(existingStops);
+    const defaultStay = buildDefaultStayTimesForDate(defaultDate);
+    const defaultFerry = buildDefaultFerryTimesForDate(defaultDate);
 
     setTitle("");
     setIsTitleManuallyEdited(false);
@@ -286,7 +320,7 @@ export default function StopEditorModal({
 
     setPoiPlace(null);
     setPoiVisitDate(todayDateInTimezone());
-  }, [initialStop, isOpen, mode, stopType]);
+  }, [existingStops, initialStop, isOpen, mode, stopType]);
 
   useEffect(() => {
     if (!isOpen || isTitleManuallyEdited) {

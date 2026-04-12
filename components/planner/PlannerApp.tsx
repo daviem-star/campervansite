@@ -6,27 +6,26 @@ import AccountStatusControl from "@/components/planner/AccountStatusControl";
 import DashboardTripDetailsPanel from "@/components/planner/DashboardTripDetailsPanel";
 import DayStrip from "@/components/planner/DayStrip";
 import FirstTripSetupPanel from "@/components/planner/FirstTripSetupPanel";
-import ItineraryInspector from "@/components/planner/ItineraryInspector";
 import PlannerAuthGate from "@/components/planner/PlannerAuthGate";
 import PlannerBrandBadge from "@/components/planner/PlannerBrandBadge";
 import PlannerMap from "@/components/planner/PlannerMap";
+import PlannerMapCockpit from "@/components/planner/PlannerMapCockpit";
 import PlannerMobileMapOverlay from "@/components/planner/PlannerMobileMapOverlay";
+import StopDetailsDrawer from "@/components/planner/StopDetailsDrawer";
 import TripMapPreviewPanel from "@/components/planner/TripMapPreviewPanel";
 import { plannerNoticeToneClass } from "@/components/planner/plannerTheme";
 import StopEditorModal from "@/components/planner/StopEditorModal";
 import StopTimeline from "@/components/planner/StopTimeline";
 import TodayStatusControl from "@/components/planner/TodayStatusControl";
-import TravelInsightsPanel, {
-  getRouteConfidenceSnapshot,
-} from "@/components/planner/TravelInsightsPanel";
+import TravelInsightsPanel from "@/components/planner/TravelInsightsPanel";
 import TripCreateModal from "@/components/planner/TripCreateModal";
 import TripRenameModal from "@/components/planner/TripRenameModal";
 import TripsPanel from "@/components/planner/TripsPanel";
 import ValidationWarningsPanel from "@/components/planner/ValidationWarningsPanel";
 import {
+  dateOnlyFromIso,
   formatDateOnly,
   formatDayChip,
-  formatDurationMinutes,
   nowIso,
   todayDateInTimezone,
 } from "@/lib/date";
@@ -114,6 +113,41 @@ const defaultRoutePanelState: RoutePanelState = {
 const saveFeedbackToneClass: Record<PlannerNoticeTone, string> = plannerNoticeToneClass;
 const defaultExpandedWarningSeverities: ValidationWarning["severity"][] = ["high", "medium"];
 
+const routeStatusLabels: Record<RouteInsightsState, string> = {
+  fresh: "Live",
+  stale: "Needs refresh",
+  unavailable: "Unavailable",
+};
+
+const getRouteStatusLabel = (panel: RoutePanelState): string =>
+  panel.isRefreshing ? "Refreshing route..." : routeStatusLabels[panel.status];
+
+const getRouteStatusToneClass = (status: RouteInsightsState): string => {
+  if (status === "fresh") {
+    return "tone-success";
+  }
+
+  if (status === "unavailable") {
+    return "tone-error";
+  }
+
+  return "tone-warning";
+};
+
+const getLatestRouteRefreshLabel = (estimates: TravelLegEstimate[]): string | null => {
+  const latestFetchedAt = estimates.reduce<string | null>((latest, estimate) => {
+    if (!latest) {
+      return estimate.fetchedAt;
+    }
+
+    return new Date(estimate.fetchedAt).getTime() > new Date(latest).getTime()
+      ? estimate.fetchedAt
+      : latest;
+  }, null);
+
+  return latestFetchedAt ? formatDateOnly(dateOnlyFromIso(latestFetchedAt)) : null;
+};
+
 const cloneTrip = (trip: Trip): Trip => structuredClone(trip);
 
 const getRouteSnapshotKey = (trip: Trip | null): string => {
@@ -166,7 +200,7 @@ const buildRoutePanelFromSnapshot = (
       estimates,
       isRefreshing: false,
       status: "stale",
-      statusMessage: `Saved route timings are ${ageLabel} and out of date for this itinerary. Refresh when you want newer drive estimates.`,
+      statusMessage: `Saved route data is ${ageLabel} and no longer matches this itinerary. Refresh the route to bring it live.`,
     };
   }
 
@@ -175,7 +209,7 @@ const buildRoutePanelFromSnapshot = (
       estimates,
       isRefreshing: false,
       status: "stale",
-      statusMessage: `Saved route timings are ${ageLabel}. Refresh when you want newer drive estimates.`,
+      statusMessage: `Saved route data is ${ageLabel}. Refresh the route to bring it live.`,
     };
   }
 
@@ -255,6 +289,8 @@ export default function PlannerApp() {
   const [dashboardSelectionOrigin, setDashboardSelectionOrigin] =
     useState<SelectionOrigin>("system");
   const [mobileMapOverlay, setMobileMapOverlay] = useState<MobileMapOverlayContext | null>(null);
+  const [isMapCockpitOpen, setIsMapCockpitOpen] = useState(false);
+  const [isStopDetailsOpen, setIsStopDetailsOpen] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{
     tone: PlannerNoticeTone;
     text: string;
@@ -427,9 +463,9 @@ export default function PlannerApp() {
         estimates: cachedEstimates,
         isRefreshing: false,
         status: "stale",
-        statusMessage: `Showing locally cached route timings from this device (${describeRouteSnapshotAge(
+        statusMessage: `Showing locally cached route data from this device (${describeRouteSnapshotAge(
           cached.entry.cachedAt,
-        )}). Refresh once to save them with this trip.`,
+        )}). Refresh the route to bring it live for this trip.`,
       };
     }
 
@@ -437,7 +473,7 @@ export default function PlannerApp() {
       estimates: [],
       isRefreshing: false,
       status: "stale",
-      statusMessage: "No saved route timings yet. Refresh to calculate and save them with this trip.",
+      statusMessage: "No saved route data yet. Refresh the route to bring it live for this trip.",
     };
   };
 
@@ -508,7 +544,7 @@ export default function PlannerApp() {
         isRefreshing: false,
         status: "stale",
         statusMessage:
-          "Refreshed route timings are only available on this device until the trip can be saved.",
+          "Refreshed route data is only available on this device until the trip can be saved.",
       });
     } catch (caught) {
       if (loadedRouteRefreshCounterRef.current !== refreshId) {
@@ -522,11 +558,11 @@ export default function PlannerApp() {
         statusMessage:
           basePanel.estimates.length > 0
             ? caught instanceof Error
-              ? `${caught.message} Showing the last saved route timings instead.`
-              : "Unable to refresh route estimates. Showing the last saved route timings instead."
+              ? `${caught.message} Showing the last saved route data instead.`
+              : "Unable to refresh the route. Showing the last saved route data instead."
             : caught instanceof Error
               ? caught.message
-              : "Unable to refresh route estimates.",
+              : "Unable to refresh the route.",
       });
     }
   };
@@ -598,7 +634,7 @@ export default function PlannerApp() {
         isRefreshing: false,
         status: "stale",
         statusMessage:
-          "Refreshed route timings are only available on this device until the trip can be saved.",
+          "Refreshed route data is only available on this device until the trip can be saved.",
       });
     } catch (caught) {
       if (previewRouteRefreshCounterRef.current !== refreshId) {
@@ -612,11 +648,11 @@ export default function PlannerApp() {
         statusMessage:
           basePanel.estimates.length > 0
             ? caught instanceof Error
-              ? `${caught.message} Showing the last saved route timings instead.`
-              : "Unable to refresh route estimates. Showing the last saved route timings instead."
+              ? `${caught.message} Showing the last saved route data instead.`
+              : "Unable to refresh the route. Showing the last saved route data instead."
             : caught instanceof Error
               ? caught.message
-              : "Unable to refresh route estimates.",
+              : "Unable to refresh the route.",
       });
     }
   };
@@ -710,10 +746,6 @@ export default function PlannerApp() {
   const previewValidationWarnings = useMemo(
     () => (previewTrip ? getValidationWarnings(previewTrip, previewRoutePanel.estimates) : []),
     [previewRoutePanel.estimates, previewTrip],
-  );
-  const loadedRouteConfidence = useMemo(
-    () => getRouteConfidenceSnapshot(loadedRoutePanel.estimates, loadedRouteRequests.length),
-    [loadedRoutePanel.estimates, loadedRouteRequests.length],
   );
   const dashboardTrip = isCloudTripLibraryAvailable ? previewTrip : displayTrip;
   const dashboardRoutePanel = isCloudTripLibraryAvailable ? previewRoutePanel : loadedRoutePanel;
@@ -834,6 +866,12 @@ export default function PlannerApp() {
       setMobileMapOverlay(null);
     }
   }, [dashboardTrip, displayTrip, mobileMapOverlay]);
+
+  useEffect(() => {
+    if (isMapCockpitOpen && !displayTrip) {
+      setIsMapCockpitOpen(false);
+    }
+  }, [displayTrip, isMapCockpitOpen]);
 
   const confirmDiscardDraftChanges = (actionLabel: string) => {
     if (!hasDraftChanges) {
@@ -1007,6 +1045,11 @@ export default function PlannerApp() {
 
   const onSelectEntityFromItinerary = (entity: Exclude<SelectedEntity, null>) => {
     selectEntity(entity, "itinerary");
+  };
+
+  const onViewStopDetails = (stop: TripStop) => {
+    selectEntity({ kind: stop.type, stopId: stop.id }, "itinerary");
+    setIsStopDetailsOpen(true);
   };
 
   const openEditStopEditor = (stop: TripStop) => {
@@ -1327,9 +1370,9 @@ export default function PlannerApp() {
                     </span>
                   </span>
                   <span className={summaryPillClass}>
-                    <span className="planner-eyebrow text-app-muted">Routing</span>
+                    <span className="planner-eyebrow text-app-muted">Route status</span>
                     <span className="font-medium text-app-text">
-                      {loadedRouteConfidence.summary}
+                      {getRouteStatusLabel(loadedRoutePanel)}
                     </span>
                   </span>
                   {currentScreenEntry.screen === "trip-itinerary" ? (
@@ -1387,26 +1430,37 @@ export default function PlannerApp() {
       data-testid="overview-scroll-region"
       className="space-y-4 pr-1 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-y-auto"
     >
-      <TripMapPreviewPanel
-        trip={displayTrip}
-        markers={loadedMapData.markers}
-        segments={loadedMapData.segments}
-        routeSummary={loadedRouteMapSummary}
-        density="compact"
-        selectionSummaryPlacement="map-overlay"
-        selectedEntity={effectiveSelectedEntity}
-        selectionOrigin={selectionOrigin}
-        selectedDetails={selectedEntityDetails}
-        onSelectEntity={onSelectEntityFromMap}
-        onOpenMobileMap={() => openMobileMapOverlay("overview")}
-        title="Map"
-        description="Preview the route here and keep the same selection when you move into Itinerary."
-        mobileCtaLabel="View map"
-        mobileCtaDescription="Open the current trip route in a dedicated full-screen map view."
-        panelTestId="overview-trip-map-panel"
-        mobileButtonTestId="overview-mobile-map-button"
-        selectionSummaryTestId="overview-map-selection-summary"
-      />
+      <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 shadow-[0_18px_40px_rgb(var(--color-app-overlay)_/_0.08)] sm:px-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="planner-eyebrow planner-section-label">Current route</p>
+            <h3 className="planner-title-lg mt-2 text-app-text">
+              {getRouteStatusLabel(loadedRoutePanel)}
+            </h3>
+            <p className="planner-copy-sm mt-1.5 text-app-muted">
+              The map stays pinned beside this view while you check warnings and route health.
+            </p>
+          </div>
+
+          <span
+            className={`rounded-full border px-3 py-1 text-xs font-semibold ${getRouteStatusToneClass(
+              loadedRoutePanel.status,
+            )}`}
+          >
+            {getRouteStatusLabel(loadedRoutePanel)}
+          </span>
+        </div>
+
+        {loadedRoutePanel.statusMessage && loadedRoutePanel.status !== "fresh" ? (
+          <p
+            className={`planner-copy-sm mt-4 rounded-2xl border px-3 py-2 ${getRouteStatusToneClass(
+              loadedRoutePanel.status,
+            )}`}
+          >
+            {loadedRoutePanel.statusMessage}
+          </p>
+        ) : null}
+      </section>
 
       <ValidationWarningsPanel
         key={`overview-warnings-${displayTrip?.id ?? "none"}`}
@@ -1429,8 +1483,7 @@ export default function PlannerApp() {
         status={loadedRoutePanel.status}
         statusMessage={loadedRoutePanel.statusMessage}
         isRefreshing={loadedRoutePanel.isRefreshing}
-        onRefresh={() => void syncLoadedRoutePanel(true)}
-        description="A quick read on whether the current route still looks grounded."
+        description="A quick read on whether the current route is live for this itinerary."
         showDetailsByDefault={false}
         collapsibleDetails
         density="compact"
@@ -1536,139 +1589,113 @@ export default function PlannerApp() {
     >
       <section
         className={`overflow-hidden rounded-[24px] border bg-app-surface transition-[border-color,box-shadow] duration-200 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col ${
-          plannerInteractionMode === "edit"
-            ? "planner-selected"
-            : "border-app-border/80"
+          plannerInteractionMode === "edit" ? "planner-selected" : "border-app-border/80"
         }`}
       >
-        <div className="lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1.12fr)_minmax(320px,0.88fr)]">
-          <div
-            data-testid="desktop-itinerary-scroll-region"
-            data-itinerary-scroll-container="true"
-            className="min-h-0 px-4 py-4 sm:px-5 sm:py-4 lg:overflow-y-auto"
-          >
-            <div className="space-y-4">
-              <section className="rounded-[26px] border border-app-border/80 bg-[linear-gradient(160deg,rgb(var(--color-brand-primary)_/_0.08),rgb(var(--color-app-surface))_48%,rgb(var(--color-brand-secondary)_/_0.08))] px-4 py-4 shadow-[0_18px_40px_rgb(var(--color-app-overlay)_/_0.08)] sm:px-5 sm:py-4">
-                <div className="flex flex-col gap-3.5">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <p className="planner-eyebrow planner-section-label">Itinerary workspace</p>
-                      <h3 className="planner-title-lg mt-1.5 text-app-text">
-                        {currentItineraryDay
-                          ? `${formatDayChip(currentItineraryDay.date)} · ${formatDateOnly(currentItineraryDay.date)}`
-                          : "Build your route day by day"}
-                      </h3>
-                      <p className="planner-copy-sm mt-1.5 text-app-muted">
-                        {currentItineraryDay?.activeStay
-                          ? `Base: ${currentItineraryDay.activeStay.title}`
-                          : "Select a day to review movements, base coverage, and stop details."}
-                      </p>
-                    </div>
+        <div
+          data-testid="desktop-itinerary-scroll-region"
+          data-itinerary-scroll-container="true"
+          className="min-h-0 px-4 py-4 sm:px-5 sm:py-4 lg:overflow-y-auto"
+        >
+          <div className="space-y-4">
+            <section className="sticky top-0 z-10 rounded-[20px] border border-app-border/80 bg-app-surface/96 px-4 py-4 shadow-[0_12px_32px_rgb(var(--color-app-overlay)_/_0.08)] backdrop-blur sm:px-5">
+              <div className="flex flex-col gap-3.5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="planner-eyebrow planner-section-label">Itinerary workspace</p>
+                    <h3 className="planner-title-lg mt-1.5 text-app-text">
+                      {currentItineraryDay
+                        ? `${formatDayChip(currentItineraryDay.date)} · ${formatDateOnly(currentItineraryDay.date)}`
+                        : "Build your route day by day"}
+                    </h3>
+                    <p className="planner-copy-sm mt-1.5 text-app-muted">
+                      {currentItineraryDay?.activeStay
+                        ? `Base: ${currentItineraryDay.activeStay.title}`
+                        : "Select a day to review stops and route status."}
+                    </p>
+                  </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      data-testid="planner-mode-toggle"
+                      onClick={() => {
+                        if (plannerInteractionMode === "view") {
+                          enterEditMode();
+                        }
+                      }}
+                      disabled={isOfflineReadOnly || plannerInteractionMode === "edit"}
+                      className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                        isOfflineReadOnly
+                          ? "cursor-not-allowed border-app-border bg-app-surface-muted text-app-muted"
+                          : plannerInteractionMode === "edit"
+                            ? "cursor-default border-app-border bg-app-surface text-app-text"
+                            : "planner-button-primary"
+                      }`}
+                    >
+                      {plannerInteractionMode === "edit" ? "Editing draft" : "Edit itinerary"}
+                    </button>
+
+                    <div
+                      className={`flex items-center gap-2 transition-[max-width,opacity] duration-200 ${
+                        plannerInteractionMode === "edit"
+                          ? "max-w-[18rem] opacity-100"
+                          : "max-w-0 overflow-hidden opacity-0"
+                      }`}
+                    >
                       <button
                         type="button"
-                        data-testid="planner-mode-toggle"
-                        onClick={() => {
-                          if (plannerInteractionMode === "view") {
-                            enterEditMode();
-                          }
-                        }}
-                        disabled={isOfflineReadOnly || plannerInteractionMode === "edit"}
-                        className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                          isOfflineReadOnly
-                            ? "cursor-not-allowed border-app-border bg-app-surface-muted text-app-muted"
-                            : plannerInteractionMode === "edit"
-                              ? "cursor-default border-app-border bg-app-surface text-app-text"
-                              : "planner-button-primary"
-                        }`}
+                        data-testid="planner-mode-save"
+                        onClick={() => void handleSaveItinerary()}
+                        disabled={!hasDraftChanges || isSavingDraft}
+                        className="planner-button-primary rounded-full border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed"
                       >
-                        {plannerInteractionMode === "edit" ? "Editing draft" : "Edit itinerary"}
+                        {isSavingDraft ? "Saving..." : "Save"}
                       </button>
 
-                      <div
-                        className={`flex items-center gap-2 transition-[max-width,opacity] duration-200 ${
-                          plannerInteractionMode === "edit" ? "max-w-[18rem] opacity-100" : "max-w-0 overflow-hidden opacity-0"
-                        }`}
+                      <button
+                        type="button"
+                        data-testid="planner-mode-cancel"
+                        onClick={exitEditMode}
+                        disabled={isSavingDraft}
+                        className="planner-button-secondary rounded-full border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <button
-                          type="button"
-                          data-testid="planner-mode-save"
-                          onClick={() => void handleSaveItinerary()}
-                          disabled={!hasDraftChanges || isSavingDraft}
-                          className="planner-button-primary rounded-full border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed"
-                        >
-                          {isSavingDraft ? "Saving..." : "Save"}
-                        </button>
-
-                        <button
-                          type="button"
-                          data-testid="planner-mode-cancel"
-                          onClick={exitEditMode}
-                          disabled={isSavingDraft}
-                          className="planner-button-secondary rounded-full border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Cancel
-                        </button>
-                      </div>
+                        Cancel
+                      </button>
                     </div>
                   </div>
+                </div>
 
-                  {saveFeedback ? (
-                    <p
-                      className={`planner-copy-sm rounded-2xl border px-3 py-2 font-medium ${saveFeedbackToneClass[saveFeedback.tone]}`}
-                    >
-                      {saveFeedback.text}
-                    </p>
-                  ) : null}
+                {saveFeedback ? (
+                  <p
+                    className={`planner-copy-sm rounded-2xl border px-3 py-2 font-medium ${saveFeedbackToneClass[saveFeedback.tone]}`}
+                  >
+                    {saveFeedback.text}
+                  </p>
+                ) : null}
 
-                  {isOfflineReadOnly ? (
-                    <p className="planner-copy-sm tone-warning rounded-2xl border px-3 py-2 font-medium">
-                      The cached trip stays available for review while offline, but editing and saving
-                      stay locked until you reconnect.
-                    </p>
-                  ) : null}
+                {isOfflineReadOnly ? (
+                  <p className="planner-copy-sm tone-warning rounded-2xl border px-3 py-2 font-medium">
+                    The cached trip stays available for review while offline, but editing and saving
+                    stay locked until you reconnect.
+                  </p>
+                ) : null}
 
-                  <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(260px,0.72fr)]">
-                    <div className="rounded-[22px] border border-app-border bg-app-surface/85 p-3">
-                      <div className="mb-2.5 flex items-center justify-between">
-                        <h4 className="planner-title-sm text-app-text">Trip days</h4>
-                        <span className="planner-meta text-app-muted">
-                          {tripDays.length} {tripDays.length === 1 ? "day" : "days"}
-                        </span>
-                      </div>
-                      <DayStrip
-                        days={itineraryDays}
-                        selectedDate={effectiveSelectedDate}
-                        onSelect={onSelectDate}
-                      />
-                    </div>
-
-                    <div className="rounded-[22px] border border-app-border bg-app-surface/85 p-3.5">
-                      <p className="planner-eyebrow text-app-muted">Day snapshot</p>
-                      <div className="mt-2.5 grid gap-2.5 sm:grid-cols-3 xl:grid-cols-2">
-                        <div>
-                          <p className="planner-title-lg text-app-text">
-                            {currentItineraryDay?.stopCount ?? 0}
-                          </p>
-                          <p className="planner-copy-sm mt-1 text-app-muted">Stops in focus</p>
-                        </div>
-                        <div>
-                          <p className="planner-title-lg text-app-text">
-                            {formatDurationMinutes(currentItineraryDay?.bufferedDriveMinutes ?? 0)}
-                          </p>
-                          <p className="planner-copy-sm mt-1 text-app-muted">Buffered drive</p>
-                        </div>
-                        <div>
-                          <p className="planner-title-lg text-app-text">
-                            {currentItineraryDay?.roadLegCount ?? 0}
-                          </p>
-                          <p className="planner-copy-sm mt-1 text-app-muted">Road legs</p>
-                        </div>
-                      </div>
-                    </div>
+                <div className="rounded-[18px] border border-app-border bg-app-surface/85 p-3">
+                  <div className="mb-2.5 flex items-center justify-between">
+                    <h4 className="planner-title-sm text-app-text">Trip days</h4>
+                    <span className="planner-meta text-app-muted">
+                      {tripDays.length} {tripDays.length === 1 ? "day" : "days"}
+                    </span>
                   </div>
+                  <DayStrip
+                    days={itineraryDays}
+                    selectedDate={effectiveSelectedDate}
+                    onSelect={onSelectDate}
+                  />
+                </div>
 
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex flex-wrap gap-2">
                     {([
                       [
@@ -1699,87 +1726,165 @@ export default function PlannerApp() {
                       </button>
                     ))}
                   </div>
-                </div>
-              </section>
 
-              <StopTimeline
-                days={itineraryDays}
-                selectedDate={effectiveSelectedDate}
-                selectedEntity={effectiveSelectedEntity}
-                isVisible
-                isOfflineReadOnly={isOfflineReadOnly}
-                canMutate={canEditTrip}
-                onSelectDate={onSelectDate}
-                onSelectEntity={onSelectEntityFromItinerary}
-                onEdit={openEditStopEditor}
-                onDelete={(stop) => {
-                  const confirmed = window.confirm(`Delete "${stop.title}"?`);
-                  if (confirmed) {
-                    void onDeleteStop(stop.id);
-                  }
-                }}
-                onReorder={onReorderStops}
-                onMove={onMoveStop}
-              />
+                  <div className="flex flex-wrap gap-2">
+                    <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
+                      {currentItineraryDay?.stopCount ?? 0} stops
+                    </span>
+                    <span className="planner-pill rounded-full border px-3 py-1 text-xs font-semibold">
+                      {currentItineraryDay?.roadLegCount ?? 0} road legs
+                    </span>
+                    <span
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${getRouteStatusToneClass(
+                        loadedRoutePanel.status,
+                      )}`}
+                    >
+                      {getRouteStatusLabel(loadedRoutePanel)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <StopTimeline
+              days={itineraryDays}
+              selectedDate={effectiveSelectedDate}
+              selectedEntity={effectiveSelectedEntity}
+              isVisible
+              routeStatus={loadedRoutePanel.status}
+              isOfflineReadOnly={isOfflineReadOnly}
+              canMutate={canEditTrip}
+              onSelectDate={onSelectDate}
+              onSelectEntity={onSelectEntityFromItinerary}
+              onView={onViewStopDetails}
+              onEdit={openEditStopEditor}
+              onDelete={(stop) => {
+                const confirmed = window.confirm(`Delete "${stop.title}"?`);
+                if (confirmed) {
+                  void onDeleteStop(stop.id);
+                }
+              }}
+              onReorder={onReorderStops}
+              onMove={onMoveStop}
+            />
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+
+  const renderTripMapPanel = () => {
+    const latestRefresh = getLatestRouteRefreshLabel(loadedRoutePanel.estimates);
+
+    return (
+      <aside
+        data-testid="trip-persistent-map-panel"
+        className="hidden min-h-0 lg:flex lg:flex-col"
+      >
+        <section className="sticky top-0 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border border-app-border/80 bg-app-surface p-4 shadow-[0_18px_42px_rgb(var(--color-app-overlay)_/_0.08)]">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="planner-eyebrow planner-section-label">Map</p>
+              <p className="planner-copy-sm mt-1 text-app-muted">
+                Overview and itinerary share this route view.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <span
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${getRouteStatusToneClass(
+                  loadedRoutePanel.status,
+                )}`}
+              >
+                {getRouteStatusLabel(loadedRoutePanel)}
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsMapCockpitOpen(true)}
+                className="planner-button-secondary rounded-lg border px-3 py-1.5 text-xs font-semibold transition"
+              >
+                Open map
+              </button>
+              <button
+                type="button"
+                onClick={() => void syncLoadedRoutePanel(true)}
+                disabled={loadedRoutePanel.isRefreshing || loadedRouteRequests.length === 0}
+                className="planner-button-primary rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loadedRoutePanel.isRefreshing ? "Refreshing route..." : "Refresh route"}
+              </button>
             </div>
           </div>
 
-          <aside className="border-t border-app-border bg-app-surface-muted/35 px-4 py-4 sm:px-5 sm:py-4 lg:min-h-0 lg:overflow-y-auto lg:border-l lg:border-t-0">
-            <div className="space-y-4 lg:sticky lg:top-0">
-              <ItineraryInspector
-                selectedDate={effectiveSelectedDate}
-                selectedDay={currentItineraryDay}
-                selectedDetails={selectedEntityDetails}
-                routeConfidence={loadedRouteConfidence}
-                routeSummary={loadedRouteMapSummary}
-                routeStatus={loadedRoutePanel.status}
-                routeStatusMessage={loadedRoutePanel.statusMessage}
-                onRefreshRoute={() => void syncLoadedRoutePanel(true)}
-                onEditSelected={openEditStopEditor}
-                isOfflineReadOnly={isOfflineReadOnly}
-              />
+          {loadedRoutePanel.statusMessage && loadedRoutePanel.status !== "fresh" ? (
+            <p
+              className={`planner-copy-sm mb-3 rounded-2xl border px-3 py-2 ${getRouteStatusToneClass(
+                loadedRoutePanel.status,
+              )}`}
+            >
+              {loadedRoutePanel.statusMessage}
+            </p>
+          ) : null}
 
-              <section className="rounded-[24px] border border-app-border/80 bg-app-surface p-3.5 shadow-[0_18px_40px_rgb(var(--color-app-overlay)_/_0.08)] sm:p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <p className="planner-eyebrow planner-section-label">Map</p>
-                    <p className="planner-copy-sm mt-1 text-app-muted">
-                      Timeline selections stay linked to the current route view.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    data-testid="itinerary-mobile-map-button"
-                    onClick={() => openMobileMapOverlay("itinerary")}
-                    className="planner-button-secondary rounded-full border px-3 py-1.5 text-xs font-semibold md:hidden"
-                  >
-                    View map
-                  </button>
-                </div>
-                <div className="rounded-[20px] border border-app-border bg-app-surface-muted/45 px-4 py-4 md:hidden">
-                  <p className="planner-copy text-app-text">
-                    Open the route in a dedicated full-screen map view without pushing the
-                    inspector further down the page.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => openMobileMapOverlay("itinerary")}
-                    className="planner-button-secondary mt-4 rounded-full border px-4 py-2 text-sm font-semibold"
-                  >
-                    View map
-                  </button>
-                </div>
-                <div
-                  data-testid="itinerary-desktop-map-panel"
-                  className="hidden h-[320px] overflow-hidden rounded-[20px] border border-app-border bg-app-surface md:block lg:h-[390px]"
-                >
-                  {renderPlannerMap()}
-                </div>
-              </section>
+          <div className="mb-3 grid gap-2 sm:grid-cols-3">
+            <div className="rounded-[16px] border border-app-border bg-app-surface-muted/55 px-3 py-2.5">
+              <p className="planner-eyebrow text-app-muted">Road legs</p>
+              <p className="planner-title-sm mt-1 text-app-text">{loadedRouteRequests.length}</p>
             </div>
-          </aside>
+            <div className="rounded-[16px] border border-app-border bg-app-surface-muted/55 px-3 py-2.5">
+              <p className="planner-eyebrow text-app-muted">Distance</p>
+              <p className="planner-title-sm mt-1 text-app-text">
+                {loadedRoutePanel.estimates
+                  .reduce((sum, estimate) => sum + estimate.distanceKm, 0)
+                  .toFixed(1)}{" "}
+                km
+              </p>
+            </div>
+            <div className="rounded-[16px] border border-app-border bg-app-surface-muted/55 px-3 py-2.5">
+              <p className="planner-eyebrow text-app-muted">Last refresh</p>
+              <p className="planner-title-sm mt-1 text-app-text">{latestRefresh ?? "Not yet"}</p>
+            </div>
+          </div>
+
+          <div className="min-h-[520px] flex-1 overflow-hidden rounded-[20px] border border-app-border bg-app-surface">
+            {renderPlannerMap()}
+          </div>
+        </section>
+      </aside>
+    );
+  };
+
+  const renderTripWorkspacePanel = () => (
+    <div
+      data-testid="trip-shared-workspace"
+      className="space-y-4 lg:grid lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.95fr)] lg:gap-4 lg:space-y-0"
+    >
+      <section className="rounded-[20px] border border-app-border bg-app-surface px-4 py-4 lg:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="planner-eyebrow planner-section-label">Map</p>
+            <p className="planner-copy-sm mt-1 text-app-muted">
+              Open the shared route map for this trip.
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid={`${currentScreenEntry.screen === "trip-itinerary" ? "itinerary" : "overview"}-mobile-map-button`}
+            onClick={() =>
+              openMobileMapOverlay(
+                currentScreenEntry.screen === "trip-itinerary" ? "itinerary" : "overview",
+              )
+            }
+            className="planner-button-secondary rounded-full border px-4 py-2 text-sm font-semibold"
+          >
+            View map
+          </button>
         </div>
       </section>
+      <div className="min-h-0">
+        {currentScreenEntry.screen === "trip-itinerary" ? renderItineraryPanel() : renderOverviewPanel()}
+      </div>
+      {renderTripMapPanel()}
     </div>
   );
 
@@ -1796,6 +1901,41 @@ export default function PlannerApp() {
       className="h-full w-full rounded-[18px] border border-app-border bg-app-surface"
     />
   );
+
+  const renderMapCockpit = () => {
+    if (!isMapCockpitOpen || !displayTrip) {
+      return null;
+    }
+
+    return (
+      <PlannerMapCockpit
+        trip={displayTrip}
+        markers={loadedMapData.markers}
+        segments={loadedMapData.segments}
+        routeSummary={loadedRouteMapSummary}
+        selectedEntity={effectiveSelectedEntity}
+        selectionOrigin={selectionOrigin}
+        selectedDetails={selectedEntityDetails}
+        itineraryDays={itineraryDays}
+        selectedDate={effectiveSelectedDate}
+        routeStatus={loadedRoutePanel.status}
+        routeStatusLabel={getRouteStatusLabel(loadedRoutePanel)}
+        routeStatusMessage={loadedRoutePanel.statusMessage}
+        isRefreshing={loadedRoutePanel.isRefreshing}
+        roadLegCount={loadedRouteRequests.length}
+        totalDistanceKm={loadedRoutePanel.estimates.reduce(
+          (sum, estimate) => sum + estimate.distanceKm,
+          0,
+        )}
+        lastRefreshLabel={getLatestRouteRefreshLabel(loadedRoutePanel.estimates)}
+        onSelectDate={onSelectDate}
+        onSelectMapEntity={onSelectEntityFromMap}
+        onSelectItineraryEntity={onSelectEntityFromItinerary}
+        onRefresh={() => void syncLoadedRoutePanel(true)}
+        onClose={() => setIsMapCockpitOpen(false)}
+      />
+    );
+  };
 
   const renderMobileMapOverlay = () => {
     if (!mobileMapOverlay) {
@@ -1848,12 +1988,12 @@ export default function PlannerApp() {
   };
 
   const renderCurrentScreen = () => {
-    if (currentScreenEntry.screen === "trip-itinerary" && loadedTrip) {
-      return renderItineraryPanel();
-    }
-
-    if (currentScreenEntry.screen === "trip-overview" && loadedTrip) {
-      return renderOverviewPanel();
+    if (
+      (currentScreenEntry.screen === "trip-itinerary" ||
+        currentScreenEntry.screen === "trip-overview") &&
+      loadedTrip
+    ) {
+      return renderTripWorkspacePanel();
     }
 
     return renderDashboardPanel();
@@ -2042,13 +2182,28 @@ export default function PlannerApp() {
         />
       </div>
 
+      {renderMapCockpit()}
       {renderMobileMapOverlay()}
+
+      <StopDetailsDrawer
+        isOpen={isStopDetailsOpen}
+        selectedDetails={selectedEntityDetails}
+        routeStatus={loadedRoutePanel.status}
+        routeStatusMessage={loadedRoutePanel.statusMessage}
+        onClose={() => setIsStopDetailsOpen(false)}
+        onEdit={(stop) => {
+          setIsStopDetailsOpen(false);
+          openEditStopEditor(stop);
+        }}
+        isOfflineReadOnly={isOfflineReadOnly}
+      />
 
       <StopEditorModal
         isOpen={editor.isOpen}
         mode={editor.mode}
         stopType={editor.type}
         initialStop={editor.initialStop}
+        existingStops={displayTrip?.stops ?? []}
         onClose={() => setEditor(defaultEditorState)}
         onCreate={onCreateStop}
         onUpdate={onUpdateStop}

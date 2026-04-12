@@ -4,7 +4,6 @@ import {
   formatDateOnly,
   formatDayChip,
   formatDayNumber,
-  formatDurationMinutes,
 } from "@/lib/date";
 import { ItineraryDay } from "@/types/trip";
 
@@ -75,7 +74,7 @@ export default function DayStrip({ days, selectedDate, onSelect }: DayStripProps
                         : "bg-app-surface-muted text-app-muted"
                     }`}
                   >
-                    {formatDurationMinutes(day.bufferedDriveMinutes)}
+                    {day.roadLegCount} leg{day.roadLegCount === 1 ? "" : "s"}
                   </span>
                 ) : null}
               </div>

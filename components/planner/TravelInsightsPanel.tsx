@@ -2,10 +2,7 @@
 
 import { useState } from "react";
 
-import {
-  plannerRouteConfidenceToneClass,
-  plannerRouteStatusToneClass,
-} from "@/components/planner/plannerTheme";
+import { plannerRouteStatusToneClass } from "@/components/planner/plannerTheme";
 import { formatDateOnly, formatDateTime, formatDurationMinutes } from "@/lib/date";
 import { TravelLegEstimate } from "@/types/trip";
 
@@ -27,7 +24,7 @@ type TravelInsightsPanelProps = {
 };
 
 type RouteConfidenceSnapshot = {
-  summary: "Live" | "Fallback" | "Mixed" | "Pending" | "Unavailable";
+  summary: "Live" | "Needs refresh" | "Unavailable";
   detail: string;
 };
 
@@ -55,29 +52,20 @@ export const getRouteConfidenceSnapshot = (
   estimates: TravelLegEstimate[],
   legCount: number,
 ): RouteConfidenceSnapshot => {
-  const liveEstimates = estimates.filter((estimate) => estimate.confidence === "live").length;
-  const fallbackEstimates = estimates.filter((estimate) => estimate.confidence === "fallback").length;
   const pendingEstimates = Math.max(legCount - estimates.length, 0);
+  const hasRefreshNeeded = pendingEstimates > 0 || estimates.some((estimate) => estimate.confidence !== "live");
   const summary =
-    liveEstimates > 0 && fallbackEstimates === 0
-      ? "Live"
-      : fallbackEstimates > 0 && liveEstimates === 0
-        ? "Fallback"
-        : liveEstimates > 0 && fallbackEstimates > 0
-          ? "Mixed"
-          : pendingEstimates > 0
-            ? "Pending"
-            : "Unavailable";
+    estimates.length === 0 && legCount === 0
+      ? "Unavailable"
+      : hasRefreshNeeded
+        ? "Needs refresh"
+        : "Live";
   const detail =
     summary === "Live"
-      ? `${liveEstimates} live leg${liveEstimates === 1 ? "" : "s"}`
-      : summary === "Fallback"
-        ? `${fallbackEstimates} fallback leg${fallbackEstimates === 1 ? "" : "s"}`
-        : summary === "Mixed"
-          ? `${liveEstimates} live / ${fallbackEstimates} fallback`
-          : summary === "Pending"
-            ? `${pendingEstimates} leg${pendingEstimates === 1 ? "" : "s"} pending refresh`
-            : "No route data available";
+      ? `${estimates.length} live leg${estimates.length === 1 ? "" : "s"}`
+      : summary === "Needs refresh"
+        ? "Refresh the route to bring every leg live"
+        : "No route data available";
 
   return { summary, detail };
 };
@@ -91,8 +79,8 @@ export default function TravelInsightsPanel({
   onRefresh,
   isRefreshDisabled = false,
   emptyMessage = null,
-  title = "Route realism",
-  description = "Live and cached drive estimates across the current campervan plan.",
+  title = "Route status",
+  description = "Live route data for the current campervan plan.",
   showDetailsByDefault = true,
   collapsibleDetails = false,
   density = "default",
@@ -100,8 +88,8 @@ export default function TravelInsightsPanel({
 }: TravelInsightsPanelProps) {
   const isCompact = density === "compact";
   const totalDistanceKm = estimates.reduce((sum, estimate) => sum + estimate.distanceKm, 0);
-  const totalBufferedMinutes = estimates.reduce(
-    (sum, estimate) => sum + estimate.bufferedDurationMinutes,
+  const totalDriveMinutes = estimates.reduce(
+    (sum, estimate) => sum + estimate.durationMinutes,
     0,
   );
   const groupedEstimates = groupEstimatesByDate(estimates);
@@ -156,13 +144,13 @@ export default function TravelInsightsPanel({
             isCompact ? "mb-3.5 py-2.5" : "mb-4 py-3"
           }`}
         >
-          Refreshing route estimates and travel buffers...
+          Refreshing route...
         </div>
       ) : null}
 
       {legCount === 0 ? (
         <p className="planner-copy text-app-muted">
-          {emptyMessage ?? "Add more trip stops to generate route estimates."}
+          {emptyMessage ?? "Add more trip stops to generate route data."}
         </p>
       ) : status === "unavailable" && estimates.length === 0 ? (
         <div
@@ -177,9 +165,9 @@ export default function TravelInsightsPanel({
           <div className="overflow-hidden rounded-[20px] border border-app-border/80 bg-app-surface-muted/45">
             <div className="grid gap-px bg-app-border/70 sm:grid-cols-3">
               <div className={`bg-app-surface/85 px-4 ${isCompact ? "py-3.5" : "py-4"}`}>
-                <p className="planner-eyebrow text-app-muted">Buffered drive time</p>
+                <p className="planner-eyebrow text-app-muted">Drive time</p>
                 <p className={`${isCompact ? "planner-title-md mt-1.5" : "planner-title-lg mt-2"} text-app-text`}>
-                  {formatDurationMinutes(totalBufferedMinutes)}
+                  {formatDurationMinutes(totalDriveMinutes)}
                 </p>
               </div>
               <div className={`bg-app-surface/85 px-4 ${isCompact ? "py-3.5" : "py-4"}`}>
@@ -189,12 +177,12 @@ export default function TravelInsightsPanel({
                 </p>
               </div>
               <div className={`bg-app-surface/85 px-4 ${isCompact ? "py-3.5" : "py-4"}`}>
-                <p className="planner-eyebrow text-app-muted">Routing confidence</p>
+                <p className="planner-eyebrow text-app-muted">Route status</p>
                 <p className={`${isCompact ? "planner-title-md mt-1.5" : "planner-title-lg mt-2"} text-app-text`}>
-                  {routeConfidence.summary}
+                  {status === "fresh" ? routeConfidence.summary : status === "stale" ? "Needs refresh" : "Unavailable"}
                 </p>
                 <p className={`planner-copy-sm text-app-muted ${isCompact ? "mt-0.5" : "mt-1"}`}>
-                  {routeConfidence.detail}
+                  {status === "fresh" ? routeConfidence.detail : "Refresh the route to bring it live"}
                 </p>
               </div>
             </div>
@@ -258,10 +246,16 @@ export default function TravelInsightsPanel({
                           </div>
 
                           <span
-                            data-testid={`route-confidence-${estimate.confidence}`}
-                            className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${plannerRouteConfidenceToneClass[estimate.confidence]}`}
+                            data-testid={`route-status-${status === "fresh" && estimate.confidence === "live" ? "live" : "needs-refresh"}`}
+                            className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                              status === "fresh" && estimate.confidence === "live"
+                                ? "tone-success"
+                                : "tone-warning"
+                            }`}
                           >
-                            {estimate.confidence === "live" ? "Live" : "Fallback"}
+                            {status === "fresh" && estimate.confidence === "live"
+                              ? "Live"
+                              : "Needs refresh"}
                           </span>
                         </div>
 
@@ -279,9 +273,11 @@ export default function TravelInsightsPanel({
                             <p className="mt-1">{formatDurationMinutes(estimate.durationMinutes)}</p>
                           </div>
                           <div>
-                            <p className="planner-eyebrow text-app-muted">Buffered time</p>
+                            <p className="planner-eyebrow text-app-muted">Route status</p>
                             <p className="mt-1">
-                              {formatDurationMinutes(estimate.bufferedDurationMinutes)}
+                              {status === "fresh" && estimate.confidence === "live"
+                                ? "Live"
+                                : "Needs refresh"}
                             </p>
                           </div>
                         </div>

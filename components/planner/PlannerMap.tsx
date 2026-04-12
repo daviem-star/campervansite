@@ -963,28 +963,25 @@ export default function PlannerMap({
       routeSummary.fallbackRoadLegs === 0
     ) {
       return {
-        tone: "neutral" as const,
-        title: "Routing in progress",
-        detail: "Awaiting snapped road geometry.",
+        tone: "warning" as const,
+        title: "Needs refresh",
+        detail: "Refresh the route to draw road geometry.",
       };
     }
 
     if (routeSummary.fallbackRoadLegs > 0) {
       return {
         tone: "warning" as const,
-        title:
-          routeSummary.fallbackRoadLegs === 1
-            ? "1 fallback road leg"
-            : `${routeSummary.fallbackRoadLegs} fallback road legs`,
-        detail: "Shown as dashed direct lines.",
+        title: "Needs refresh",
+        detail: "Some road geometry needs updating.",
       };
     }
 
     if (routeSummary.isRefreshing) {
       return {
         tone: "neutral" as const,
-        title: "Refreshing route geometry",
-        detail: "Visible routes will update if fresher data arrives.",
+        title: "Refreshing route...",
+        detail: "The map will update when the route is live.",
       };
     }
 

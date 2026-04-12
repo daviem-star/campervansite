@@ -1,7 +1,6 @@
 "use client";
 
 import StopTypeIcon from "@/components/planner/StopTypeIcon";
-import { plannerRouteConfidenceToneClass } from "@/components/planner/plannerTheme";
 import { formatDateOnly, formatDateTime, formatDurationMinutes } from "@/lib/date";
 import { SelectedEntityDetails, TripStop } from "@/types/trip";
 
@@ -69,7 +68,9 @@ export default function MapSelectionSummary({
 }: MapSelectionSummaryProps) {
   const isCompact = density === "compact";
   const isOverlay = presentation === "map-overlay";
-  const containerClass = `rounded-[22px] border border-app-border/80 bg-app-surface shadow-[0_16px_34px_rgb(var(--color-app-overlay)_/_0.06)] ${
+  const containerClass = `${
+    isCompact ? "rounded-lg" : "rounded-[22px]"
+  } border border-app-border/80 bg-app-surface shadow-[0_16px_34px_rgb(var(--color-app-overlay)_/_0.06)] ${
     isCompact ? "px-4 py-3.5" : "px-4 py-4"
   } ${className ?? ""}`;
 
@@ -126,12 +127,8 @@ export default function MapSelectionSummary({
             <p className="planner-meta mt-1 leading-4 text-app-muted">
               {selectedDetails.travelEstimate
                 ? `${formatDurationMinutes(
-                    selectedDetails.travelEstimate.bufferedDurationMinutes,
-                  )} buffered · ${selectedDetails.travelEstimate.distanceKm.toFixed(1)} km · ${
-                    selectedDetails.travelEstimate.confidence === "live"
-                      ? "Live routing"
-                      : "Fallback routing"
-                  }`
+                    selectedDetails.travelEstimate.durationMinutes,
+                  )} · ${selectedDetails.travelEstimate.distanceKm.toFixed(1)} km`
                 : getStopScheduleLabel(selectedDetails.stop)}
             </p>
           </div>
@@ -204,18 +201,18 @@ export default function MapSelectionSummary({
                 </p>
               </div>
               <span
-                className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${plannerRouteConfidenceToneClass[selectedDetails.travelEstimate.confidence]}`}
+                className="tone-success rounded-full border px-2.5 py-1 text-[11px] font-semibold"
               >
-                {selectedDetails.travelEstimate.confidence === "live" ? "Live" : "Fallback"}
+                Live
               </span>
             </div>
 
             <div className={`grid gap-3 sm:grid-cols-2 ${isCompact ? "mt-2.5" : "mt-3"}`}>
               <div>
-                <p className="planner-eyebrow text-app-muted">Buffered time</p>
+                <p className="planner-eyebrow text-app-muted">Drive time</p>
                 <p className={`${isCompact ? "planner-copy-sm mt-0.5" : "planner-copy mt-1"} text-app-text`}>
                   {formatDurationMinutes(
-                    selectedDetails.travelEstimate.bufferedDurationMinutes,
+                    selectedDetails.travelEstimate.durationMinutes,
                   )}
                 </p>
               </div>

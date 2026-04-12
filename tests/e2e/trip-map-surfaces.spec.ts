@@ -107,17 +107,17 @@ test("shows a dashboard preview map and opens trips into overview with the map v
   );
 
   const overviewRegion = visibleByTestId(page, "overview-scroll-region");
-  const overviewMapPanel = visibleByTestId(page, "overview-trip-map-panel");
-  await expect(overviewMapPanel).toBeVisible();
-  await expect(overviewMapPanel.getByLabel("Trip map")).toBeVisible();
+  const persistentMapPanel = visibleByTestId(page, "trip-persistent-map-panel");
+  await expect(persistentMapPanel).toBeVisible();
+  await expect(persistentMapPanel.getByLabel("Trip map")).toBeVisible();
   await expect(overviewRegion.getByText(/^Trip overview$/i)).toHaveCount(0);
   await expect(page.locator('[data-testid="overview-map-selection-summary"]')).toHaveCount(0);
-  await expectHeightAtLeast(page, "overview-trip-map-panel-frame", 450);
+  await expectHeightAtLeast(page, "trip-persistent-map-panel", 500);
   await expect(visibleByTestId(page, "overview-warnings-panel")).toBeVisible();
   await expect(visibleByTestId(page, "overview-route-insights-panel")).toBeVisible();
   await expect(visibleByTestId(page, "desktop-panel-overview")).toBeVisible();
 
-  const mapBox = await visibleByTestId(page, "overview-trip-map-panel").boundingBox();
+  const mapBox = await persistentMapPanel.boundingBox();
   const warningsBox = await visibleByTestId(page, "overview-warnings-panel").boundingBox();
   const routeInsightsBox = await visibleByTestId(page, "overview-route-insights-panel").boundingBox();
   expect(mapBox).not.toBeNull();
@@ -129,7 +129,20 @@ test("shows a dashboard preview map and opens trips into overview with the map v
   await visibleByTestId(page, "desktop-panel-itinerary").click();
   await expect(visibleByTestId(page, "desktop-panel-itinerary-region")).toBeVisible();
   await expect(visibleByTestId(page, "planner-mode-toggle")).toBeVisible();
-  await expectHeightAtLeast(page, "itinerary-desktop-map-panel", 360);
+  await expect(visibleByTestId(page, "trip-persistent-map-panel")).toBeVisible();
+
+  await visibleByTestId(page, "trip-persistent-map-panel").getByRole("button", {
+    name: /Open map/i,
+  }).click();
+  await expect(visibleByTestId(page, "planner-map-cockpit")).toBeVisible();
+  await expect(visibleByTestId(page, "planner-map-cockpit").getByLabel("Trip map")).toBeVisible();
+  await expectHeightAtLeast(page, "planner-map-cockpit-map-surface", 700);
+
+  const cockpitMapBox = await visibleByTestId(page, "planner-map-cockpit-map-surface").boundingBox();
+  const cockpitSideBox = await visibleByTestId(page, "planner-map-cockpit-side-panel").boundingBox();
+  expect(cockpitMapBox).not.toBeNull();
+  expect(cockpitSideBox).not.toBeNull();
+  expect(cockpitMapBox!.width).toBeGreaterThan(cockpitSideBox!.width);
 });
 
 test("updates dashboard and overview selection summaries from map interactions", async ({ page }) => {
@@ -145,13 +158,17 @@ test("updates dashboard and overview selection summaries from map interactions",
   );
 
   await visibleByTestId(page, "dashboard-open-trip-button").click();
-  await expect(visibleByTestId(page, "overview-trip-map-panel")).toBeVisible();
+  await expect(visibleByTestId(page, "trip-persistent-map-panel")).toBeVisible();
+  await visibleByTestId(page, "trip-persistent-map-panel").getByRole("button", {
+    name: /Open map/i,
+  }).click();
+  await expect(visibleByTestId(page, "planner-map-cockpit")).toBeVisible();
 
-  await selectMapEntity(page, "overview-trip-map-panel", {
+  await selectMapEntity(page, "planner-map-cockpit", {
     kind: "point_of_interest",
     stopId: "stop_poi_1",
   });
-  await expect(visibleByTestId(page, "overview-map-selection-summary")).toContainText(
+  await expect(visibleByTestId(page, "planner-map-cockpit-selection-summary")).toContainText(
     /Vatersay Beach Walk/i,
   );
 });
