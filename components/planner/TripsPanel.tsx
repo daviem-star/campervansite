@@ -101,10 +101,10 @@ export default function TripsPanel({
               aria-pressed={isPreviewed}
               data-testid={`trip-summary-${trip.id}`}
               onClick={() => void onPreviewTrip(trip.id)}
-              className={`block w-full px-4 py-4 text-left transition sm:px-5 ${
+              className={`planner-clickable-row block w-full px-4 py-4 text-left transition sm:px-5 ${
                 isPreviewed
                   ? "planner-selected text-app-text"
-                  : "bg-app-surface text-app-text hover:bg-app-surface-muted/60"
+                  : "bg-app-surface text-app-text"
               }`}
             >
               <div className="min-w-0">

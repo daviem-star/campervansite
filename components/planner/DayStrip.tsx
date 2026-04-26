@@ -55,10 +55,10 @@ export default function DayStrip({ days, selectedDate, onSelect }: DayStripProps
               aria-current={active ? "date" : undefined}
               onClick={() => onSelect(day.date)}
               title={formatDateOnly(day.date)}
-              className={`min-w-[68px] rounded-lg border px-2 py-1.5 text-left transition ${
+              className={`planner-button-tab min-w-[68px] rounded-lg border px-2 py-1.5 text-left transition ${
                 active
-                  ? "border-brand-primary/28 bg-brand-primary/10 text-app-text"
-                  : "border-app-border bg-app-surface text-app-muted hover:border-brand-primary/18 hover:bg-app-surface-muted"
+                  ? "planner-button-tab-active"
+                  : "text-app-text"
               }`}
             >
               <div className="flex items-start justify-between gap-1.5">

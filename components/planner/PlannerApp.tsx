@@ -1314,8 +1314,9 @@ export default function PlannerApp() {
           <button
             type="button"
             onClick={() => setScreenStack(createPlannerScreenStack())}
-            className="planner-eyebrow text-app-muted transition hover:text-app-text"
+            className="planner-link-button planner-eyebrow inline-flex items-center gap-1 transition"
           >
+            <span aria-hidden="true">&lt;</span>
             Dashboard
           </button>
           <span aria-hidden="true" className="text-app-border">
@@ -1332,25 +1333,28 @@ export default function PlannerApp() {
                 { screen: "trip-overview", label: "Overview" },
                 { screen: "trip-itinerary", label: "Itinerary" },
               ] as const
-            ).map((item) => (
-              <button
-                key={item.screen}
-                type="button"
-                data-testid={
-                  item.screen === "trip-overview"
-                    ? "desktop-panel-overview"
-                    : "desktop-panel-itinerary"
-                }
-                onClick={() => switchTripScreen(item.screen)}
-                className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
-                  currentScreenEntry.screen === item.screen
-                    ? "border-brand-primary/25 bg-brand-primary/10 text-brand-primary"
-                    : "border-app-border bg-app-surface text-app-muted hover:bg-app-surface-muted hover:text-app-text"
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
+            ).map((item) => {
+              const active = currentScreenEntry.screen === item.screen;
+
+              return (
+                <button
+                  key={item.screen}
+                  type="button"
+                  aria-current={active ? "page" : undefined}
+                  data-testid={
+                    item.screen === "trip-overview"
+                      ? "desktop-panel-overview"
+                      : "desktop-panel-itinerary"
+                  }
+                  onClick={() => switchTripScreen(item.screen)}
+                  className={`planner-button-tab rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+                    active ? "planner-button-tab-active" : ""
+                  }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 

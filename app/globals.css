@@ -161,6 +161,7 @@ button {
     border-color: rgb(var(--color-brand-primary));
     background-color: rgb(var(--color-brand-primary));
     color: rgb(var(--color-brand-on-primary));
+    cursor: pointer;
   }
 
   .planner-button-primary:hover {
@@ -168,46 +169,72 @@ button {
     background-color: rgb(var(--color-brand-primary-variant));
   }
 
+  .planner-button-primary:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgb(var(--color-brand-primary) / 0.22);
+  }
+
   .planner-button-primary:disabled {
     border-color: rgb(var(--color-app-border));
     background-color: rgb(var(--color-app-border));
     color: rgb(var(--color-app-muted));
+    cursor: not-allowed;
   }
 
   .planner-button-secondary {
-    border-color: rgb(var(--color-app-border));
-    background-color: rgb(var(--color-app-surface));
+    border-color: rgb(var(--color-brand-primary) / 0.28);
+    background-color: rgb(var(--color-app-surface-muted) / 0.72);
     color: rgb(var(--color-app-text));
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgb(var(--color-app-overlay) / 0.06);
   }
 
   .planner-button-secondary:hover {
-    background-color: rgb(var(--color-app-surface-muted));
+    border-color: rgb(var(--color-brand-primary) / 0.48);
+    background-color: rgb(var(--color-brand-primary) / 0.08);
+    color: rgb(var(--color-brand-primary));
+  }
+
+  .planner-button-secondary:focus-visible {
+    outline: none;
+    border-color: rgb(var(--color-brand-primary));
+    box-shadow: 0 0 0 3px rgb(var(--color-brand-primary) / 0.16);
   }
 
   .planner-button-secondary:disabled {
     opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
   }
 
   .planner-button-support {
     border-color: rgb(var(--color-brand-support) / 0.38);
     background-color: rgb(var(--color-brand-support) / 0.16);
     color: rgb(var(--color-brand-primary));
+    cursor: pointer;
   }
 
   .planner-button-support:hover {
     background-color: rgb(var(--color-brand-support) / 0.24);
   }
 
+  .planner-button-support:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgb(var(--color-brand-support) / 0.2);
+  }
+
   .planner-button-support:disabled {
     border-color: rgb(var(--color-app-border));
     background-color: rgb(var(--color-app-surface-muted));
     color: rgb(var(--color-app-muted));
+    cursor: not-allowed;
   }
 
   .planner-button-accent {
     border-color: rgb(var(--color-brand-secondary));
     background-color: rgb(var(--color-brand-secondary));
     color: rgb(var(--color-brand-on-secondary));
+    cursor: pointer;
   }
 
   .planner-button-accent:hover {
@@ -216,20 +243,109 @@ button {
     color: rgb(var(--color-brand-on-primary));
   }
 
+  .planner-button-accent:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgb(var(--color-brand-secondary) / 0.24);
+  }
+
   .planner-button-accent:disabled {
     border-color: rgb(var(--color-app-border));
     background-color: rgb(var(--color-app-border));
     color: rgb(var(--color-app-muted));
+    cursor: not-allowed;
   }
 
   .planner-button-danger {
     border-color: rgb(var(--color-state-error-border));
     background-color: rgb(var(--color-state-error-surface));
     color: rgb(var(--color-state-error));
+    cursor: pointer;
   }
 
   .planner-button-danger:hover {
     background-color: rgb(var(--color-state-error-surface) / 0.8);
+  }
+
+  .planner-button-danger:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgb(var(--color-state-error) / 0.18);
+  }
+
+  .planner-button-danger:disabled {
+    cursor: not-allowed;
+  }
+
+  .planner-button-tab {
+    border-color: rgb(var(--color-brand-primary) / 0.38);
+    background-color: rgb(var(--color-app-surface-muted) / 0.85);
+    color: rgb(var(--color-app-text));
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgb(var(--color-app-overlay) / 0.06);
+  }
+
+  .planner-button-tab:hover {
+    border-color: rgb(var(--color-brand-primary) / 0.58);
+    background-color: rgb(var(--color-brand-primary) / 0.1);
+    color: rgb(var(--color-brand-primary));
+  }
+
+  .planner-button-tab:focus-visible {
+    outline: none;
+    border-color: rgb(var(--color-brand-primary));
+    box-shadow: 0 0 0 3px rgb(var(--color-brand-primary) / 0.16);
+  }
+
+  .planner-button-tab-active {
+    border-color: rgb(var(--color-brand-primary));
+    background-color: rgb(var(--color-brand-primary));
+    color: rgb(var(--color-brand-on-primary));
+    box-shadow: 0 2px 8px rgb(var(--color-app-overlay) / 0.12);
+  }
+
+  .planner-button-tab-active:hover {
+    border-color: rgb(var(--color-brand-primary-variant));
+    background-color: rgb(var(--color-brand-primary-variant));
+    color: rgb(var(--color-brand-on-primary));
+  }
+
+  .planner-button-tab-active:focus-visible {
+    outline: none;
+    border-color: rgb(var(--color-brand-primary-variant));
+    box-shadow:
+      0 0 0 3px rgb(var(--color-brand-primary) / 0.18),
+      0 2px 8px rgb(var(--color-app-overlay) / 0.12);
+  }
+
+  .planner-link-button {
+    color: rgb(var(--color-brand-primary));
+    cursor: pointer;
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+
+  .planner-link-button:hover {
+    color: rgb(var(--color-brand-primary-variant));
+    text-decoration-thickness: 2px;
+  }
+
+  .planner-link-button:focus-visible {
+    outline: none;
+    border-radius: 6px;
+    box-shadow: 0 0 0 3px rgb(var(--color-brand-primary) / 0.16);
+  }
+
+  .planner-clickable-row {
+    cursor: pointer;
+  }
+
+  .planner-clickable-row:hover {
+    background-color: rgb(var(--color-brand-primary) / 0.07);
+  }
+
+  .planner-clickable-row:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 2px rgb(var(--color-brand-primary) / 0.55);
   }
 
   .planner-overlay {
