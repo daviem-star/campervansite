@@ -461,9 +461,8 @@ export default function PlannerApp() {
         estimates: cachedEstimates,
         isRefreshing: false,
         status: "stale",
-        statusMessage: `Showing locally cached route data from this device (${describeRouteSnapshotAge(
-          cached.entry.cachedAt,
-        )}). Refresh the route to bring it live for this trip.`,
+        statusMessage:
+          "Showing a local route preview saved on this device. Refresh the route to bring it live for this trip.",
       };
     }
 

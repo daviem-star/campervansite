@@ -51,6 +51,7 @@ export const createExampleTrip = (
     id: buildTripId("example"),
     name: normalizeTripName(name, template.name),
     ownerUserId,
+    routeSnapshot: null,
     version: 1,
     createdAt,
     updatedAt: createdAt,

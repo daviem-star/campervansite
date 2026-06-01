@@ -50,6 +50,7 @@ const localRepository = new LegacyLocalStorageTripRepository();
 let authListenerBound = false;
 let connectivityListenersBound = false;
 const pendingStarterTripLoads = new Map<string, Promise<Trip | null>>();
+const pendingCloudTripSaves = new Map<string, Promise<void>>();
 
 const getSupabaseClient = () => {
   return getBrowserSupabaseClient();
@@ -106,6 +107,12 @@ const mergeTripCacheEntry = (
 ): Record<string, Trip> => ({
   ...cache,
   [trip.id]: trip,
+});
+
+const mergeTripSyncMetadata = (trip: Trip, syncedTrip: Trip): Trip => ({
+  ...trip,
+  version: syncedTrip.version,
+  lastSyncedAt: syncedTrip.lastSyncedAt,
 });
 
 const removeTripCacheEntry = (
@@ -186,6 +193,23 @@ export const withPerUserLock = async <T>(
   } finally {
     if (pending.get(userId) === promise) {
       pending.delete(userId);
+    }
+  }
+};
+
+const enqueueCloudTripSave = async (
+  tripId: string,
+  action: () => Promise<void>,
+): Promise<void> => {
+  const previous = pendingCloudTripSaves.get(tripId) ?? Promise.resolve();
+  const next = previous.catch(() => undefined).then(action);
+  pendingCloudTripSaves.set(tripId, next);
+
+  try {
+    await next;
+  } finally {
+    if (pendingCloudTripSaves.get(tripId) === next) {
+      pendingCloudTripSaves.delete(tripId);
     }
   }
 };
@@ -1324,36 +1348,78 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
 
     if (state.authStatus === "signed_in" && state.user) {
       const cloudRepository = getCloudRepository();
-      set({ syncStatus: "saving", error: null, notice: null });
+      set({
+        data: isLoadedTrip ? replaceActiveTrip(state.data, nextTrip) : state.data,
+        tripCache: mergeTripCacheEntry(state.tripCache, nextTrip),
+        syncStatus: "saving",
+        error: null,
+        notice: null,
+      });
 
       try {
-        const savedTrip = await cloudRepository.saveTrip(
-          {
+        let savedTrip: Trip | null = null;
+        let savedTripId = tripId;
+
+        await enqueueCloudTripSave(tripId, async () => {
+          const latestState = get();
+          const latestActiveTrip = latestState.data ? getActiveTrip(latestState.data) : null;
+          const latestCachedTrip = latestState.tripCache[tripId] ?? null;
+          const latestVersionSource =
+            latestActiveTrip?.id === tripId ? latestActiveTrip : latestCachedTrip;
+          const tripToSave: Trip = {
             ...nextTrip,
-            ownerUserId: state.user.id,
-          },
-          { cacheOffline: isLoadedTrip },
-        );
+            ownerUserId: state.user!.id,
+            version: latestVersionSource?.version ?? nextTrip.version,
+          };
 
-        if (isLoadedTrip) {
-          setPreferredLoadedTripId(state.user.id, savedTrip.id);
-        }
+          savedTrip = await cloudRepository.saveTrip(tripToSave, {
+            cacheOffline: isLoadedTrip,
+          });
+          savedTripId = savedTrip.id;
 
-        set({
-          data: isLoadedTrip ? replaceActiveTrip(state.data, savedTrip) : state.data,
-          tripSummaries: upsertTripSummary(state.tripSummaries, tripToTripSummary(savedTrip)),
-          tripCache: mergeTripCacheEntry(state.tripCache, savedTrip),
-          isLoading: false,
-          syncStatus: "saved",
-          mode: "cloud",
-          error: null,
-          notice: createNotice("Route timings refreshed and saved with this trip.", "account", "success"),
-          isOfflineReadOnly: false,
+          if (isLoadedTrip) {
+            setPreferredLoadedTripId(state.user!.id, savedTrip.id);
+          }
+
+          const postSaveState = get();
+          const currentActiveTrip = postSaveState.data ? getActiveTrip(postSaveState.data) : null;
+          const shouldApplySavedTrip =
+            isLoadedTrip &&
+            currentActiveTrip?.id === savedTrip.id &&
+            currentActiveTrip.updatedAt === tripToSave.updatedAt;
+          const nextActiveTrip =
+            isLoadedTrip && currentActiveTrip?.id === savedTrip.id
+              ? shouldApplySavedTrip
+                ? savedTrip
+                : mergeTripSyncMetadata(currentActiveTrip, savedTrip)
+              : null;
+          const currentCachedTrip = postSaveState.tripCache[tripId] ?? null;
+          const nextCachedTrip =
+            currentCachedTrip?.updatedAt === tripToSave.updatedAt
+              ? savedTrip
+              : currentCachedTrip
+                ? mergeTripSyncMetadata(currentCachedTrip, savedTrip)
+                : savedTrip;
+
+          set({
+            data: nextActiveTrip ? replaceActiveTrip(postSaveState.data, nextActiveTrip) : postSaveState.data,
+            tripSummaries: upsertTripSummary(postSaveState.tripSummaries, tripToTripSummary(savedTrip)),
+            tripCache: mergeTripCacheEntry(postSaveState.tripCache, nextCachedTrip),
+            isLoading: false,
+            syncStatus: shouldApplySavedTrip || !isLoadedTrip ? "saved" : "saving",
+            mode: "cloud",
+            error: null,
+            notice:
+              shouldApplySavedTrip || !isLoadedTrip
+                ? createNotice("Route timings refreshed and saved with this trip.", "account", "success")
+                : null,
+            isOfflineReadOnly: false,
+          });
         });
 
         await trackEvent("route_snapshot_saved", {
           source: "cloud",
-          tripId: savedTrip.id,
+          tripId: savedTripId,
         });
         return savedTrip;
       } catch (error) {
@@ -1914,35 +1980,81 @@ const persistActiveTrip = async (
 
   if (state.authStatus === "signed_in" && state.user) {
     const cloudRepository = getCloudRepository();
-    set({ syncStatus: "saving", error: null, notice: null });
+    const optimisticTrip: Trip = {
+      ...nextTrip,
+      ownerUserId: state.user.id,
+    };
+    set({
+      data: replaceActiveTrip(state.data, optimisticTrip),
+      tripCache: mergeTripCacheEntry(state.tripCache, optimisticTrip),
+      syncStatus: "saving",
+      error: null,
+      notice: null,
+    });
 
     try {
-      const savedTrip = await cloudRepository.saveTrip({
-        ...nextTrip,
-        ownerUserId: state.user.id,
+      let savedTrip: Trip | null = null;
+      let savedTripId = nextTrip.id;
+
+      await enqueueCloudTripSave(nextTrip.id, async () => {
+        const latestState = get();
+        const latestActiveTrip = latestState.data ? getActiveTrip(latestState.data) : null;
+        const latestVersionSource =
+          latestActiveTrip?.id === nextTrip.id
+            ? latestActiveTrip
+            : latestState.tripCache[nextTrip.id] ?? null;
+        const tripToSave: Trip = {
+          ...optimisticTrip,
+          version: latestVersionSource?.version ?? optimisticTrip.version,
+        };
+
+        savedTrip = await cloudRepository.saveTrip(tripToSave);
+        savedTripId = savedTrip.id;
+
+        setPreferredLoadedTripId(state.user!.id, savedTrip.id);
+        const postSaveState = get();
+        const currentActiveTrip = postSaveState.data ? getActiveTrip(postSaveState.data) : null;
+        const shouldApplySavedTrip =
+          currentActiveTrip?.id === savedTrip.id &&
+          currentActiveTrip.updatedAt === tripToSave.updatedAt;
+        const nextActiveTrip =
+          currentActiveTrip?.id === savedTrip.id
+            ? shouldApplySavedTrip
+              ? savedTrip
+              : mergeTripSyncMetadata(currentActiveTrip, savedTrip)
+            : savedTrip;
+        const currentCachedTrip = postSaveState.tripCache[savedTrip.id] ?? null;
+        const nextCachedTrip =
+          currentCachedTrip?.updatedAt === tripToSave.updatedAt
+            ? savedTrip
+            : currentCachedTrip
+              ? mergeTripSyncMetadata(currentCachedTrip, savedTrip)
+              : savedTrip;
+
+        set({
+          data: replaceActiveTrip(postSaveState.data, nextActiveTrip),
+          tripSummaries: upsertTripSummary(postSaveState.tripSummaries, tripToTripSummary(savedTrip)),
+          tripCache: mergeTripCacheEntry(postSaveState.tripCache, nextCachedTrip),
+          isLoading: false,
+          syncStatus: shouldApplySavedTrip ? "saved" : "saving",
+          mode: "cloud",
+          error: null,
+          notice: shouldApplySavedTrip
+            ? createNotice(
+                analyticsEvent === "cloud_trip_created"
+                  ? "Cloud trip created. This itinerary is now ready to open on another device."
+                  : "Cloud trip saved successfully.",
+                "account",
+                "success",
+              )
+            : null,
+          isOfflineReadOnly: false,
+        });
       });
 
-      setPreferredLoadedTripId(state.user.id, savedTrip.id);
-      set({
-        data: replaceActiveTrip(state.data, savedTrip),
-        tripSummaries: upsertTripSummary(state.tripSummaries, tripToTripSummary(savedTrip)),
-        tripCache: mergeTripCacheEntry(state.tripCache, savedTrip),
-        isLoading: false,
-        syncStatus: "saved",
-        mode: "cloud",
-        error: null,
-        notice: createNotice(
-          analyticsEvent === "cloud_trip_created"
-            ? "Cloud trip created. This itinerary is now ready to open on another device."
-            : "Cloud trip saved successfully.",
-          "account",
-          "success",
-        ),
-        isOfflineReadOnly: false,
-      });
       await trackEvent(analyticsEvent, {
         source: "cloud",
-        tripId: savedTrip.id,
+        tripId: savedTripId,
       });
       return;
     } catch (error) {
