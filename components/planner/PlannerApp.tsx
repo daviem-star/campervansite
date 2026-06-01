@@ -380,6 +380,25 @@ export default function PlannerApp() {
   }, [loadedTrip, plannerInteractionMode]);
 
   useEffect(() => {
+    if (plannerInteractionMode !== "edit" || !loadedTrip) {
+      return;
+    }
+
+    setDraftTrip((current) => {
+      if (!current || current.id !== loadedTrip.id) {
+        return current;
+      }
+
+      return {
+        ...current,
+        version: loadedTrip.version,
+        routeSnapshot: loadedTrip.routeSnapshot,
+        lastSyncedAt: loadedTrip.lastSyncedAt,
+      };
+    });
+  }, [loadedTrip, plannerInteractionMode]);
+
+  useEffect(() => {
     if (!saveFeedback || saveFeedback.tone === "warning") {
       return;
     }

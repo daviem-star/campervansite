@@ -1980,9 +1980,16 @@ const persistActiveTrip = async (
 
   if (state.authStatus === "signed_in" && state.user) {
     const cloudRepository = getCloudRepository();
+    const latestActiveTrip = state.data ? getActiveTrip(state.data) : null;
+    const latestVersionSource =
+      latestActiveTrip?.id === nextTrip.id
+        ? latestActiveTrip
+        : state.tripCache[nextTrip.id] ?? null;
     const optimisticTrip: Trip = {
       ...nextTrip,
       ownerUserId: state.user.id,
+      version: latestVersionSource?.version ?? nextTrip.version,
+      lastSyncedAt: latestVersionSource?.lastSyncedAt ?? nextTrip.lastSyncedAt,
     };
     set({
       data: replaceActiveTrip(state.data, optimisticTrip),
