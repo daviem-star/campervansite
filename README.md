@@ -12,6 +12,8 @@ A Next.js App Router trip planner for campervan travel. The app now ships an aut
   - delete trip with last-trip guardrails
 - The planner keeps one active trip workspace open at a time.
 - Desktop and mobile now both start on `Dashboard`.
+- Mobile now presents a simplified on-road companion shell with `Today`, `Trip`, and `Trips`
+  destinations instead of exposing the full desktop workspace stack.
 - The left rail is app-level only for now and keeps `Dashboard` as the single planner destination, while account and sync controls stay in utility chrome.
 - `Dashboard` pairs the trip library with a matched detail panel so users can preview trip overview details, a route map, route realism, and severity-grouped warnings before opening a trip.
 - Opening a trip follows a nested in-app flow: `Dashboard -> Trip Overview -> Trip Itinerary`, with breadcrumb context, a compact top-of-workspace trip summary, and top-level trip tabs.
@@ -37,6 +39,8 @@ The main remaining gap is hosted activation and live-service validation, not mis
 - Use a day-first `Itinerary` workspace with a draggable timeline, sticky day navigation, direct add/edit controls, and explicit draft `Save` / `Cancel` actions.
 - Visualize the itinerary in a split workspace with a linked desktop/tablet route map, selected-stop inspector, and road-following road legs when live routing is available, plus ferry port markers and ferry segments.
 - Open the trip map as a dedicated full-screen surface on mobile from `Dashboard`, `Overview`, or `Itinerary`.
+- Use the mobile companion for travel-day actions, next-stop review, quick stop edits, trip
+  switching, and full-screen map access while keeping heavier planning on desktop.
 - Show trip-day navigation, a selected-day snapshot, today actions, summary-first route insights, and severity-grouped validation warnings.
 - Search for places in the stop editor with a deliberate submitted lookup and preserve separate routing coordinates when route access data is available.
 - Store campsite metadata such as booking status, hookups, hardstanding, amenities, phone, and website.

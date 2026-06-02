@@ -6,6 +6,12 @@ import AccountStatusControl from "@/components/planner/AccountStatusControl";
 import DashboardTripDetailsPanel from "@/components/planner/DashboardTripDetailsPanel";
 import DayStrip from "@/components/planner/DayStrip";
 import FirstTripSetupPanel from "@/components/planner/FirstTripSetupPanel";
+import MobilePlannerShell, {
+  type MobilePlannerScreen,
+} from "@/components/planner/MobilePlannerShell";
+import MobileTodayPanel from "@/components/planner/MobileTodayPanel";
+import MobileTripPanel from "@/components/planner/MobileTripPanel";
+import MobileTripsPanel from "@/components/planner/MobileTripsPanel";
 import PlannerAuthGate from "@/components/planner/PlannerAuthGate";
 import PlannerBrandBadge from "@/components/planner/PlannerBrandBadge";
 import PlannerMap from "@/components/planner/PlannerMap";
@@ -85,7 +91,7 @@ type EditorState = {
 };
 
 type SelectionOrigin = "itinerary" | "map" | "system";
-type MobileMapOverlayContext = "overview" | "dashboard" | "itinerary";
+type MobileMapOverlayContext = "overview" | "dashboard" | "itinerary" | "today";
 type RouteInsightsState = "fresh" | "stale" | "unavailable";
 type RoutePanelState = {
   estimates: TravelLegEstimate[];
@@ -286,7 +292,10 @@ export default function PlannerApp() {
   const [dashboardSelectedEntity, setDashboardSelectedEntity] = useState<SelectedEntity>(null);
   const [dashboardSelectionOrigin, setDashboardSelectionOrigin] =
     useState<SelectionOrigin>("system");
+  const [todaySelectedEntity, setTodaySelectedEntity] = useState<SelectedEntity>(null);
+  const [todaySelectionOrigin, setTodaySelectionOrigin] = useState<SelectionOrigin>("system");
   const [mobileMapOverlay, setMobileMapOverlay] = useState<MobileMapOverlayContext | null>(null);
+  const [mobileScreen, setMobileScreen] = useState<MobilePlannerScreen>("today");
   const [isMapCockpitOpen, setIsMapCockpitOpen] = useState(false);
   const [isStopDetailsOpen, setIsStopDetailsOpen] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{
@@ -764,6 +773,51 @@ export default function PlannerApp() {
   );
   const todayTripName = todayTrip?.name ?? todayTripSummary?.name ?? null;
   const todayActions = useMemo(() => (todayTrip ? getTodayActions(todayTrip) : []), [todayTrip]);
+  const todayRoutePayload = useMemo(() => {
+    if (!todayTrip) {
+      return {
+        requests: [],
+        signature: "",
+      };
+    }
+
+    return buildTripTravelLegPayload(todayTrip);
+  }, [todayTrip]);
+  const todayRoutePanel = useMemo<RoutePanelState>(() => {
+    if (!todayTrip || todayRoutePayload.requests.length === 0) {
+      return defaultRoutePanelState;
+    }
+
+    if (!todayTrip.routeSnapshot) {
+      return {
+        estimates: [],
+        isRefreshing: false,
+        status: "stale",
+        statusMessage: "No saved route data yet. Open the trip to refresh the route.",
+      };
+    }
+
+    return buildRoutePanelFromSnapshot(
+      todayTrip.routeSnapshot,
+      todayRoutePayload.requests,
+      todayRoutePayload.signature,
+    );
+  }, [todayRoutePayload, todayTrip]);
+  const todayItineraryDays = useMemo(
+    () => (todayTrip ? getItineraryDays(todayTrip, todayRoutePanel.estimates) : []),
+    [todayRoutePanel.estimates, todayTrip],
+  );
+  const todayValidationWarnings = useMemo(
+    () => (todayTrip ? getValidationWarnings(todayTrip, todayRoutePanel.estimates) : []),
+    [todayRoutePanel.estimates, todayTrip],
+  );
+  const todayMapData = useMemo(
+    () =>
+      todayTrip
+        ? getMapData(todayTrip, todayRoutePanel.estimates)
+        : { markers: [], segments: [] },
+    [todayRoutePanel.estimates, todayTrip],
+  );
   const loadedValidationWarnings = useMemo(
     () => (displayTrip ? getValidationWarnings(displayTrip, loadedRoutePanel.estimates) : []),
     [displayTrip, loadedRoutePanel.estimates],
@@ -821,6 +875,10 @@ export default function PlannerApp() {
     () => getPlannerMapRouteSummary(dashboardMapData.segments, dashboardRoutePanel.isRefreshing),
     [dashboardMapData.segments, dashboardRoutePanel.isRefreshing],
   );
+  const todayRouteMapSummary = useMemo<PlannerMapRouteSummary>(
+    () => getPlannerMapRouteSummary(todayMapData.segments, todayRoutePanel.isRefreshing),
+    [todayMapData.segments, todayRoutePanel.isRefreshing],
+  );
 
   const canEditTrip = plannerInteractionMode === "edit" && !isOfflineReadOnly;
   const selectedEntityDetails = useMemo(
@@ -840,6 +898,26 @@ export default function PlannerApp() {
           )
         : null,
     [dashboardRoutePanel.estimates, dashboardTrip, effectiveDashboardSelectedEntity],
+  );
+  const effectiveTodaySelectedEntity = useMemo<SelectedEntity>(() => {
+    if (!todayTrip || !todaySelectedEntity) {
+      return null;
+    }
+
+    return todayTrip.stops.some((stop) => stop.id === todaySelectedEntity.stopId)
+      ? todaySelectedEntity
+      : null;
+  }, [todaySelectedEntity, todayTrip]);
+  const todaySelectedEntityDetails = useMemo(
+    () =>
+      todayTrip
+        ? getSelectedEntityDetails(
+            todayTrip,
+            effectiveTodaySelectedEntity,
+            todayRoutePanel.estimates,
+          )
+        : null,
+    [effectiveTodaySelectedEntity, todayRoutePanel.estimates, todayTrip],
   );
   const isTripLibraryBusy = isLoading || isManagingTrips || syncStatus === "saving";
   const shellTitle =
@@ -874,6 +952,29 @@ export default function PlannerApp() {
   }, [dashboardTrip?.id]);
 
   useEffect(() => {
+    setTodaySelectedEntity(null);
+    setTodaySelectionOrigin("system");
+  }, [todayTrip?.id]);
+
+  useEffect(() => {
+    setMobileScreen((current) => {
+      if (mode === "demo") {
+        return "trip";
+      }
+
+      if (todayTripId && current === "trip" && !isTripScreen) {
+        return "today";
+      }
+
+      if (!todayTripId && (current === "today" || (current === "trip" && !loadedTrip))) {
+        return "trips";
+      }
+
+      return current;
+    });
+  }, [isTripScreen, loadedTrip, mode, todayTripId]);
+
+  useEffect(() => {
     if (!mobileMapOverlay) {
       return;
     }
@@ -883,10 +984,19 @@ export default function PlannerApp() {
       return;
     }
 
-    if (mobileMapOverlay !== "dashboard" && !displayTrip) {
+    if (mobileMapOverlay === "today" && !todayTrip) {
+      setMobileMapOverlay(null);
+      return;
+    }
+
+    if (
+      mobileMapOverlay !== "dashboard" &&
+      mobileMapOverlay !== "today" &&
+      !displayTrip
+    ) {
       setMobileMapOverlay(null);
     }
-  }, [dashboardTrip, displayTrip, mobileMapOverlay]);
+  }, [dashboardTrip, displayTrip, mobileMapOverlay, todayTrip]);
 
   useEffect(() => {
     if (isMapCockpitOpen && !displayTrip) {
@@ -1095,6 +1205,11 @@ export default function PlannerApp() {
   const onSelectEntityFromDashboardMap = (entity: Exclude<SelectedEntity, null>) => {
     setDashboardSelectionOrigin("map");
     setDashboardSelectedEntity(entity);
+  };
+
+  const onSelectEntityFromTodayMap = (entity: Exclude<SelectedEntity, null>) => {
+    setTodaySelectionOrigin("map");
+    setTodaySelectedEntity(entity);
   };
 
   const openMobileMapOverlay = (context: MobileMapOverlayContext) => {
@@ -1928,6 +2043,27 @@ export default function PlannerApp() {
       );
     }
 
+    if (mobileMapOverlay === "today") {
+      if (!todayTrip) {
+        return null;
+      }
+
+      return (
+        <PlannerMobileMapOverlay
+          trip={todayTrip}
+          markers={todayMapData.markers}
+          segments={todayMapData.segments}
+          routeSummary={todayRouteMapSummary}
+          selectedEntity={effectiveTodaySelectedEntity}
+          selectionOrigin={todaySelectionOrigin}
+          selectedDetails={todaySelectedEntityDetails}
+          contextLabel="Reviewing the Today trip route."
+          onSelectEntity={onSelectEntityFromTodayMap}
+          onClose={() => setMobileMapOverlay(null)}
+        />
+      );
+    }
+
     if (!displayTrip) {
       return null;
     }
@@ -1949,6 +2085,163 @@ export default function PlannerApp() {
         onSelectEntity={onSelectEntityFromMap}
         onClose={() => setMobileMapOverlay(null)}
       />
+    );
+  };
+
+  const renderMobileShell = () => {
+    const mobileTitle =
+      mobileScreen === "today"
+        ? "Today"
+        : mobileScreen === "trip"
+          ? "Trip"
+          : "Trips";
+    const mobileSummary =
+      mobileScreen === "today"
+        ? todayTripName
+          ? `${todayTripName} · ${todayActions.length} action${todayActions.length === 1 ? "" : "s"}`
+          : "Choose a Today trip for travel-day support"
+        : mobileScreen === "trip"
+          ? displayTrip
+            ? `${displayTrip.name} · ${activeItineraryDays.length} active day${activeItineraryDays.length === 1 ? "" : "s"}`
+            : "Open a trip to review the mobile itinerary"
+          : `${tripSummaries.length} trip${tripSummaries.length === 1 ? "" : "s"} available`;
+
+    const accountControl = (
+      <AccountStatusControl
+        authStatus={authStatus}
+        mode={mode}
+        userEmail={user?.email ?? null}
+        syncStatus={syncStatus}
+        isOfflineReadOnly={isOfflineReadOnly}
+        notice={accountNotice}
+        onSignIn={signInWithMagicLink}
+        onSignInAsTestUser={signInAsTestUser}
+        onSignOut={signOut}
+        onCreateCloudTripFromCurrent={createCloudTripFromCurrent}
+        onResetSeed={resetToSeed}
+        onResetSeedAlignedToToday={resetToSeedAlignedToToday}
+      />
+    );
+    const todayControl = <TodayStatusControl todayTripName={todayTripName} actions={todayActions} />;
+
+    const content =
+      mobileScreen === "today" ? (
+        <MobileTodayPanel
+          todayTrip={todayTrip}
+          todayTripName={todayTripName}
+          actions={todayActions}
+          itineraryDays={todayItineraryDays}
+          syncStatus={syncStatus}
+          isOfflineReadOnly={isOfflineReadOnly}
+          routeStatus={todayRoutePanel.status}
+          routeStatusLabel={getRouteStatusLabel(todayRoutePanel)}
+          warnings={todayValidationWarnings}
+          onOpenMap={() => openMobileMapOverlay("today")}
+          onOpenTrip={
+            todayTrip
+              ? () => {
+                  void handleOpenTrip(todayTrip.id).then(() => setMobileScreen("trip"));
+                }
+              : undefined
+          }
+          onGoToTrips={() => setMobileScreen("trips")}
+          onViewStop={(stop) => {
+            if (displayTrip?.id === todayTrip?.id) {
+              onViewStopDetails(stop);
+              return;
+            }
+
+            if (todayTrip) {
+              void handleOpenTrip(todayTrip.id);
+            }
+          }}
+        />
+      ) : mobileScreen === "trip" ? (
+        <MobileTripPanel
+          trip={displayTrip}
+          days={activeItineraryDays}
+          selectedDate={effectiveSelectedDate}
+          selectedEntity={effectiveSelectedEntity}
+          routeStatus={loadedRoutePanel.status}
+          routeStatusLabel={getRouteStatusLabel(loadedRoutePanel)}
+          routeStatusMessage={loadedRoutePanel.statusMessage}
+          warnings={loadedValidationWarnings}
+          isOfflineReadOnly={isOfflineReadOnly}
+          canMutate={canEditTrip}
+          isEditing={plannerInteractionMode === "edit"}
+          hasDraftChanges={hasDraftChanges}
+          isSavingDraft={isSavingDraft}
+          saveFeedback={saveFeedback}
+          onSelectDate={onSelectDate}
+          onSelectEntity={onSelectEntityFromItinerary}
+          onViewStop={onViewStopDetails}
+          onEditStop={openEditStopEditor}
+          onDeleteStop={(stop) => {
+            const confirmed = window.confirm(`Delete "${stop.title}"?`);
+            if (confirmed) {
+              void onDeleteStop(stop.id);
+            }
+          }}
+          onEnterEditMode={enterEditMode}
+          onSave={() => void handleSaveItinerary()}
+          onCancel={exitEditMode}
+          onAddStop={openCreateStopEditor}
+          onOpenMap={() => openMobileMapOverlay("itinerary")}
+          onGoToTrips={() => setMobileScreen("trips")}
+        />
+      ) : (
+        <MobileTripsPanel
+          trips={isCloudTripLibraryAvailable ? tripSummaries : []}
+          previewTrip={dashboardTrip}
+          loadedTripId={loadedTrip?.id ?? null}
+          previewTripId={previewTripId}
+          todayTripId={todayTripId}
+          hasLegacyImport={hasLegacyImport}
+          isOfflineReadOnly={isOfflineReadOnly}
+          isWorking={isTripLibraryBusy}
+          isPreviewingTripId={isPreviewingTripId}
+          isUpdatingTodayTrip={
+            dashboardTrip ? isUpdatingTodayTripId === dashboardTrip.id : false
+          }
+          routeStatusLabel={getRouteStatusLabel(dashboardRoutePanel)}
+          warningCount={dashboardValidationWarnings.length}
+          warnings={dashboardValidationWarnings}
+          canManageTrips={isCloudTripLibraryAvailable && !!dashboardTripSummary}
+          canDeleteTrip={tripSummaries.length > 1}
+          onCreateTrip={() => setIsTripCreateOpen(true)}
+          onImportLegacyTrips={handleImportLegacyTrips}
+          onPreviewTrip={handlePreviewTrip}
+          onOpenTrip={
+            dashboardTrip
+              ? () => {
+                  void handleOpenTrip(dashboardTrip.id).then(() => setMobileScreen("trip"));
+                }
+              : undefined
+          }
+          onToggleTodayTrip={
+            dashboardTrip ? () => void handleToggleTodayTrip(dashboardTrip.id) : undefined
+          }
+          onRenameTrip={dashboardTripSummary ? () => setTripToRename(dashboardTripSummary) : undefined}
+          onDeleteTrip={
+            dashboardTripSummary ? () => void handleDeleteTrip(dashboardTripSummary) : undefined
+          }
+        />
+      );
+
+    return (
+      <MobilePlannerShell
+        activeScreen={mobileScreen}
+        title={mobileTitle}
+        summary={mobileSummary}
+        accountControl={accountControl}
+        todayControl={todayControl}
+        onScreenChange={setMobileScreen}
+      >
+        <div className="space-y-3">
+          {renderSharedNotices()}
+          {content}
+        </div>
+      </MobilePlannerShell>
     );
   };
 
@@ -2014,7 +2307,7 @@ export default function PlannerApp() {
         <div className="mx-auto h-full w-full max-w-[1660px] overflow-hidden rounded-[30px] border border-app-border/80 bg-app-surface/85 shadow-[0_28px_80px_rgb(var(--color-app-overlay)_/_0.08)] backdrop-blur-sm">
           <div className="flex h-full flex-col lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)]">
             <div className="hidden lg:flex lg:items-center lg:border-r lg:border-b lg:border-app-border lg:bg-app-surface-muted/65 lg:px-4 lg:py-4">
-              <PlannerBrandBadge compact variant="rail" />
+              <PlannerBrandBadge variant="rail" />
             </div>
 
             <header
@@ -2084,46 +2377,7 @@ export default function PlannerApp() {
               </div>
             </aside>
 
-            <div className="min-h-0 flex-1 lg:hidden">
-              <div className="border-b border-app-border px-4 py-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <PlannerBrandBadge compact variant="rail" />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <div className="rounded-lg border border-app-border bg-app-surface px-3 py-2">
-                      <p className="planner-eyebrow text-app-muted">Today trip</p>
-                      <p className="planner-title-sm mt-1 max-w-[9rem] truncate text-app-text">
-                        {todayTripName ?? "No Today trip"}
-                      </p>
-                    </div>
-                    <TodayStatusControl todayTripName={todayTripName} actions={todayActions} />
-                  </div>
-                </div>
-              </div>
-
-              <section className="min-h-0">
-                <div className="space-y-4 p-4 sm:p-5">
-                  {!isTripScreen ? (
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h1 className="planner-title-lg text-app-text">{shellTitle}</h1>
-                      <span className="planner-pill rounded-lg border px-3 py-1 text-xs font-semibold">
-                        {shellSummary}
-                      </span>
-                    </div>
-                  ) : null}
-
-                  {renderSharedNotices()}
-                  {isTripScreen ? (
-                    <section className="rounded-lg border border-app-border/80 bg-app-surface px-3 py-3 shadow-[0_8px_20px_rgb(var(--color-app-overlay)_/_0.05)]">
-                      {renderTripCommandBarContent()}
-                    </section>
-                  ) : null}
-                  {renderCurrentScreen()}
-                </div>
-              </section>
-            </div>
+            {renderMobileShell()}
 
             <div className="hidden lg:flex lg:min-h-0 lg:flex-col lg:p-6">
               <div className="space-y-4">
@@ -2139,23 +2393,6 @@ export default function PlannerApp() {
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="fixed bottom-4 left-4 z-40 lg:hidden">
-        <AccountStatusControl
-          authStatus={authStatus}
-          mode={mode}
-          userEmail={user?.email ?? null}
-          syncStatus={syncStatus}
-          isOfflineReadOnly={isOfflineReadOnly}
-          notice={accountNotice}
-          onSignIn={signInWithMagicLink}
-          onSignInAsTestUser={signInAsTestUser}
-          onSignOut={signOut}
-          onCreateCloudTripFromCurrent={createCloudTripFromCurrent}
-          onResetSeed={resetToSeed}
-          onResetSeedAlignedToToday={resetToSeedAlignedToToday}
-        />
       </div>
 
       {renderMapCockpit()}

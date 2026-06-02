@@ -20,7 +20,9 @@ The current shell now presents that through a dashboard-first nested workflow ra
 
 ### Information Architecture
 
-- Desktop and mobile both default to `Dashboard`.
+- Desktop defaults to `Dashboard`.
+- Mobile defaults to a simplified on-road companion shell with `Today`, `Trip`, and `Trips`
+  destinations.
 - The left rail is app-level only and currently keeps a single planner destination:
   - `Dashboard`
 - `Dashboard` owns the trip library plus a side-by-side trip detail and map preview.
@@ -30,7 +32,8 @@ The current shell now presents that through a dashboard-first nested workflow ra
   - `Trip Itinerary`
 - Nested trip screens use breadcrumb context with `Dashboard > Trip`, plus top tabs for `Overview` and `Itinerary`.
 - A persistent top-left account/status control is available in the planner shell on all viewports.
-- `Today` remains available as an operational status control rather than a rail destination.
+- `Today` remains available as an operational status control on desktop and becomes the primary
+  mobile travel-day destination.
 
 ### Panel Responsibilities
 

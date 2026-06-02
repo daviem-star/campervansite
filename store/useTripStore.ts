@@ -48,7 +48,7 @@ import {
 const localRepository = new LegacyLocalStorageTripRepository();
 
 let authListenerBound = false;
-let connectivityListenersBound = false;
+let connectivityListenersWindow: Window | null = null;
 const pendingStarterTripLoads = new Map<string, Promise<Trip | null>>();
 const pendingCloudTripSaves = new Map<string, Promise<void>>();
 
@@ -526,11 +526,11 @@ const bindConnectivityListeners = (
   set: (partial: Partial<TripStoreState>) => void,
   get: () => TripStoreState,
 ) => {
-  if (connectivityListenersBound || typeof window === "undefined") {
+  if (typeof window === "undefined" || connectivityListenersWindow === window) {
     return;
   }
 
-  connectivityListenersBound = true;
+  connectivityListenersWindow = window;
 
   window.addEventListener("offline", () => {
     if (get().authStatus === "signed_in") {

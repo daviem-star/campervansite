@@ -132,7 +132,7 @@ export default function StopDetailsDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby="stop-details-title"
-        className="absolute bottom-0 right-0 top-0 flex w-full max-w-xl flex-col overflow-hidden border-l border-app-border bg-app-surface shadow-[0_24px_80px_rgb(var(--color-app-overlay)_/_0.22)] sm:rounded-l-[24px]"
+        className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[24px] border border-app-border bg-app-surface shadow-[0_24px_80px_rgb(var(--color-app-overlay)_/_0.22)] sm:inset-y-0 sm:left-auto sm:right-0 sm:max-h-none sm:max-w-xl sm:rounded-l-[24px] sm:rounded-tr-none sm:border-l"
       >
         <div className="border-b border-app-border bg-app-surface-muted/55 px-5 py-4">
           <div className="flex items-start justify-between gap-4">

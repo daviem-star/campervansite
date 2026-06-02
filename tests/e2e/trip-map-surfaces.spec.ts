@@ -95,15 +95,14 @@ test("shows a dashboard preview map and opens trips into overview with the map v
   const dashboardMapPanel = visibleByTestId(page, "dashboard-trip-map-panel");
   await expect(dashboardMapPanel).toBeVisible();
   await expect(dashboardMapPanel.getByLabel("Trip map")).toBeVisible();
-  await expect(visibleByTestId(page, "dashboard-map-selection-summary")).toContainText(
-    /Select a stop or ferry leg on the map/i,
-  );
 
   await visibleByTestId(page, "dashboard-open-trip-button").click();
 
-  await expect(visibleByTestId(page, "trip-workspace-header")).toBeVisible();
-  await expect(visibleByTestId(page, "trip-workspace-header-summary")).toContainText(
-    /Home base/i,
+  await expect(visibleByTestId(page, "trip-command-bar")).toContainText(
+    /Outer Hebrides Family Trip/i,
+  );
+  await expect(visibleByTestId(page, "trip-command-bar-summary")).toContainText(
+    /Needs refresh|Live|Unavailable/i,
   );
 
   const overviewRegion = visibleByTestId(page, "overview-scroll-region");
@@ -173,38 +172,34 @@ test("updates dashboard and overview selection summaries from map interactions",
   );
 });
 
-test("opens the mobile full-screen map from dashboard, overview, and itinerary", async ({
+test("opens the mobile full-screen map from Today and Trip", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await prepareSignedInPlanner(page);
+  const user = createTestUser("mobile-map");
+  await primeSignedInSession(page, user);
+  await seedCloudTrips(page, user, getLegacySeedData());
+  await page.goto("/");
 
-  const dashboardMapButton = visibleByTestId(page, "dashboard-mobile-map-button");
-  await dashboardMapButton.scrollIntoViewIfNeeded();
-  await dashboardMapButton.click();
+  await visibleByTestId(page, "mobile-nav-trips").click();
+  await visibleByTestId(page, "mobile-trip-summary-trip_outer_hebrides_2026").click();
+  await page.getByRole("button", { name: /^Open$/ }).click();
+  await expect(visibleByTestId(page, "mobile-trip-panel")).toBeVisible();
+  await visibleByTestId(page, "mobile-nav-trips").click();
+  await page.getByRole("button", { name: /Set Today/i }).click();
+
+  await visibleByTestId(page, "mobile-nav-today").click();
+  await visibleByTestId(page, "mobile-today-panel")
+    .getByRole("button", { name: /Open map/i })
+    .click();
   await expect(page.getByTestId("mobile-trip-map-overlay")).toBeVisible();
   await page.getByRole("button", { name: /Close map/i }).click();
-  await expect(dashboardMapButton).toBeVisible();
 
-  const openTripButton = visibleByTestId(page, "dashboard-open-trip-button");
-  await openTripButton.scrollIntoViewIfNeeded();
-  await openTripButton.click();
-
-  const overviewMapButton = visibleByTestId(page, "overview-mobile-map-button");
-  await overviewMapButton.scrollIntoViewIfNeeded();
-  await overviewMapButton.click();
+  await visibleByTestId(page, "mobile-nav-trip").click();
+  await visibleByTestId(page, "mobile-trip-panel")
+    .getByRole("button", { name: /Open map/i })
+    .click();
   await expect(page.getByTestId("mobile-trip-map-overlay")).toBeVisible();
   await page.getByRole("button", { name: /Close map/i }).click();
-  await expect(overviewMapButton).toBeVisible();
-
-  const itineraryTab = visibleByTestId(page, "desktop-panel-itinerary");
-  await itineraryTab.scrollIntoViewIfNeeded();
-  await itineraryTab.click();
-
-  const itineraryMapButton = visibleByTestId(page, "itinerary-mobile-map-button");
-  await itineraryMapButton.scrollIntoViewIfNeeded();
-  await itineraryMapButton.click();
-  await expect(page.getByTestId("mobile-trip-map-overlay")).toBeVisible();
-  await page.getByRole("button", { name: /Close map/i }).click();
-  await expect(itineraryMapButton).toBeVisible();
+  await expect(visibleByTestId(page, "mobile-trip-panel")).toBeVisible();
 });
