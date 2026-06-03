@@ -1,8 +1,27 @@
 import type { Metadata } from "next";
 
-import { rootThemeAttributes } from "@/lib/theme";
+import {
+  appThemePreferenceStorageKey,
+  defaultAppTheme,
+  rootThemeAttributes,
+} from "@/lib/theme";
 
 import "./globals.css";
+
+const themeBootstrapScript = `
+(() => {
+  const root = document.documentElement;
+  try {
+    const storedMode = window.localStorage.getItem("${appThemePreferenceStorageKey}");
+    const systemMode = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    root.dataset.brand = "${defaultAppTheme.brand}";
+    root.dataset.theme = storedMode === "light" || storedMode === "dark" ? storedMode : systemMode;
+  } catch {
+    root.dataset.brand = "${defaultAppTheme.brand}";
+    root.dataset.theme = "${defaultAppTheme.mode}";
+  }
+})();
+`;
 
 export const metadata: Metadata = {
   title: {
@@ -33,8 +52,12 @@ export default function RootLayout({
       lang="en"
       data-brand={rootThemeAttributes["data-brand"]}
       data-theme={rootThemeAttributes["data-theme"]}
+      suppressHydrationWarning
     >
-      <body>{children}</body>
+      <body>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
+        {children}
+      </body>
     </html>
   );
 }

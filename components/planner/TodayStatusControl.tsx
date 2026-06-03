@@ -48,7 +48,7 @@ export default function TodayStatusControl({
       >
         <span
           className={`relative flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${
-            hasActions ? "bg-state-info text-white" : "bg-brand-primary text-brand-on-primary"
+            hasActions ? "bg-state-info text-app-surface" : "bg-brand-primary text-brand-on-primary"
           }`}
         >
           T
@@ -64,7 +64,7 @@ export default function TodayStatusControl({
         <span
           className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${
             hasActions
-              ? "border-state-info-border bg-white/75 text-state-info"
+              ? "border-state-info-border bg-state-info-surface text-state-info"
               : "border-app-border bg-app-surface text-app-muted"
           }`}
         >

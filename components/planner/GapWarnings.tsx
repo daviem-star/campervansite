@@ -36,7 +36,7 @@ export default function GapWarnings({ warnings, emptyMessage = null }: GapWarnin
         {warnings.map((warning) => (
           <li
             key={warning.date}
-            className="planner-copy-sm rounded-[18px] border border-white/35 bg-white/35 px-3 py-2 text-state-warning"
+            className="planner-copy-sm rounded-[18px] border border-state-warning-border bg-state-warning-surface px-3 py-2 text-state-warning"
           >
             {warning.label}
           </li>

@@ -22,6 +22,7 @@ import TripMapPreviewPanel from "@/components/planner/TripMapPreviewPanel";
 import { plannerNoticeToneClass } from "@/components/planner/plannerTheme";
 import StopEditorModal from "@/components/planner/StopEditorModal";
 import StopTimeline from "@/components/planner/StopTimeline";
+import ThemeModeToggle from "@/components/planner/ThemeModeToggle";
 import TodayStatusControl from "@/components/planner/TodayStatusControl";
 import TravelInsightsPanel from "@/components/planner/TravelInsightsPanel";
 import TripCreateModal from "@/components/planner/TripCreateModal";
@@ -2147,6 +2148,7 @@ export default function PlannerApp() {
       mobileScreen === "today" ? null : (
         <TodayStatusControl todayTripName={todayTripName} actions={todayActions} />
       );
+    const themeControl = <ThemeModeToggle />;
 
     const content =
       mobileScreen === "today" ? (
@@ -2259,6 +2261,7 @@ export default function PlannerApp() {
         summary={mobileSummary}
         accountControl={accountControl}
         todayControl={todayControl}
+        themeControl={themeControl}
         onScreenChange={setMobileScreen}
       >
         <div className="space-y-3">
@@ -2354,6 +2357,7 @@ export default function PlannerApp() {
 
               <div className="flex shrink-0 items-center gap-3">
                 <TodayStatusControl todayTripName={todayTripName} actions={todayActions} />
+                <ThemeModeToggle />
               </div>
             </header>
 

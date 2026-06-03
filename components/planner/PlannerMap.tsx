@@ -81,7 +81,24 @@ const routeChipToneClass = {
   warning: "border-brand-secondary/30 bg-brand-secondary/14 text-brand-secondary-variant",
 } as const;
 
-const MAP_PALETTE = {
+type MapPalette = {
+  routeLive: string;
+  routeFallback: string;
+  ferry: string;
+  ferrySelected: string;
+  home: string;
+  stay: string;
+  poi: string;
+  ferryPort: string;
+  default: string;
+  selectedFill: string;
+  selectedStroke: string;
+  label: string;
+  labelMuted: string;
+  labelHalo: string;
+};
+
+const DEFAULT_MAP_PALETTE: MapPalette = {
   routeLive: "#163B25",
   routeFallback: "#C97512",
   ferry: "#406174",
@@ -96,7 +113,87 @@ const MAP_PALETTE = {
   label: "#1C241D",
   labelMuted: "#5C6458",
   labelHalo: "#FFFDF7",
-} as const;
+};
+
+const cssRgb = (styles: CSSStyleDeclaration, variableName: string, fallback: string): string => {
+  const value = styles.getPropertyValue(variableName).trim();
+  return value ? `rgb(${value})` : fallback;
+};
+
+const cssRgba = (
+  styles: CSSStyleDeclaration,
+  variableName: string,
+  alpha: number,
+  fallback: string,
+): string => {
+  const value = styles.getPropertyValue(variableName).trim();
+  return value ? `rgb(${value} / ${alpha})` : fallback;
+};
+
+const readMapPalette = (): MapPalette => {
+  if (typeof window === "undefined") {
+    return DEFAULT_MAP_PALETTE;
+  }
+
+  const styles = window.getComputedStyle(document.documentElement);
+
+  return {
+    routeLive: cssRgb(styles, "--color-brand-primary", DEFAULT_MAP_PALETTE.routeLive),
+    routeFallback: cssRgb(
+      styles,
+      "--color-brand-secondary-variant",
+      DEFAULT_MAP_PALETTE.routeFallback,
+    ),
+    ferry: cssRgb(styles, "--color-state-info", DEFAULT_MAP_PALETTE.ferry),
+    ferrySelected: cssRgb(styles, "--color-brand-primary", DEFAULT_MAP_PALETTE.ferrySelected),
+    home: cssRgb(styles, "--color-brand-primary-variant", DEFAULT_MAP_PALETTE.home),
+    stay: cssRgb(styles, "--color-brand-support", DEFAULT_MAP_PALETTE.stay),
+    poi: cssRgb(styles, "--color-brand-secondary", DEFAULT_MAP_PALETTE.poi),
+    ferryPort: cssRgb(styles, "--color-state-info", DEFAULT_MAP_PALETTE.ferryPort),
+    default: cssRgb(styles, "--color-brand-primary", DEFAULT_MAP_PALETTE.default),
+    selectedFill: cssRgba(
+      styles,
+      "--color-brand-primary",
+      0.16,
+      DEFAULT_MAP_PALETTE.selectedFill,
+    ),
+    selectedStroke: cssRgb(styles, "--color-brand-primary", DEFAULT_MAP_PALETTE.selectedStroke),
+    label: cssRgb(styles, "--color-app-text", DEFAULT_MAP_PALETTE.label),
+    labelMuted: cssRgb(styles, "--color-app-muted", DEFAULT_MAP_PALETTE.labelMuted),
+    labelHalo: cssRgb(styles, "--color-app-surface", DEFAULT_MAP_PALETTE.labelHalo),
+  };
+};
+
+const applyMapPalette = (map: maplibregl.Map, palette: MapPalette) => {
+  if (!map.getLayer("road-segments-live")) {
+    return;
+  }
+
+  map.setPaintProperty("road-segments-live", "line-color", palette.routeLive);
+  map.setPaintProperty("road-segments-fallback", "line-color", palette.routeFallback);
+  map.setPaintProperty("ferry-segments", "line-color", palette.ferry);
+  map.setPaintProperty("selected-ferry-segments", "line-color", palette.ferrySelected);
+  map.setPaintProperty("ferry-segments-hit", "line-color", palette.default);
+  map.setPaintProperty("markers-base", "circle-color", [
+    "match",
+    ["get", "role"],
+    "home",
+    palette.home,
+    "stay",
+    palette.stay,
+    "poi",
+    palette.poi,
+    "ferry_port",
+    palette.ferryPort,
+    palette.default,
+  ]);
+  map.setPaintProperty("markers-base", "circle-stroke-color", palette.labelHalo);
+  map.setPaintProperty("markers-selected", "circle-color", palette.selectedFill);
+  map.setPaintProperty("markers-selected", "circle-stroke-color", palette.selectedStroke);
+  map.setPaintProperty("markers-hit", "circle-color", palette.default);
+  map.setPaintProperty("marker-labels", "text-color", palette.label);
+  map.setPaintProperty("marker-labels", "text-halo-color", palette.labelHalo);
+};
 
 const isSameEntity = (markerOrSegment: { stopId?: string; entityKind?: StopType }, selected: SelectedEntity) => {
   if (!selected) {
@@ -117,9 +214,9 @@ const escapeHtml = (value: string): string =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 
-const popupIconSvg = (kind: StopType): string => {
+const popupIconSvg = (kind: StopType, palette: MapPalette): string => {
   const color =
-    kind === "stay" ? MAP_PALETTE.stay : kind === "ferry" ? MAP_PALETTE.ferry : MAP_PALETTE.poi;
+    kind === "stay" ? palette.stay : kind === "ferry" ? palette.ferry : palette.poi;
 
   if (kind === "stay") {
     return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 18h16" stroke="${color}" stroke-width="1.8" stroke-linecap="round"/><path d="M6 18V10.8c0-.4.3-.8.8-.8h2.5c.3 0 .6-.1.8-.4l1.3-1.8c.3-.4.9-.4 1.2 0l1.3 1.8c.2.3.5.4.8.4h2.5c.5 0 .8.4.8.8V18" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
@@ -159,28 +256,32 @@ const getSegmentGeometrySignature = (segment: MapSegment): string => {
     .join(">");
 };
 
-const buildPopupHtml = (trip: Trip, selectedEntity: Exclude<SelectedEntity, null>): string => {
+const buildPopupHtml = (
+  trip: Trip,
+  selectedEntity: Exclude<SelectedEntity, null>,
+  palette: MapPalette,
+): string => {
   const stop = findStopById(trip, selectedEntity.stopId);
   if (!stop) {
-    return `<div style="padding:8px;font:12px sans-serif;color:${MAP_PALETTE.labelMuted};">Item not found.</div>`;
+    return `<div style="padding:8px;font:12px sans-serif;color:${palette.labelMuted};">Item not found.</div>`;
   }
 
   if (stop.type === "stay") {
     return `
       <div style="min-width:220px;padding:4px 2px;font-family:system-ui,sans-serif;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          ${popupIconSvg("stay")}
+          ${popupIconSvg("stay", palette)}
           <div>
-            <div style="font-weight:700;color:${MAP_PALETTE.label};">${escapeHtml(stop.title)}</div>
-            <div style="font-size:11px;color:${MAP_PALETTE.labelMuted};text-transform:uppercase;letter-spacing:.04em;">${entityLabel("stay")}</div>
+            <div style="font-weight:700;color:${palette.label};">${escapeHtml(stop.title)}</div>
+            <div style="font-size:11px;color:${palette.labelMuted};text-transform:uppercase;letter-spacing:.04em;">${entityLabel("stay")}</div>
           </div>
         </div>
-        <div style="font-size:12px;color:${MAP_PALETTE.label};line-height:1.35;">${escapeHtml(stop.place.label)}</div>
-        <div style="margin-top:6px;font-size:12px;color:${MAP_PALETTE.labelMuted};">Check-in: ${escapeHtml(formatDateTime(stop.checkInAt))}</div>
-        <div style="font-size:12px;color:${MAP_PALETTE.labelMuted};">Check-out: ${escapeHtml(formatDateTime(stop.checkOutAt))}</div>
+        <div style="font-size:12px;color:${palette.label};line-height:1.35;">${escapeHtml(stop.place.label)}</div>
+        <div style="margin-top:6px;font-size:12px;color:${palette.labelMuted};">Check-in: ${escapeHtml(formatDateTime(stop.checkInAt))}</div>
+        <div style="font-size:12px;color:${palette.labelMuted};">Check-out: ${escapeHtml(formatDateTime(stop.checkOutAt))}</div>
         ${
           stop.notes
-            ? `<div style="margin-top:4px;font-size:12px;color:${MAP_PALETTE.labelMuted};">Notes: ${escapeHtml(stop.notes)}</div>`
+            ? `<div style="margin-top:4px;font-size:12px;color:${palette.labelMuted};">Notes: ${escapeHtml(stop.notes)}</div>`
             : ""
         }
       </div>`;
@@ -190,19 +291,19 @@ const buildPopupHtml = (trip: Trip, selectedEntity: Exclude<SelectedEntity, null
     return `
       <div style="min-width:240px;padding:4px 2px;font-family:system-ui,sans-serif;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-          ${popupIconSvg("ferry")}
+          ${popupIconSvg("ferry", palette)}
           <div>
-            <div style="font-weight:700;color:${MAP_PALETTE.label};">${escapeHtml(stop.title)}</div>
-            <div style="font-size:11px;color:${MAP_PALETTE.labelMuted};text-transform:uppercase;letter-spacing:.04em;">${entityLabel("ferry")}</div>
+            <div style="font-weight:700;color:${palette.label};">${escapeHtml(stop.title)}</div>
+            <div style="font-size:11px;color:${palette.labelMuted};text-transform:uppercase;letter-spacing:.04em;">${entityLabel("ferry")}</div>
           </div>
         </div>
-        <div style="font-size:12px;color:${MAP_PALETTE.label};line-height:1.35;">${escapeHtml(stop.departurePort.label)} to ${escapeHtml(stop.arrivalPort.label)}</div>
-        <div style="margin-top:6px;font-size:12px;color:${MAP_PALETTE.labelMuted};">Departure: ${escapeHtml(formatDateTime(stop.departureAt))}</div>
-        <div style="font-size:12px;color:${MAP_PALETTE.labelMuted};">Arrival: ${escapeHtml(formatDateTime(stop.arrivalAt))}</div>
-        <div style="font-size:12px;color:${MAP_PALETTE.labelMuted};">Check-in by: ${escapeHtml(formatDateTime(stop.checkInBy))}</div>
+        <div style="font-size:12px;color:${palette.label};line-height:1.35;">${escapeHtml(stop.departurePort.label)} to ${escapeHtml(stop.arrivalPort.label)}</div>
+        <div style="margin-top:6px;font-size:12px;color:${palette.labelMuted};">Departure: ${escapeHtml(formatDateTime(stop.departureAt))}</div>
+        <div style="font-size:12px;color:${palette.labelMuted};">Arrival: ${escapeHtml(formatDateTime(stop.arrivalAt))}</div>
+        <div style="font-size:12px;color:${palette.labelMuted};">Check-in by: ${escapeHtml(formatDateTime(stop.checkInBy))}</div>
         ${
           stop.notes
-            ? `<div style="margin-top:4px;font-size:12px;color:${MAP_PALETTE.labelMuted};">Notes: ${escapeHtml(stop.notes)}</div>`
+            ? `<div style="margin-top:4px;font-size:12px;color:${palette.labelMuted};">Notes: ${escapeHtml(stop.notes)}</div>`
             : ""
         }
       </div>`;
@@ -211,17 +312,17 @@ const buildPopupHtml = (trip: Trip, selectedEntity: Exclude<SelectedEntity, null
   return `
     <div style="min-width:220px;padding:4px 2px;font-family:system-ui,sans-serif;">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-        ${popupIconSvg("point_of_interest")}
+        ${popupIconSvg("point_of_interest", palette)}
         <div>
-          <div style="font-weight:700;color:${MAP_PALETTE.label};">${escapeHtml(stop.title)}</div>
-          <div style="font-size:11px;color:${MAP_PALETTE.labelMuted};text-transform:uppercase;letter-spacing:.04em;">${entityLabel("point_of_interest")}</div>
+          <div style="font-weight:700;color:${palette.label};">${escapeHtml(stop.title)}</div>
+          <div style="font-size:11px;color:${palette.labelMuted};text-transform:uppercase;letter-spacing:.04em;">${entityLabel("point_of_interest")}</div>
         </div>
       </div>
-      <div style="font-size:12px;color:${MAP_PALETTE.label};line-height:1.35;">${escapeHtml(stop.place.label)}</div>
-      <div style="margin-top:6px;font-size:12px;color:${MAP_PALETTE.labelMuted};">Visit date: ${escapeHtml(formatDateOnly(stop.visitDate))}</div>
+      <div style="font-size:12px;color:${palette.label};line-height:1.35;">${escapeHtml(stop.place.label)}</div>
+      <div style="margin-top:6px;font-size:12px;color:${palette.labelMuted};">Visit date: ${escapeHtml(formatDateOnly(stop.visitDate))}</div>
       ${
         stop.notes
-          ? `<div style="margin-top:4px;font-size:12px;color:${MAP_PALETTE.labelMuted};">Notes: ${escapeHtml(stop.notes)}</div>`
+          ? `<div style="margin-top:4px;font-size:12px;color:${palette.labelMuted};">Notes: ${escapeHtml(stop.notes)}</div>`
           : ""
       }
     </div>`;
@@ -258,6 +359,7 @@ export default function PlannerMap({
   const segmentsRef = useRef(segments);
   const selectedEntityRef = useRef(selectedEntity);
   const selectionOriginRef = useRef(selectionOrigin);
+  const mapPaletteRef = useRef<MapPalette>(DEFAULT_MAP_PALETTE);
   const [mapError, setMapError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -481,7 +583,7 @@ export default function PlannerMap({
     selection: Exclude<SelectedEntity, null>,
     anchor?: maplibregl.LngLatLike,
   ) => {
-    const html = buildPopupHtml(tripRef.current, selection);
+    const html = buildPopupHtml(tripRef.current, selection, mapPaletteRef.current);
 
     let popupAnchor = anchor;
 
@@ -524,6 +626,7 @@ export default function PlannerMap({
       return;
     }
 
+    mapPaletteRef.current = readMapPalette();
     let scheduledMapErrorFrame: number | null = null;
     const webglProbe = document.createElement("canvas");
     const webglContext =
@@ -566,6 +669,8 @@ export default function PlannerMap({
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
 
     map.on("load", () => {
+      const palette = mapPaletteRef.current;
+
       map.addSource("markers", {
         type: "geojson",
         data: markerFeatureCollectionRef.current,
@@ -586,7 +691,7 @@ export default function PlannerMap({
           ["==", ["get", "routeStatus"], "live"],
         ],
         paint: {
-          "line-color": MAP_PALETTE.routeLive,
+          "line-color": palette.routeLive,
           "line-width": 2.5,
           "line-opacity": 0.65,
         },
@@ -602,7 +707,7 @@ export default function PlannerMap({
           ["==", ["get", "routeStatus"], "fallback"],
         ],
         paint: {
-          "line-color": MAP_PALETTE.routeFallback,
+          "line-color": palette.routeFallback,
           "line-width": 3,
           "line-dasharray": [1.5, 1.5],
           "line-opacity": 0.9,
@@ -615,7 +720,7 @@ export default function PlannerMap({
         source: "segments",
         filter: ["==", ["get", "type"], "ferry"],
         paint: {
-          "line-color": MAP_PALETTE.ferry,
+          "line-color": palette.ferry,
           "line-width": 3.5,
           "line-dasharray": [2, 2],
           "line-opacity": 0.9,
@@ -628,7 +733,7 @@ export default function PlannerMap({
         source: "segments",
         filter: ["all", ["==", ["get", "type"], "ferry"], ["==", ["get", "isSelected"], true]],
         paint: {
-          "line-color": MAP_PALETTE.ferrySelected,
+          "line-color": palette.ferrySelected,
           "line-width": 6,
           "line-dasharray": [2, 1.5],
           "line-opacity": 0.95,
@@ -641,7 +746,7 @@ export default function PlannerMap({
         source: "segments",
         filter: ["==", ["get", "type"], "ferry"],
         paint: {
-          "line-color": MAP_PALETTE.default,
+          "line-color": palette.default,
           "line-opacity": 0,
           "line-width": 12,
         },
@@ -665,17 +770,17 @@ export default function PlannerMap({
             "match",
             ["get", "role"],
             "home",
-            MAP_PALETTE.home,
+            palette.home,
             "stay",
-            MAP_PALETTE.stay,
+            palette.stay,
             "poi",
-            MAP_PALETTE.poi,
+            palette.poi,
             "ferry_port",
-            MAP_PALETTE.ferryPort,
-            MAP_PALETTE.default,
+            palette.ferryPort,
+            palette.default,
           ],
           "circle-stroke-width": 2,
-          "circle-stroke-color": MAP_PALETTE.labelHalo,
+          "circle-stroke-color": palette.labelHalo,
         },
       });
 
@@ -694,8 +799,8 @@ export default function PlannerMap({
             12,
             10,
           ],
-          "circle-color": MAP_PALETTE.selectedFill,
-          "circle-stroke-color": MAP_PALETTE.selectedStroke,
+          "circle-color": palette.selectedFill,
+          "circle-stroke-color": palette.selectedStroke,
           "circle-stroke-width": 2,
         },
       });
@@ -706,7 +811,7 @@ export default function PlannerMap({
         source: "markers",
         paint: {
           "circle-radius": 14,
-          "circle-color": MAP_PALETTE.default,
+          "circle-color": palette.default,
           "circle-opacity": 0,
         },
       });
@@ -724,8 +829,8 @@ export default function PlannerMap({
           "text-max-width": 12,
         },
         paint: {
-          "text-color": MAP_PALETTE.label,
-          "text-halo-color": MAP_PALETTE.labelHalo,
+          "text-color": palette.label,
+          "text-halo-color": palette.labelHalo,
           "text-halo-width": 1,
         },
       });
@@ -786,6 +891,32 @@ export default function PlannerMap({
       mapRef.current = null;
     };
   }, [fitOverview, mapError]);
+
+  useEffect(() => {
+    const syncPalette = () => {
+      mapPaletteRef.current = readMapPalette();
+
+      const map = mapRef.current;
+      if (map?.isStyleLoaded()) {
+        applyMapPalette(map, mapPaletteRef.current);
+
+        const selection = selectedEntityRef.current;
+        if (selection && popupRef.current) {
+          openPopupForSelection(map, selection);
+        }
+      }
+    };
+
+    syncPalette();
+
+    const observer = new MutationObserver(syncPalette);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const map = mapRef.current;

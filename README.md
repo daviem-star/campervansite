@@ -156,6 +156,8 @@ npm run smoke:staging -- "<vercel-share-url>"
 
 - Root theming now lives on the HTML element through `data-brand` and `data-theme`, with defaults exported from `lib/theme.ts`.
 - Global theme tokens are defined in `app/globals.css` for both light and dark modes under the same semantic contract.
+- The runtime theme mode is resolved before first paint from the device-local `campervansite:theme-mode` preference, falling back to `prefers-color-scheme` when no manual preference exists.
+- The planner theme toggle persists only the local device preference; it is not synced to cloud trip data.
 - Planner components should use semantic Tailwind color aliases such as `app.*`, `brand.*`, and `state.*` rather than hard-coded palette utilities so future palette tests stay localized.
 
 ## Roadmap

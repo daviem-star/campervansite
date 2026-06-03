@@ -10,6 +10,7 @@ type MobilePlannerShellProps = {
   summary: string;
   accountControl: ReactNode;
   todayControl: ReactNode;
+  themeControl: ReactNode;
   children: ReactNode;
   onScreenChange: (screen: MobilePlannerScreen) => void;
 };
@@ -26,6 +27,7 @@ export default function MobilePlannerShell({
   summary,
   accountControl,
   todayControl,
+  themeControl,
   children,
   onScreenChange,
 }: MobilePlannerShellProps) {
@@ -41,6 +43,7 @@ export default function MobilePlannerShell({
 
           <div className="flex shrink-0 items-center gap-2">
             {todayControl}
+            {themeControl}
             {accountControl}
           </div>
         </div>

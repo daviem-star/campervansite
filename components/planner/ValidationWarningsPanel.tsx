@@ -153,7 +153,7 @@ export default function ValidationWarningsPanel({
               >
                 <div className="flex items-center justify-between gap-3">
                   <p className="planner-title-sm">{warning.label}</p>
-                  <span className="rounded-full border border-current/20 bg-white/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em]">
+                  <span className="rounded-full border border-current/20 bg-app-surface/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em]">
                     {warning.severity}
                   </span>
                 </div>
@@ -239,7 +239,7 @@ export default function ValidationWarningsPanel({
                     >
                       <div className="flex items-center justify-between gap-3">
                         <p className="planner-title-sm">{warning.label}</p>
-                        <span className="rounded-full border border-current/20 bg-white/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em]">
+                        <span className="rounded-full border border-current/20 bg-app-surface/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em]">
                           {warning.severity}
                         </span>
                       </div>
