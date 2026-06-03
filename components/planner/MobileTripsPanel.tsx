@@ -119,7 +119,7 @@ export default function MobileTripsPanel({
                   data-testid={`mobile-trip-summary-${trip.id}`}
                   onClick={() => void onPreviewTrip(trip.id)}
                   className={`block w-full px-4 py-3 text-left transition ${
-                    isPreviewed ? "planner-selected" : "bg-app-surface"
+                    isPreviewed ? "planner-library-row-selected" : "bg-app-surface"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">

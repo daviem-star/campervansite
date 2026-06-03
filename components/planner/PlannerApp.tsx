@@ -826,11 +826,30 @@ export default function PlannerApp() {
     () => (previewTrip ? getValidationWarnings(previewTrip, previewRoutePanel.estimates) : []),
     [previewRoutePanel.estimates, previewTrip],
   );
-  const dashboardTrip = isCloudTripLibraryAvailable ? previewTrip : displayTrip;
-  const dashboardRoutePanel = isCloudTripLibraryAvailable ? previewRoutePanel : loadedRoutePanel;
-  const dashboardRouteRequests = isCloudTripLibraryAvailable ? previewRouteRequests : loadedRouteRequests;
+  const isDashboardPreviewingLoadedTrip =
+    isCloudTripLibraryAvailable &&
+    Boolean(previewTripId) &&
+    Boolean(displayTrip) &&
+    previewTripId === displayTrip?.id;
+  const dashboardTrip = isCloudTripLibraryAvailable
+    ? isDashboardPreviewingLoadedTrip
+      ? displayTrip
+      : previewTrip
+    : displayTrip;
+  const dashboardRoutePanel = isCloudTripLibraryAvailable
+    ? isDashboardPreviewingLoadedTrip
+      ? loadedRoutePanel
+      : previewRoutePanel
+    : loadedRoutePanel;
+  const dashboardRouteRequests = isCloudTripLibraryAvailable
+    ? isDashboardPreviewingLoadedTrip
+      ? loadedRouteRequests
+      : previewRouteRequests
+    : loadedRouteRequests;
   const dashboardValidationWarnings = isCloudTripLibraryAvailable
-    ? previewValidationWarnings
+    ? isDashboardPreviewingLoadedTrip
+      ? loadedValidationWarnings
+      : previewValidationWarnings
     : loadedValidationWarnings;
   const dashboardMapData = useMemo(
     () =>
@@ -1790,7 +1809,9 @@ export default function PlannerApp() {
             onRefreshRouteInsights={
               dashboardTrip
                 ? isCloudTripLibraryAvailable
-                  ? () => void syncPreviewRoutePanel(true)
+                  ? isDashboardPreviewingLoadedTrip
+                    ? () => void syncLoadedRoutePanel(true)
+                    : () => void syncPreviewRoutePanel(true)
                   : () => void syncLoadedRoutePanel(true)
                 : undefined
             }

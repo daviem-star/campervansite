@@ -103,7 +103,7 @@ export default function TripsPanel({
               onClick={() => void onPreviewTrip(trip.id)}
               className={`planner-clickable-row block w-full px-4 py-4 text-left transition sm:px-5 ${
                 isPreviewed
-                  ? "planner-selected text-app-text"
+                  ? "planner-library-row-selected text-app-text"
                   : "bg-app-surface text-app-text"
               }`}
             >

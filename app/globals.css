@@ -373,6 +373,19 @@ button {
       0 24px 48px rgb(var(--color-app-overlay) / 0.12);
   }
 
+  .planner-library-row-selected {
+    position: relative;
+    background-color: rgb(var(--color-brand-primary) / 0.08);
+    box-shadow:
+      inset 3px 0 0 rgb(var(--color-brand-primary)),
+      inset 0 1px 0 rgb(var(--color-brand-primary) / 0.16),
+      inset 0 -1px 0 rgb(var(--color-brand-primary) / 0.16);
+  }
+
+  .planner-library-row-selected:hover {
+    background-color: rgb(var(--color-brand-primary) / 0.11);
+  }
+
   .planner-selected-soft {
     border-color: rgb(var(--color-brand-primary) / 0.24);
     background-color: rgb(var(--color-brand-primary) / 0.08);

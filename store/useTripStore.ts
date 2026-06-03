@@ -124,6 +124,18 @@ const removeTripCacheEntry = (
   return nextCache;
 };
 
+export const resolveRouteSnapshotTargetTrip = (
+  tripId: string,
+  activeTrip: Trip | null,
+  tripCache: Record<string, Trip>,
+): Trip | null => {
+  if (activeTrip?.id === tripId) {
+    return activeTrip;
+  }
+
+  return tripCache[tripId] ?? null;
+};
+
 const createNotice = (
   text: string,
   surface: PlannerNoticeSurface,
@@ -1319,8 +1331,7 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
   saveRouteSnapshot: async (tripId, snapshot) => {
     const state = get();
     const activeTrip = state.data ? getActiveTrip(state.data) : null;
-    const targetTrip =
-      state.tripCache[tripId] ?? (activeTrip?.id === tripId ? activeTrip : null);
+    const targetTrip = resolveRouteSnapshotTargetTrip(tripId, activeTrip, state.tripCache);
 
     if (!targetTrip) {
       set({
