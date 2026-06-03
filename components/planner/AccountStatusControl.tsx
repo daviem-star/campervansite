@@ -212,9 +212,6 @@ export default function AccountStatusControl({
               >
                 {displayedStatusLabel}
               </span>
-              <span className="planner-pill rounded-full border px-2.5 py-0.5 text-xs font-semibold">
-                {mode === "cloud" ? "Cloud mode" : "Demo mode"}
-              </span>
             </div>
 
             {isOfflineReadOnly ? (
@@ -240,13 +237,6 @@ export default function AccountStatusControl({
             <div className="mt-5 space-y-4">
               {authStatus === "signed_in" ? (
                 <>
-                  <div className="rounded-3xl border border-app-border bg-app-surface-muted p-4">
-                    <p className="planner-title-sm text-app-text">Account</p>
-                    <p className="planner-copy mt-1 break-all text-app-muted">
-                      {userEmail ?? "Signed-in account"}
-                    </p>
-                  </div>
-
                   <button
                     type="button"
                     onClick={() => void runAction(onSignOut)}

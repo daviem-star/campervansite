@@ -12,10 +12,7 @@ export default function PlannerBrandBadge({
   variant = "pill",
 }: PlannerBrandBadgeProps) {
   if (variant === "rail") {
-    const frameClassName = compact
-      ? "flex h-10 w-10 items-center justify-center rounded-xl bg-brand-primary/10 text-brand-primary ring-1 ring-inset ring-brand-primary/12"
-      : "flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-primary/10 text-brand-primary ring-1 ring-inset ring-brand-primary/12";
-    const imageSize = compact ? 22 : 28;
+    const imageSize = compact ? 44 : 56;
     const titleClassName = compact
       ? "planner-title-sm truncate text-app-text"
       : "planner-title-md truncate text-app-text";
@@ -25,16 +22,14 @@ export default function PlannerBrandBadge({
 
     return (
       <div className={`flex items-center gap-3 ${className}`.trim()}>
-        <div className={frameClassName}>
-          <Image
-            src="/campervan-logo.png"
-            alt="Campervansite logo"
-            width={708}
-            height={624}
-            className="h-auto w-auto object-contain"
-            style={{ width: imageSize, height: imageSize }}
-          />
-        </div>
+        <Image
+          src="/campervan-logo.png"
+          alt="Campervansite logo"
+          width={708}
+          height={624}
+          className="h-auto w-auto shrink-0 object-contain"
+          style={{ width: imageSize, height: imageSize }}
+        />
 
         <div className="min-w-0">
           <p className={titleClassName}>Campervansite</p>

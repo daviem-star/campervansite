@@ -2,8 +2,8 @@ import { APP_TIMEZONE, nowIso } from "@/lib/date";
 import { getSeedData } from "@/lib/seedData";
 import { CreateTripInput, PlaceRef, Trip } from "@/types/trip";
 
-const buildTripId = (prefix: string): string => {
-  return `trip_${prefix}_${crypto.randomUUID()}`;
+const buildTripId = (): string => {
+  return crypto.randomUUID();
 };
 
 const normalizeTripName = (name: string, fallback: string): string => {
@@ -26,7 +26,7 @@ export const createBlankTrip = (
   const createdAt = nowIso();
 
   return {
-    id: buildTripId("blank"),
+    id: buildTripId(),
     name: normalizeTripName(options.name, "New trip"),
     timezone: APP_TIMEZONE,
     home: options.home,
@@ -48,7 +48,7 @@ export const createExampleTrip = (
 
   return {
     ...template,
-    id: buildTripId("example"),
+    id: buildTripId(),
     name: normalizeTripName(name, template.name),
     ownerUserId,
     routeSnapshot: null,

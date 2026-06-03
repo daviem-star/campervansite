@@ -11,6 +11,14 @@ const user: SessionUser = {
   email: "route-test@example.com",
 };
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const expectRawTripId = (id: string) => {
+  expect(id).toMatch(uuidPattern);
+  expect(id).not.toMatch(/^trip_(blank|example)_/);
+  expect(id).not.toMatch(/^trip_/);
+};
+
 const buildRequest = (method: "GET" | "POST", body?: unknown, authenticated = true) =>
   new Request("http://localhost:3000/api/trips", {
     method,
@@ -71,6 +79,7 @@ describe("/api/trips", () => {
       version: 1,
     });
     expect(listE2ETrips(user).map((trip) => trip.id)).toContain(payload.trip.id);
+    expectRawTripId(payload.trip.id);
   });
 
   it("creates an example trip clone in e2e bypass mode", async () => {
@@ -96,6 +105,7 @@ describe("/api/trips", () => {
     expect(payload.trip.ownerUserId).toBe(user.id);
     expect(payload.trip.stops).toHaveLength(seedTrip.stops.length);
     expect(payload.trip.id).not.toBe(seedTrip.id);
+    expectRawTripId(payload.trip.id);
   });
 
   it("lists created trips for the authenticated user", async () => {

@@ -2122,7 +2122,10 @@ export default function PlannerApp() {
         onResetSeedAlignedToToday={resetToSeedAlignedToToday}
       />
     );
-    const todayControl = <TodayStatusControl todayTripName={todayTripName} actions={todayActions} />;
+    const todayControl =
+      mobileScreen === "today" ? null : (
+        <TodayStatusControl todayTripName={todayTripName} actions={todayActions} />
+      );
 
     const content =
       mobileScreen === "today" ? (
@@ -2329,12 +2332,6 @@ export default function PlannerApp() {
               </div>
 
               <div className="flex shrink-0 items-center gap-3">
-                <div className="rounded-lg border border-app-border bg-app-surface px-3 py-2">
-                  <p className="planner-eyebrow text-app-muted">Today trip</p>
-                  <p className="planner-title-sm mt-1 text-app-text">
-                    {todayTripName ?? "No Today trip"}
-                  </p>
-                </div>
                 <TodayStatusControl todayTripName={todayTripName} actions={todayActions} />
               </div>
             </header>
