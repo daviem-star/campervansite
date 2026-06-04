@@ -1,4 +1,10 @@
-export type PlannerScreen = "dashboard" | "trip-overview" | "trip-itinerary";
+export type PlannerScreen =
+  | "dashboard"
+  | "today"
+  | "saved-places"
+  | "bookings"
+  | "trip-overview"
+  | "trip-itinerary";
 
 export type PlannerScreenEntry = {
   screen: PlannerScreen;
@@ -65,4 +71,5 @@ export const popPlannerScreen = (stack: PlannerScreenEntry[]): PlannerScreenEntr
   return stack.slice(0, -1);
 };
 
-export const isTripPlannerScreen = (screen: PlannerScreen): boolean => screen !== "dashboard";
+export const isTripPlannerScreen = (screen: PlannerScreen): boolean =>
+  screen === "trip-overview" || screen === "trip-itinerary";

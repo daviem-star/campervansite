@@ -343,6 +343,7 @@ type TripStoreState = {
   startWithExampleTrip: () => Promise<void>;
   loadCloudTrip: (tripId: string) => Promise<void>;
   previewCloudTrip: (tripId: string) => Promise<Trip | null>;
+  hydrateTripLibrary: () => Promise<void>;
   saveRouteSnapshot: (tripId: string, snapshot: PersistedRouteSnapshot) => Promise<Trip | null>;
   setTodayTripId: (tripId: string | null) => Promise<void>;
   clearLoadedTrip: () => void;
@@ -1325,6 +1326,60 @@ export const useTripStore = create<TripStoreState>((set, get) => ({
         ),
       });
       return null;
+    }
+  },
+
+  hydrateTripLibrary: async () => {
+    const state = get();
+    if (
+      state.authStatus !== "signed_in" ||
+      !state.user ||
+      state.isOfflineReadOnly
+    ) {
+      return;
+    }
+
+    const missingTripIds = state.tripSummaries
+      .map((trip) => trip.id)
+      .filter((tripId) => !state.tripCache[tripId]);
+
+    if (missingTripIds.length === 0) {
+      return;
+    }
+
+    const cloudRepository = getCloudRepository();
+    let nextIndex = 0;
+    let failedCount = 0;
+    const workerCount = Math.min(3, missingTripIds.length);
+
+    const hydrateNext = async (): Promise<void> => {
+      const tripId = missingTripIds[nextIndex];
+      nextIndex += 1;
+      if (!tripId) {
+        return;
+      }
+
+      try {
+        const trip = await cloudRepository.loadTrip(tripId, { cacheOffline: false });
+        set({ tripCache: mergeTripCacheEntry(get().tripCache, trip) });
+      } catch {
+        failedCount += 1;
+      }
+
+      await hydrateNext();
+    };
+
+    await Promise.all(Array.from({ length: workerCount }, () => hydrateNext()));
+
+    if (failedCount > 0) {
+      set({
+        error: `Unable to load ${failedCount} trip${failedCount === 1 ? "" : "s"} for the cross-trip view.`,
+        notice: createNotice(
+          "Showing the trip details that are already available.",
+          "inline",
+          "warning",
+        ),
+      });
     }
   },
 

@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 
 import PlannerBrandBadge from "@/components/planner/PlannerBrandBadge";
+import ThemeModeToggle from "@/components/planner/ThemeModeToggle";
 import { plannerNoticeToneClass } from "@/components/planner/plannerTheme";
 import { canUseLocalTestSignIn, isLocalTestSignInEnabled } from "@/lib/runtimeFlags";
 import { PlannerNotice } from "@/types/trip";
@@ -40,6 +41,9 @@ export default function PlannerAuthGate({
 
   return (
     <div className="min-h-screen bg-app-bg px-4 py-10">
+      <div className="mx-auto mb-4 flex max-w-6xl justify-end">
+        <ThemeModeToggle />
+      </div>
       <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <section className="rounded-[2rem] border border-app-border bg-app-surface p-8 shadow-sm">
           <div className="max-w-2xl">

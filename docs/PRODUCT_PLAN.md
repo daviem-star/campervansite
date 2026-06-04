@@ -23,8 +23,12 @@ The current shell now presents that through a dashboard-first nested workflow ra
 - Desktop defaults to `Dashboard`.
 - Mobile defaults to a simplified on-road companion shell with `Today`, `Trip`, and `Trips`
   destinations.
-- The left rail is app-level only and currently keeps a single planner destination:
+- The collapsible desktop left rail is app-level and includes:
   - `Dashboard`
+  - `Today`
+  - `Saved Places`
+  - `Bookings`
+- The rail remembers expanded or icon-only mode on the current device.
 - `Dashboard` owns the trip library plus a side-by-side trip detail and map preview.
 - Opening a trip creates a nested in-app flow:
   - `Dashboard`
@@ -59,6 +63,12 @@ The current shell now presents that through a dashboard-first nested workflow ra
   - linked desktop/tablet map plus mobile full-screen map launcher
 - `Today`
   - selected trip travel-day actions from the status control
+- `Saved Places`
+  - read-only deduplicated places derived across available trips
+  - direct links back to each owning itinerary stop
+- `Bookings`
+  - read-only campsite and ferry booking details derived across available trips
+  - missing booking-detail attention states and direct itinerary links
 - Account/status popup
   - auth state
   - account identity

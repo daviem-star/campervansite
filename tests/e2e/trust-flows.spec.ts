@@ -303,6 +303,56 @@ test("keeps the desktop account trigger inside the rail and opens the panel abov
   expect(panelBox.y + panelBox.height).toBeLessThanOrEqual(triggerBox.y + 1);
 });
 
+test("desktop app rail navigates, collapses, and opens cross-trip records", async ({ page }) => {
+  const user = createTestUser("expanded-app-rail");
+  await primeSignedInSession(page, user);
+  await seedCloudTrips(page, user, getLegacySeedData());
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await waitForDashboardPreview(page);
+
+  await visibleByTestId(page, "desktop-panel-today").click();
+  await expect(visibleByTestId(page, "desktop-today-panel")).toBeVisible();
+
+  await visibleByTestId(page, "desktop-panel-saved-places").click();
+  const savedPlaces = visibleByTestId(page, "desktop-saved-places-panel");
+  await expect(savedPlaces).toBeVisible();
+  await savedPlaces.getByRole("button").first().click();
+  await expect(visibleByTestId(page, "desktop-panel-itinerary-region")).toBeVisible();
+
+  await visibleByTestId(page, "desktop-panel-bookings").click();
+  const bookings = visibleByTestId(page, "desktop-bookings-panel");
+  await expect(bookings).toBeVisible();
+  await bookings.getByRole("button").first().click();
+  await expect(visibleByTestId(page, "desktop-panel-itinerary-region")).toBeVisible();
+
+  const rail = visibleByTestId(page, "planner-rail-column");
+  await visibleByTestId(page, "planner-rail-collapse").click();
+  await expect(rail.getByText("Saved Places")).toHaveCount(0);
+  await expect(rail.getByRole("button", { name: "Saved Places" })).toBeVisible();
+
+  await page.reload();
+  await expect(visibleByTestId(page, "planner-rail-collapse")).toHaveAccessibleName("Expand sidebar");
+  const accountTrigger = rail.getByRole("button", { name: /Open account and sync/i });
+  await expect(accountTrigger).toBeVisible();
+  await accountTrigger.click();
+  await expect(visibleByTestId(page, "account-status-panel")).toBeVisible();
+});
+
+test("login page exposes the persistent theme toggle", async ({ page }) => {
+  await primeSignedOutState(page);
+  await page.goto("/");
+
+  const toggle = visibleByTestId(page, "theme-mode-toggle");
+  await expect(toggle).toBeVisible();
+  await toggle.click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+});
+
 test("manages trips from the dashboard trip library", async ({ page }) => {
   const user = createTestUser("trip-library");
   await primeSignedInSession(page, user);

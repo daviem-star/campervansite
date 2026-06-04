@@ -12,7 +12,7 @@ export default function PlannerBrandBadge({
   variant = "pill",
 }: PlannerBrandBadgeProps) {
   if (variant === "rail") {
-    const imageSize = compact ? 44 : 56;
+    const imageSize = compact ? 52 : 72;
     const titleClassName = compact
       ? "planner-title-sm truncate text-app-text"
       : "planner-title-md truncate text-app-text";
@@ -31,10 +31,12 @@ export default function PlannerBrandBadge({
           style={{ width: imageSize, height: imageSize }}
         />
 
-        <div className="min-w-0">
-          <p className={titleClassName}>Campervansite</p>
-          <p className={subtitleClassName}>Trip planner</p>
-        </div>
+        {!compact ? (
+          <div className="min-w-0">
+            <p className={titleClassName}>Campervansite</p>
+            <p className={subtitleClassName}>Trip planner</p>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -45,7 +47,7 @@ export default function PlannerBrandBadge({
   const labelClassName = compact
     ? "planner-eyebrow truncate text-brand-primary"
     : "planner-eyebrow truncate text-brand-primary";
-  const imageSize = compact ? 28 : 36;
+  const imageSize = compact ? 28 : 52;
 
   return (
     <div className={`${containerClassName} ${className}`.trim()}>

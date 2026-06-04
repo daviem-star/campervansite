@@ -79,11 +79,11 @@ For each issue, record:
 
 ### Mobile
 
-- [ ] Default screen is `Dashboard`
-- [ ] Signed-in cloud mode exposes the dashboard-first flow with nested `Overview` and `Itinerary`, plus full-screen map launchers instead of a dedicated `Map` tab
-- [ ] Demo mode or missing cloud config hides `Trips`
-- [ ] Tab switching preserves selection/highlights (`Trips` / `Overview` / `Itinerary` / `Today`)
-- [ ] The tab row remains horizontally usable without crushing labels
+- [ ] Default screen is `Today` when a Today trip is selected and `Trips` when none is selected
+- [ ] Signed-in cloud mode exposes the simplified `Today`, `Trip`, and `Trips` companion shell plus full-screen map launchers
+- [ ] Demo mode keeps the mobile trip companion usable without cloud trip management
+- [ ] Tab switching preserves selection/highlights (`Today` / `Trip` / `Trips`)
+- [ ] The bottom navigation remains usable without crushing labels
 - [ ] Top-left account/status icon opens cleanly and exposes auth/sync controls
 - [ ] `Dashboard`, `Overview`, and `Itinerary` each expose a working `View map` launcher on mobile
 - [ ] `Overview` is trip-only and does not contain account or sync controls
@@ -103,9 +103,11 @@ For each issue, record:
 ### Desktop
 
 - [ ] Authenticated desktop defaults to `Dashboard`, with a visible trip map preview before opening a trip
-- [ ] Signed-in cloud mode shows the top-left account/status control, a separate `Trips` selector, and `Overview`, `Itinerary`, and `Today` in the left rail
+- [ ] Signed-in cloud mode shows app-level `Dashboard`, `Today`, `Saved Places`, and `Bookings` in the collapsible left rail
 - [ ] Demo mode hides `Trips` while keeping the rest of the planner usable
-- [x] Left rail switches cleanly between `Trips`, `Overview`, `Itinerary`, and `Today` when the trip library is available
+- [x] Left rail switches cleanly between `Dashboard`, `Today`, `Saved Places`, and `Bookings`
+- [ ] Left rail collapse state persists, icon-only controls remain accessible, and the account popup opens cleanly
+- [ ] Saved Places and Bookings show cached partial results clearly while offline
 - [ ] Lower itinerary sections remain reachable and their `Edit` actions stay clickable
 - [ ] Itinerary auto-scroll keeps the top toolbar and rail visible instead of shifting the whole planner upward
 - [ ] `Overview` remains trip-only and does not contain auth or sync controls

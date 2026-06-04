@@ -7,7 +7,6 @@ import {
   AppThemeMode,
   defaultAppTheme,
   getSystemAppThemeMode,
-  parseAppThemeMode,
   readStoredAppThemeMode,
 } from "@/lib/theme";
 
@@ -15,19 +14,8 @@ const applyThemeMode = (mode: AppThemeMode) => {
   document.documentElement.dataset.theme = mode;
 };
 
-const getDocumentThemeMode = (): AppThemeMode =>
-  parseAppThemeMode(document.documentElement.dataset.theme) ?? defaultAppTheme.mode;
-
 const getResolvedBrowserThemeMode = (): AppThemeMode =>
   readStoredAppThemeMode(window.localStorage) ?? getSystemAppThemeMode(window.matchMedia);
-
-const getInitialThemeMode = (): AppThemeMode => {
-  if (typeof document === "undefined") {
-    return defaultAppTheme.mode;
-  }
-
-  return getDocumentThemeMode();
-};
 
 const Icon = ({ mode }: { mode: AppThemeMode }) => {
   if (mode === "dark") {
@@ -58,7 +46,7 @@ const Icon = ({ mode }: { mode: AppThemeMode }) => {
 };
 
 export default function ThemeModeToggle() {
-  const [mode, setMode] = useState<AppThemeMode>(getInitialThemeMode);
+  const [mode, setMode] = useState<AppThemeMode>(defaultAppTheme.mode);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");

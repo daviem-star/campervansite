@@ -3,8 +3,10 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 
 import AccountStatusControl from "@/components/planner/AccountStatusControl";
+import BookingsPanel from "@/components/planner/BookingsPanel";
 import DashboardTripDetailsPanel from "@/components/planner/DashboardTripDetailsPanel";
 import DayStrip from "@/components/planner/DayStrip";
+import DesktopTodayPanel from "@/components/planner/DesktopTodayPanel";
 import FirstTripSetupPanel from "@/components/planner/FirstTripSetupPanel";
 import MobilePlannerShell, {
   type MobilePlannerScreen,
@@ -17,6 +19,7 @@ import PlannerBrandBadge from "@/components/planner/PlannerBrandBadge";
 import PlannerMap from "@/components/planner/PlannerMap";
 import PlannerMapCockpit from "@/components/planner/PlannerMapCockpit";
 import PlannerMobileMapOverlay from "@/components/planner/PlannerMobileMapOverlay";
+import SavedPlacesPanel from "@/components/planner/SavedPlacesPanel";
 import StopDetailsDrawer from "@/components/planner/StopDetailsDrawer";
 import TripMapPreviewPanel from "@/components/planner/TripMapPreviewPanel";
 import { plannerNoticeToneClass } from "@/components/planner/plannerTheme";
@@ -39,11 +42,14 @@ import {
   createPlannerScreenStack,
   getCurrentPlannerScreen,
   isTripPlannerScreen,
-  PlannerScreen,
   PlannerScreenEntry,
   pushPlannerScreen,
   replacePlannerScreen,
 } from "@/lib/plannerNavigation";
+import {
+  readPlannerRailCollapsed,
+  writePlannerRailCollapsed,
+} from "@/lib/plannerRail";
 import {
   getRouteEstimateCacheState,
   readCachedRouteEstimateSet,
@@ -69,6 +75,12 @@ import {
   ensureStopOrder,
 } from "@/lib/tripDerived";
 import { getPlannerMapRouteSummary, type PlannerMapRouteSummary } from "@/lib/plannerMap";
+import {
+  deriveBookings,
+  deriveSavedPlaces,
+  type BookingView,
+  type SavedPlaceOccurrence,
+} from "@/lib/tripLibraryViews";
 import { useTripStore } from "@/store/useTripStore";
 import {
   NewTripStop,
@@ -236,6 +248,33 @@ const dashboardIcon = () => {
   );
 };
 
+const todayIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <circle cx="12" cy="12" r="7.5" />
+    <path d="M12 8v4l2.5 1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const placesIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <path d="M12 21s6-5.4 6-11a6 6 0 1 0-12 0c0 5.6 6 11 6 11Z" />
+    <circle cx="12" cy="10" r="2" />
+  </svg>
+);
+
+const bookingsIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <path d="M7 4v3M17 4v3M5 9h14M6 5.5h12a1 1 0 0 1 1 1V19H5V6.5a1 1 0 0 1 1-1Z" />
+    <path d="m9 14 2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const collapseIcon = (collapsed: boolean) => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <path d={collapsed ? "m9 6 6 6-6 6" : "m15 6-6 6 6 6"} strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 export default function PlannerApp() {
   const {
     data,
@@ -263,6 +302,7 @@ export default function PlannerApp() {
     startWithExampleTrip,
     loadCloudTrip,
     previewCloudTrip,
+    hydrateTripLibrary,
     saveRouteSnapshot,
     setTodayTripId,
     renameTrip,
@@ -297,6 +337,7 @@ export default function PlannerApp() {
   const [todaySelectionOrigin, setTodaySelectionOrigin] = useState<SelectionOrigin>("system");
   const [mobileMapOverlay, setMobileMapOverlay] = useState<MobileMapOverlayContext | null>(null);
   const [mobileScreen, setMobileScreen] = useState<MobilePlannerScreen>("today");
+  const [isRailCollapsed, setIsRailCollapsed] = useState(false);
   const [isMapCockpitOpen, setIsMapCockpitOpen] = useState(false);
   const [isStopDetailsOpen, setIsStopDetailsOpen] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{
@@ -309,6 +350,10 @@ export default function PlannerApp() {
   useEffect(() => {
     void initialize();
   }, [initialize]);
+
+  useEffect(() => {
+    setIsRailCollapsed(readPlannerRailCollapsed(window.localStorage));
+  }, []);
 
   const loadedTrip = useMemo(() => {
     if (!data) {
@@ -327,6 +372,15 @@ export default function PlannerApp() {
   const isTripScreen = isTripPlannerScreen(currentScreenEntry.screen);
 
   const isCloudTripLibraryAvailable = authStatus === "signed_in" && mode === "cloud";
+
+  useEffect(() => {
+    if (
+      currentScreenEntry.screen === "saved-places" ||
+      currentScreenEntry.screen === "bookings"
+    ) {
+      void hydrateTripLibrary();
+    }
+  }, [currentScreenEntry.screen, hydrateTripLibrary]);
 
   useEffect(() => {
     if (previewTripId && !tripSummaries.some((trip) => trip.id === previewTripId)) {
@@ -940,12 +994,24 @@ export default function PlannerApp() {
     [effectiveTodaySelectedEntity, todayRoutePanel.estimates, todayTrip],
   );
   const isTripLibraryBusy = isLoading || isManagingTrips || syncStatus === "saving";
+  const libraryTrips = useMemo(() => Object.values(tripCache), [tripCache]);
+  const savedPlaces = useMemo(() => deriveSavedPlaces(libraryTrips), [libraryTrips]);
+  const bookings = useMemo(() => deriveBookings(libraryTrips), [libraryTrips]);
+  const totalLibraryTripCount = isCloudTripLibraryAvailable
+    ? tripSummaries.length
+    : libraryTrips.length;
   const shellTitle =
     currentScreenEntry.screen === "trip-itinerary"
       ? "Itinerary"
       : currentScreenEntry.screen === "trip-overview"
         ? "Overview"
-        : "Dashboard";
+        : currentScreenEntry.screen === "today"
+          ? "Today"
+          : currentScreenEntry.screen === "saved-places"
+            ? "Saved Places"
+            : currentScreenEntry.screen === "bookings"
+              ? "Bookings"
+              : "Dashboard";
   const shellSummary =
     currentScreenEntry.screen === "trip-itinerary"
       ? loadedTrip
@@ -955,9 +1021,17 @@ export default function PlannerApp() {
         ? loadedTrip
           ? loadedTrip.name
           : "Open a trip to review its route realism"
-        : dashboardTrip
-          ? `${isCloudTripLibraryAvailable ? "Previewing" : "Showing"} ${dashboardTrip.name}`
-          : "Select a trip to preview its latest route realism and warnings";
+        : currentScreenEntry.screen === "today"
+          ? todayTripName
+            ? `${todayTripName} · ${todayActions.length} action${todayActions.length === 1 ? "" : "s"}`
+            : "Choose a Today trip for travel-day support"
+          : currentScreenEntry.screen === "saved-places"
+            ? `${savedPlaces.length} places across ${libraryTrips.length} loaded trips`
+            : currentScreenEntry.screen === "bookings"
+              ? `${bookings.length} campsite and ferry bookings`
+              : dashboardTrip
+                ? `${isCloudTripLibraryAvailable ? "Previewing" : "Showing"} ${dashboardTrip.name}`
+                : "Select a trip to preview its latest route realism and warnings";
   const hasDraftChanges = useMemo(() => {
     if (plannerInteractionMode !== "edit" || !draftTrip || !loadedTrip) {
       return false;
@@ -1038,7 +1112,15 @@ export default function PlannerApp() {
     setScreenStack((current) => pushPlannerScreen(current, nextEntry));
   };
 
-  const switchTripScreen = (screen: Exclude<PlannerScreen, "dashboard">) => {
+  const navigateToAppScreen = (screen: "dashboard" | "today" | "saved-places" | "bookings") => {
+    if (!confirmDiscardDraftChanges(`opening ${screen.replace("-", " ")}`)) {
+      return;
+    }
+
+    setScreenStack([{ screen, tripId: null }]);
+  };
+
+  const switchTripScreen = (screen: "trip-overview" | "trip-itinerary") => {
     if (!loadedTrip) {
       return;
     }
@@ -1286,6 +1368,53 @@ export default function PlannerApp() {
     } finally {
       setIsManagingTrips(false);
     }
+  };
+
+  const openLibraryStop = async (
+    tripId: string,
+    selection: Exclude<SelectedEntity, null>,
+  ) => {
+    if (!confirmDiscardDraftChanges("opening this itinerary stop")) {
+      return;
+    }
+
+    if (tripId !== loadedTrip?.id) {
+      setIsManagingTrips(true);
+      try {
+        await loadCloudTrip(tripId);
+      } finally {
+        setIsManagingTrips(false);
+      }
+    }
+
+    const nextState = useTripStore.getState();
+    if (nextState.data?.activeTripId !== tripId) {
+      return;
+    }
+
+    setPreviewTripId(tripId);
+    setSelectionOrigin("system");
+    setSelectedEntity(selection);
+    const trip = nextState.data.trips.find((item) => item.id === tripId) ?? null;
+    const selectedDate = trip ? getSelectedEntityPrimaryDate(trip, selection) : null;
+    if (selectedDate) {
+      setSelectedDate(selectedDate);
+    }
+    setScreenStack([{ screen: "dashboard", tripId: null }, { screen: "trip-itinerary", tripId }]);
+  };
+
+  const handleOpenSavedPlace = (occurrence: SavedPlaceOccurrence) => {
+    void openLibraryStop(occurrence.tripId, {
+      kind: occurrence.kind,
+      stopId: occurrence.stopId,
+    });
+  };
+
+  const handleOpenBooking = (booking: BookingView) => {
+    void openLibraryStop(booking.tripId, {
+      kind: booking.kind,
+      stopId: booking.stopId,
+    });
   };
 
   const handleCreateTrip = async (
@@ -2281,6 +2410,55 @@ export default function PlannerApp() {
       return renderTripWorkspacePanel();
     }
 
+    if (currentScreenEntry.screen === "today") {
+      return (
+        <DesktopTodayPanel
+          trip={todayTrip}
+          actions={todayActions}
+          itineraryDays={todayItineraryDays}
+          warnings={todayValidationWarnings}
+          routeStatusLabel={getRouteStatusLabel(todayRoutePanel)}
+          markers={todayMapData.markers}
+          segments={todayMapData.segments}
+          routeSummary={todayRouteMapSummary}
+          selectedEntity={effectiveTodaySelectedEntity}
+          selectedDetails={todaySelectedEntityDetails}
+          onSelectEntity={onSelectEntityFromTodayMap}
+          onOpenTrip={todayTrip ? () => void handleOpenTrip(todayTrip.id) : undefined}
+          onGoToDashboard={() => navigateToAppScreen("dashboard")}
+          onViewStop={(stop) => {
+            if (todayTrip) {
+              void openLibraryStop(todayTrip.id, { kind: stop.type, stopId: stop.id });
+            }
+          }}
+        />
+      );
+    }
+
+    if (currentScreenEntry.screen === "saved-places") {
+      return (
+        <SavedPlacesPanel
+          places={savedPlaces}
+          loadedTripCount={libraryTrips.length}
+          totalTripCount={totalLibraryTripCount}
+          isOfflineReadOnly={isOfflineReadOnly}
+          onOpenOccurrence={handleOpenSavedPlace}
+        />
+      );
+    }
+
+    if (currentScreenEntry.screen === "bookings") {
+      return (
+        <BookingsPanel
+          bookings={bookings}
+          loadedTripCount={libraryTrips.length}
+          totalTripCount={totalLibraryTripCount}
+          isOfflineReadOnly={isOfflineReadOnly}
+          onOpenBooking={handleOpenBooking}
+        />
+      );
+    }
+
     return renderDashboardPanel();
   };
 
@@ -2332,9 +2510,15 @@ export default function PlannerApp() {
     <>
       <div className="min-h-screen bg-app-bg p-3 sm:p-4 lg:h-[100dvh] lg:overflow-hidden lg:p-5">
         <div className="mx-auto h-full w-full max-w-[1660px] overflow-hidden rounded-[30px] border border-app-border/80 bg-app-surface/85 shadow-[0_28px_80px_rgb(var(--color-app-overlay)_/_0.08)] backdrop-blur-sm">
-          <div className="flex h-full flex-col lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)]">
-            <div className="hidden lg:flex lg:items-center lg:border-r lg:border-b lg:border-app-border lg:bg-app-surface-muted/65 lg:px-4 lg:py-4">
-              <PlannerBrandBadge variant="rail" />
+          <div
+            className={`flex h-full flex-col lg:grid lg:grid-rows-[auto_minmax(0,1fr)] ${
+              isRailCollapsed
+                ? "lg:grid-cols-[80px_minmax(0,1fr)]"
+                : "lg:grid-cols-[240px_minmax(0,1fr)]"
+            }`}
+          >
+            <div className={`hidden lg:flex lg:items-center lg:border-r lg:border-b lg:border-app-border lg:bg-app-surface-muted/65 lg:py-3 ${isRailCollapsed ? "lg:justify-center lg:px-2" : "lg:px-4"}`}>
+              <PlannerBrandBadge variant="rail" compact={isRailCollapsed} />
             </div>
 
             <header
@@ -2367,20 +2551,56 @@ export default function PlannerApp() {
             >
               <nav className="flex-1 overflow-y-auto px-3 py-4">
                 <div className="space-y-1">
-                  <button
-                    type="button"
-                    data-testid="desktop-panel-dashboard"
-                    onClick={() => setScreenStack(createPlannerScreenStack())}
-                    className="flex w-full items-center gap-3 rounded-[18px] border border-app-border bg-app-surface px-3.5 py-3 text-left text-sm font-medium text-brand-primary shadow-[0_1px_2px_rgb(var(--color-app-overlay)_/_0.04)] transition"
-                    title="Dashboard"
-                  >
-                    <span className="shrink-0">{dashboardIcon()}</span>
-                    <span className="min-w-0 flex-1 truncate">Dashboard</span>
-                  </button>
+                  {(
+                    [
+                      { screen: "dashboard", label: "Dashboard", icon: dashboardIcon() },
+                      { screen: "today", label: "Today", icon: todayIcon() },
+                      { screen: "saved-places", label: "Saved Places", icon: placesIcon() },
+                      { screen: "bookings", label: "Bookings", icon: bookingsIcon() },
+                    ] as const
+                  ).map((item) => {
+                    const active = currentScreenEntry.screen === item.screen;
+                    return (
+                      <button
+                        key={item.screen}
+                        type="button"
+                        aria-current={active ? "page" : undefined}
+                        aria-label={item.label}
+                        data-testid={`desktop-panel-${item.screen}`}
+                        onClick={() => navigateToAppScreen(item.screen)}
+                        className={`flex w-full items-center rounded-[18px] border py-3 text-sm font-medium transition ${
+                          isRailCollapsed ? "justify-center px-2" : "gap-3 px-3.5 text-left"
+                        } ${
+                          active
+                            ? "border-app-border bg-app-surface text-brand-primary shadow-[0_1px_2px_rgb(var(--color-app-overlay)_/_0.04)]"
+                            : "border-transparent text-app-muted hover:border-app-border hover:bg-app-surface hover:text-app-text"
+                        }`}
+                        title={item.label}
+                      >
+                        <span className="shrink-0">{item.icon}</span>
+                        {!isRailCollapsed ? <span className="min-w-0 flex-1 truncate">{item.label}</span> : null}
+                      </button>
+                    );
+                  })}
                 </div>
               </nav>
 
-              <div className="border-t border-app-border px-3 py-4">
+              <div className="space-y-2 border-t border-app-border px-3 py-4">
+                <button
+                  type="button"
+                  data-testid="planner-rail-collapse"
+                  aria-label={isRailCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                  title={isRailCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                  onClick={() => {
+                    const nextValue = !isRailCollapsed;
+                    setIsRailCollapsed(nextValue);
+                    writePlannerRailCollapsed(window.localStorage, nextValue);
+                  }}
+                  className={`planner-button-secondary flex w-full items-center rounded-[18px] border py-2.5 text-sm font-semibold ${isRailCollapsed ? "justify-center px-2" : "gap-3 px-3"}`}
+                >
+                  {collapseIcon(isRailCollapsed)}
+                  {!isRailCollapsed ? <span>Collapse</span> : null}
+                </button>
                 <AccountStatusControl
                   authStatus={authStatus}
                   mode={mode}
@@ -2389,6 +2609,7 @@ export default function PlannerApp() {
                   isOfflineReadOnly={isOfflineReadOnly}
                   notice={accountNotice}
                   variant="rail"
+                  compact={isRailCollapsed}
                   onSignIn={signInWithMagicLink}
                   onSignInAsTestUser={signInAsTestUser}
                   onSignOut={signOut}

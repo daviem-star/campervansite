@@ -14,7 +14,7 @@ A Next.js App Router trip planner for campervan travel. The app now ships an aut
 - Desktop and mobile now both start on `Dashboard`.
 - Mobile now presents a simplified on-road companion shell with `Today`, `Trip`, and `Trips`
   destinations instead of exposing the full desktop workspace stack.
-- The left rail is app-level only for now and keeps `Dashboard` as the single planner destination, while account and sync controls stay in utility chrome.
+- The collapsible desktop left rail provides app-level `Dashboard`, `Today`, `Saved Places`, and `Bookings` destinations, while account and sync controls stay in utility chrome.
 - `Dashboard` pairs the trip library with a matched detail panel so users can preview trip overview details, a route map, route realism, and severity-grouped warnings before opening a trip.
 - Opening a trip follows a nested in-app flow: `Dashboard -> Trip Overview -> Trip Itinerary`, with breadcrumb context, a compact top-of-workspace trip summary, and top-level trip tabs.
 - Users can assign a separate persisted `Today trip` for alerts without changing which trip is currently loaded into the workspace.
@@ -38,6 +38,7 @@ production launch.
 - View a trip map directly from `Dashboard` and `Overview`, with the same selected stop carrying into the itinerary workspace after you open a trip.
 - Use a map-first `Overview` layout on desktop/tablet, with warnings and route realism stacked beneath the larger trip map, a compact top workspace summary, and selected-stop details embedded directly on the map after you click a stop.
 - Assign any trip as the persisted `Today trip` so today-drop alerts keep following the same selected trip across reloads and devices.
+- Review a desktop Today workspace plus read-only cross-trip Saved Places and Bookings views derived from existing trip stops.
 - Use a day-first `Itinerary` workspace with a draggable timeline, sticky day navigation, direct add/edit controls, and explicit draft `Save` / `Cancel` actions.
 - Visualize the itinerary in a split workspace with a linked desktop/tablet route map, selected-stop inspector, and road-following road legs when live routing is available, plus ferry port markers and ferry segments.
 - Open the trip map as a dedicated full-screen surface on mobile from `Dashboard`, `Overview`, or `Itinerary`.

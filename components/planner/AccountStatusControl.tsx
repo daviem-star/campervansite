@@ -21,6 +21,7 @@ type AccountStatusControlProps = {
   isOfflineReadOnly: boolean;
   notice: PlannerNotice | null;
   variant?: "default" | "rail";
+  compact?: boolean;
   onSignIn: (email: string) => Promise<void>;
   onSignInAsTestUser: () => Promise<void>;
   onSignOut: () => Promise<void>;
@@ -48,6 +49,7 @@ export default function AccountStatusControl({
   isOfflineReadOnly,
   notice,
   variant = "default",
+  compact = false,
   onSignIn,
   onSignInAsTestUser,
   onSignOut,
@@ -135,7 +137,7 @@ export default function AccountStatusControl({
       ? plannerSyncDotClass.offline
       : plannerSyncDotClass.saved;
   const panelClassName = isRail
-    ? "fixed inset-y-0 left-0 z-40 w-[min(24rem,92vw)] overflow-y-auto border-r border-app-border bg-app-surface p-5 shadow-2xl lg:absolute lg:bottom-[calc(100%+0.75rem)] lg:left-0 lg:top-auto lg:inset-y-auto lg:max-h-[min(78vh,44rem)] lg:w-[23rem] lg:overflow-y-auto lg:rounded-[28px] lg:border lg:shadow-[0_24px_60px_rgb(var(--color-app-overlay)_/_0.16)]"
+    ? `fixed inset-y-0 left-0 z-40 w-[min(24rem,92vw)] overflow-y-auto border-r border-app-border bg-app-surface p-5 shadow-2xl lg:absolute lg:bottom-[calc(100%+0.75rem)] lg:top-auto lg:inset-y-auto lg:max-h-[min(78vh,44rem)] lg:w-[23rem] lg:overflow-y-auto lg:rounded-[28px] lg:border lg:shadow-[0_24px_60px_rgb(var(--color-app-overlay)_/_0.16)] ${compact ? "lg:left-[calc(100%+0.75rem)]" : "lg:left-0"}`
     : "fixed inset-y-0 left-0 z-40 w-[min(24rem,92vw)] overflow-y-auto border-r border-app-border bg-app-surface p-5 shadow-2xl lg:absolute lg:left-0 lg:top-[calc(100%+0.75rem)] lg:inset-y-auto lg:max-h-[min(78vh,44rem)] lg:w-[23rem] lg:overflow-y-auto lg:rounded-[28px] lg:border lg:shadow-[0_24px_60px_rgb(var(--color-app-overlay)_/_0.16)]";
 
   return (
@@ -149,7 +151,7 @@ export default function AccountStatusControl({
         title={accountLabel}
         className={
           isRail
-            ? "inline-flex w-full items-center gap-3 rounded-[18px] border border-app-border bg-app-surface px-3 py-2.5 text-left transition hover:border-brand-primary/18 hover:bg-app-surface-muted"
+            ? `inline-flex w-full items-center rounded-[18px] border border-app-border bg-app-surface py-2.5 text-left transition hover:border-brand-primary/18 hover:bg-app-surface-muted ${compact ? "justify-center px-2" : "gap-3 px-3"}`
             : "inline-flex items-center justify-center rounded-2xl border border-app-border bg-app-surface p-2 text-left transition hover:border-brand-primary/18 hover:bg-app-surface-muted lg:w-full lg:rounded-3xl lg:p-3"
         }
       >
@@ -164,7 +166,7 @@ export default function AccountStatusControl({
           />
         </span>
 
-        {isRail ? (
+        {isRail && !compact ? (
           <span className="min-w-0 flex-1">
             <span className="planner-title-sm block truncate text-app-text">{accountLabel}</span>
             <span className="planner-meta block text-app-muted">{displayedStatusLabel}</span>
