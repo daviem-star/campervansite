@@ -1,4 +1,5 @@
 import { isBrowserE2EAuthBypassEnabled } from "@/lib/e2eAuth";
+import { isLocalOrTestRuntime } from "@/lib/runtimeSafety";
 
 export const FORCE_DEMO_MODE_STORAGE_KEY = "campervan_trip_planner_force_demo_mode";
 
@@ -11,11 +12,11 @@ export const shouldForceDemoMode = (): boolean => {
 };
 
 export const isOpenRouteServiceDebugEnabled = (): boolean => {
-  return process.env.NEXT_PUBLIC_OPENROUTESERVICE_DEBUG === "1";
+  return isLocalOrTestRuntime() && process.env.NEXT_PUBLIC_OPENROUTESERVICE_DEBUG === "1";
 };
 
 export const isLocalTestSignInEnabled = (): boolean => {
-  return process.env.NEXT_PUBLIC_LOCAL_TEST_SIGN_IN === "1";
+  return isLocalOrTestRuntime() && process.env.NEXT_PUBLIC_LOCAL_TEST_SIGN_IN === "1";
 };
 
 export const canUseLocalTestSignIn = (): boolean => {

@@ -1,4 +1,5 @@
 import { SessionUser } from "@/types/trip";
+import { isLocalOrTestRuntime } from "@/lib/runtimeSafety";
 
 export type BrowserAuthUser = {
   id: string;
@@ -33,11 +34,11 @@ const toBase64Url = (value: string): string => {
 export const getE2EAuthStorageKey = (): string => E2E_AUTH_STORAGE_KEY;
 
 export const isBrowserE2EAuthBypassEnabled = (): boolean => {
-  return process.env.NEXT_PUBLIC_E2E_AUTH_BYPASS === "1";
+  return isLocalOrTestRuntime() && process.env.NEXT_PUBLIC_E2E_AUTH_BYPASS === "1";
 };
 
 export const isServerE2EAuthBypassEnabled = (): boolean => {
-  return process.env.E2E_AUTH_BYPASS === "1";
+  return isLocalOrTestRuntime() && process.env.E2E_AUTH_BYPASS === "1";
 };
 
 export const createE2EAccessToken = (user: SessionUser): string => {
