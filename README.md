@@ -111,7 +111,11 @@ Optional local-only and test flags are also documented in `.env.example`:
 - `NEXT_PUBLIC_MAP_TILE_URL_TEMPLATE`
 - `NEXT_PUBLIC_MAP_TILE_ATTRIBUTION`
 
-`NEXT_PUBLIC_E2E_AUTH_BYPASS` and `E2E_AUTH_BYPASS` enable the explicit local test-user and E2E routes without replacing real Supabase magic-link auth. Local development can keep both enabled at the same time.
+`NEXT_PUBLIC_E2E_AUTH_BYPASS`, `E2E_AUTH_BYPASS`, and `NEXT_PUBLIC_LOCAL_TEST_SIGN_IN`
+are strictly local/test-only. Runtime guards disable them for `NODE_ENV=production` and
+Vercel preview/production environments even if they are accidentally configured.
+See [docs/SECURITY_HARDENING.md](docs/SECURITY_HARDENING.md) for the security operations
+checklist and safe local usage.
 
 Supabase schema setup lives in `supabase/migrations/20260328_trip_documents.sql` and `supabase/migrations/20260404_user_trip_preferences.sql`.
 

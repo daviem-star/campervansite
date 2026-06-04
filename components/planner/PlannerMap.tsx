@@ -5,6 +5,7 @@ import maplibregl, { GeoJSONSource, LngLatBounds } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 import { formatDateOnly, formatDateTime } from "@/lib/date";
+import { isBrowserE2EAuthBypassEnabled } from "@/lib/e2eAuth";
 import { findStopById } from "@/lib/tripDerived";
 import { MapMarker, MapSegment, SelectedEntity, StopType, Trip } from "@/types/trip";
 
@@ -1033,7 +1034,7 @@ export default function PlannerMap({
   useEffect(() => {
     if (
       !testRegistryKey ||
-      process.env.NEXT_PUBLIC_E2E_AUTH_BYPASS !== "1" ||
+      !isBrowserE2EAuthBypassEnabled() ||
       typeof window === "undefined"
     ) {
       return;
