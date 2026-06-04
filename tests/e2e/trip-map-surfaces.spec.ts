@@ -164,6 +164,26 @@ test("updates dashboard and overview selection summaries from map interactions",
   await expect(visibleByTestId(page, "planner-map-cockpit")).toBeVisible();
 
   await selectMapEntity(page, "planner-map-cockpit", {
+    kind: "stay",
+    stopId: "stop_stay_1",
+  });
+  await expect(visibleByTestId(page, "planner-map-cockpit-selection-summary")).toContainText(
+    /Barra Sands Campsite/i,
+  );
+
+  const cockpit = visibleByTestId(page, "planner-map-cockpit");
+  const selectionChip = cockpit.getByTestId("map-selection-chip");
+  await expect(selectionChip).toHaveCSS("margin-right", "40px");
+
+  const selectionChipBox = await selectionChip.boundingBox();
+  const zoomControls = cockpit.locator(".maplibregl-ctrl-top-right .maplibregl-ctrl-group");
+  const zoomControlsBox = (await zoomControls.count()) > 0 ? await zoomControls.boundingBox() : null;
+  expect(selectionChipBox).not.toBeNull();
+  if (zoomControlsBox) {
+    expect(selectionChipBox!.x + selectionChipBox!.width).toBeLessThan(zoomControlsBox.x);
+  }
+
+  await selectMapEntity(page, "planner-map-cockpit", {
     kind: "point_of_interest",
     stopId: "stop_poi_1",
   });

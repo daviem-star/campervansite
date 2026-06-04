@@ -1161,7 +1161,10 @@ export default function PlannerMap({
         </div>
 
         {showSelectionChip && currentSelectionTitle ? (
-          <div className="pointer-events-auto rounded-xl border border-brand-primary/22 bg-app-surface/95 px-3 py-2 text-xs text-app-muted shadow-sm backdrop-blur">
+          <div
+            data-testid="map-selection-chip"
+            className="pointer-events-auto mr-10 rounded-xl border border-brand-primary/22 bg-app-surface/95 px-3 py-2 text-xs text-app-muted shadow-sm backdrop-blur"
+          >
             <p className="font-semibold text-app-text">Selected</p>
             <p>{currentSelectionTitle}</p>
           </div>

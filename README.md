@@ -4,7 +4,7 @@ A Next.js App Router trip planner for campervan travel. The app now ships an aut
 
 ## Current Status
 
-- Cloud multi-trip management v1 is in code:
+- Cloud multi-trip management v1 is implemented and has passed a live hosted preview smoke test:
   - create blank trip
   - create example trip
   - switch trip
@@ -23,7 +23,9 @@ A Next.js App Router trip planner for campervan travel. The app now ships an aut
 - Forced demo mode and local test sign-in remain available for deterministic local preview and E2E work.
 - Automated coverage includes Vitest, API route tests, and Playwright trust flows.
 
-The main remaining gap is hosted activation and live-service validation, not missing core planner architecture.
+The core planner architecture and first hosted live-service smoke pass are complete. The main
+remaining work is broader device/user validation, operational hardening, and an intentional
+production launch.
 
 ## What The App Does Today
 
@@ -48,12 +50,44 @@ The main remaining gap is hosted activation and live-service validation, not mis
 - Persist the last manually refreshed route snapshot with each trip so saved route detail stays available across devices and offline, even when older than the latest itinerary.
 - Cache the last synced cloud trip so it can be reopened offline in read-only mode.
 
+## How It Was Built
+
+The app was built as an iterative, decision-led collaboration with Codex: clarify the product
+intent, choose a low-cost architecture, implement in focused changes, validate locally and on a
+protected hosted preview, and refine from the results.
+
+The complete illustrated build and runtime overview is in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). It includes the intent-to-app workflow, system
+architecture, important data flows, and accuracy notes for the diagrams.
+
+## Design Choices
+
+The current architecture favors managed services with free or hobby tiers so the planner can be
+validated at low cost. Free-service quotas and acceptable-use policies still apply; the default
+public OpenStreetMap tile fallback should be replaced before a wider public rollout.
+
+| Area | Choice | Why |
+| --- | --- | --- |
+| App stack | Next.js App Router, React, TypeScript, Tailwind CSS | One typed full-stack codebase, reusable UI, and fast iteration |
+| Planner state | Zustand with explicit drafts | Keeps interactive editing responsive while making save/cancel behavior clear |
+| Maps | MapLibre GL with configurable raster tiles | Open-source map rendering without locking the app to a paid map platform |
+| Default map data | OpenStreetMap raster tiles | No-key private-preview fallback; configurable for a durable provider later |
+| Place search | Nominatim through `/api/geocode` | Free OpenStreetMap-based search, protected by deliberate submission, throttling, and caching |
+| Road routing | OpenRouteService through server routes | Free-tier live routes and road geometry while keeping the API key server-side |
+| Routing fallback | Internal haversine estimate | Keeps planning usable and labels reduced-confidence results when live routing is unavailable |
+| Auth and cloud data | Supabase Auth and Postgres | Managed magic-link auth and user-owned trip data on a free-tier-friendly platform |
+| Offline behavior | IndexedDB with `localStorage` fallback | Reopens the last synced trip read-only without adding another hosted service |
+| Hosting | Vercel previews, staging, and deliberate production promotion | Hobby-friendly Next.js hosting, environment separation, and shareable protected QA |
+| Source control | GitHub | Traceable branches, history, pull requests, and rollback points |
+| Validation | Vitest, ESLint, Playwright, production build, hosted smoke checks | Covers unit behavior, API routes, browser flows, build integrity, and live integrations |
+
 ## Services Required For Full Mode
 
-- Supabase: email magic-link auth, session verification, and cloud trip persistence.
+- Supabase: email magic-link auth, session verification, and Postgres-backed cloud trip and
+  preference persistence. Supabase object storage is not currently used.
 - OpenRouteService: live route estimates and snapped route-access coordinates. The app falls back when this is not configured.
   Route refresh is manual; the app reuses the last saved route snapshot until you request a new refresh.
-- Vercel: intended preview and production hosting target.
+- Vercel: current preview/staging hosting and the intended production hosting target.
 - Nominatim: live geocode lookup for place search. No extra key is currently required.
 - Map tiles: configurable via environment variable, falling back to OpenStreetMap raster tiles for private preview use.
 
@@ -146,6 +180,7 @@ npm run smoke:staging -- "<vercel-share-url>"
 
 ## Repo Docs
 
+- `docs/ARCHITECTURE.md`: illustrated build approach, runtime architecture, data flows, and design principles
 - `docs/PRODUCT_PLAN.md`: canonical roadmap and product scope
 - `docs/FOUNDATION_ACTIVATION.md`: hosted service setup and smoke-test runbook
 - `docs/SCALING_CONSIDERATIONS.md`: growth-oriented notes on likely scaling pressure points and what to watch as usage increases
