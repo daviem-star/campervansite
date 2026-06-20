@@ -14,11 +14,11 @@ export default function PlannerBrandBadge({
   if (variant === "rail") {
     const imageSize = compact ? 52 : 72;
     const titleClassName = compact
-      ? "planner-title-sm truncate text-app-text"
-      : "planner-title-md truncate text-app-text";
+      ? "planner-title-sm truncate text-brand-on-primary"
+      : "planner-title-md truncate text-brand-on-primary";
     const subtitleClassName = compact
-      ? "planner-meta truncate text-app-muted"
-      : "planner-copy truncate text-app-muted";
+      ? "planner-meta truncate text-brand-on-primary/70"
+      : "planner-copy truncate text-brand-on-primary/70";
 
     return (
       <div className={`flex items-center gap-3 ${className}`.trim()}>

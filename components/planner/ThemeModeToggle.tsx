@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MoonStar, SunMedium } from "lucide-react";
 
 import {
   appThemePreferenceStorageKey,
@@ -19,30 +20,10 @@ const getResolvedBrowserThemeMode = (): AppThemeMode =>
 
 const Icon = ({ mode }: { mode: AppThemeMode }) => {
   if (mode === "dark") {
-    return (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
-        <path
-          d="M20 14.5A7.5 7.5 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="1.9"
-        />
-      </svg>
-    );
+    return <MoonStar className="h-4 w-4" aria-hidden="true" />;
   }
 
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.9" />
-      <path
-        d="M12 2.5v2.2M12 19.3v2.2M4.7 4.7l1.6 1.6M17.7 17.7l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.7 19.3l1.6-1.6M17.7 6.3l1.6-1.6"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeWidth="1.9"
-      />
-    </svg>
-  );
+  return <SunMedium className="h-4 w-4" aria-hidden="true" />;
 };
 
 export default function ThemeModeToggle() {
@@ -103,7 +84,7 @@ export default function ThemeModeToggle() {
         setMode(nextMode);
         applyThemeMode(nextMode);
       }}
-      className="planner-button-secondary inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border text-brand-primary transition"
+      className="planner-button-secondary inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border text-brand-primary transition duration-200"
     >
       <Icon mode={mode} />
       <span className="sr-only">{label}</span>

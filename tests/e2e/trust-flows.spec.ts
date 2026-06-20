@@ -303,7 +303,7 @@ test("keeps the desktop account trigger inside the rail and opens the panel abov
   expect(panelBox.y + panelBox.height).toBeLessThanOrEqual(triggerBox.y + 1);
 });
 
-test("desktop app rail navigates, collapses, and opens cross-trip records", async ({ page }) => {
+test("desktop app rail navigates and automatically compacts at narrower widths", async ({ page }) => {
   const user = createTestUser("expanded-app-rail");
   await primeSignedInSession(page, user);
   await seedCloudTrips(page, user, getLegacySeedData());
@@ -328,12 +328,15 @@ test("desktop app rail navigates, collapses, and opens cross-trip records", asyn
   await expect(visibleByTestId(page, "desktop-panel-itinerary-region")).toBeVisible();
 
   const rail = visibleByTestId(page, "planner-rail-column");
-  await visibleByTestId(page, "planner-rail-collapse").click();
-  await expect(rail.getByText("Saved Places")).toHaveCount(0);
+  await expect(rail.getByText("Saved Places")).toBeVisible();
+  await expect(visibleByTestId(page, "planner-rail-collapse")).toHaveCount(0);
+
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await expect(rail.getByText("Saved Places")).toBeHidden();
   await expect(rail.getByRole("button", { name: "Saved Places" })).toBeVisible();
 
-  await page.reload();
-  await expect(visibleByTestId(page, "planner-rail-collapse")).toHaveAccessibleName("Expand sidebar");
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(rail.getByText("Saved Places")).toBeVisible();
   const accountTrigger = rail.getByRole("button", { name: /Open account and sync/i });
   await expect(accountTrigger).toBeVisible();
   await accountTrigger.click();

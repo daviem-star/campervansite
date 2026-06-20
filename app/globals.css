@@ -8,15 +8,15 @@
 :root,
 :root[data-brand="campervan"][data-theme="light"] {
   color-scheme: light;
-  --color-app-bg: 252 250 242;
+  --color-app-bg: 250 248 238;
   --color-app-surface: 255 253 247;
-  --color-app-surface-muted: 244 240 227;
-  --color-app-border: 216 213 199;
-  --color-app-text: 28 36 29;
-  --color-app-muted: 92 100 88;
-  --color-app-overlay: 14 20 16;
-  --color-app-bg-top: 255 251 243;
-  --color-app-bg-bottom: 238 234 221;
+  --color-app-surface-muted: 242 238 221;
+  --color-app-border: 210 207 187;
+  --color-app-text: 20 48 31;
+  --color-app-muted: 83 98 77;
+  --color-app-overlay: 8 34 21;
+  --color-app-bg-top: 255 252 244;
+  --color-app-bg-bottom: 235 232 211;
   --color-app-glow: 244 151 39;
   --color-brand-primary: 22 59 37;
   --color-brand-primary-variant: 14 53 39;
@@ -26,18 +26,18 @@
   --color-brand-on-primary: 255 255 255;
   --color-brand-on-secondary: 17 17 17;
   --color-brand-on-support: 17 17 17;
-  --color-state-neutral: 92 100 88;
-  --color-state-neutral-surface: 244 240 227;
-  --color-state-neutral-border: 216 213 199;
+  --color-state-neutral: 83 98 77;
+  --color-state-neutral-surface: 242 238 221;
+  --color-state-neutral-border: 210 207 187;
   --color-state-info: 64 97 116;
-  --color-state-info-surface: 232 238 242;
-  --color-state-info-border: 174 192 204;
+  --color-state-info-surface: 229 237 239;
+  --color-state-info-border: 164 188 197;
   --color-state-success: 61 87 22;
-  --color-state-success-surface: 235 242 220;
-  --color-state-success-border: 183 203 145;
-  --color-state-warning: 123 65 8;
-  --color-state-warning-surface: 252 239 221;
-  --color-state-warning-border: 236 188 128;
+  --color-state-success-surface: 234 241 216;
+  --color-state-success-border: 181 202 137;
+  --color-state-warning: 158 79 9;
+  --color-state-warning-surface: 255 239 215;
+  --color-state-warning-border: 242 181 102;
   --color-state-error: 149 35 35;
   --color-state-error-surface: 252 232 232;
   --color-state-error-border: 239 183 183;
@@ -59,39 +59,39 @@
 
 :root[data-brand="campervan"][data-theme="dark"] {
   color-scheme: dark;
-  --color-app-bg: 0 4 23;
-  --color-app-surface: 6 19 41;
-  --color-app-surface-muted: 11 27 53;
-  --color-app-border: 28 52 84;
-  --color-app-text: 245 247 255;
-  --color-app-muted: 167 181 200;
-  --color-app-overlay: 1 3 12;
-  --color-app-bg-top: 4 13 34;
-  --color-app-bg-bottom: 0 2 14;
-  --color-app-glow: 45 140 255;
-  --color-brand-primary: 45 140 255;
-  --color-brand-primary-variant: 39 128 246;
-  --color-brand-secondary: 181 92 255;
-  --color-brand-secondary-variant: 155 78 240;
-  --color-brand-support: 32 214 201;
-  --color-brand-on-primary: 2 8 23;
-  --color-brand-on-secondary: 2 8 23;
-  --color-brand-on-support: 2 8 23;
-  --color-state-neutral: 167 181 200;
-  --color-state-neutral-surface: 11 27 53;
-  --color-state-neutral-border: 28 52 84;
-  --color-state-info: 85 184 255;
-  --color-state-info-surface: 8 35 58;
-  --color-state-info-border: 30 110 165;
-  --color-state-success: 87 215 123;
-  --color-state-success-surface: 11 42 28;
-  --color-state-success-border: 32 138 74;
-  --color-state-warning: 255 209 102;
-  --color-state-warning-surface: 51 38 6;
-  --color-state-warning-border: 155 117 24;
-  --color-state-error: 255 107 122;
-  --color-state-error-surface: 52 16 24;
-  --color-state-error-border: 167 53 72;
+  --color-app-bg: 10 29 19;
+  --color-app-surface: 17 43 28;
+  --color-app-surface-muted: 25 54 35;
+  --color-app-border: 61 90 61;
+  --color-app-text: 250 248 238;
+  --color-app-muted: 188 199 176;
+  --color-app-overlay: 2 12 6;
+  --color-app-bg-top: 18 49 31;
+  --color-app-bg-bottom: 6 22 13;
+  --color-app-glow: 201 117 18;
+  --color-brand-primary: 182 211 118;
+  --color-brand-primary-variant: 211 228 162;
+  --color-brand-secondary: 244 151 39;
+  --color-brand-secondary-variant: 255 190 95;
+  --color-brand-support: 142 179 65;
+  --color-brand-on-primary: 10 29 19;
+  --color-brand-on-secondary: 31 18 3;
+  --color-brand-on-support: 10 29 19;
+  --color-state-neutral: 188 199 176;
+  --color-state-neutral-surface: 30 60 39;
+  --color-state-neutral-border: 69 100 68;
+  --color-state-info: 142 184 201;
+  --color-state-info-surface: 22 53 62;
+  --color-state-info-border: 64 113 128;
+  --color-state-success: 182 211 118;
+  --color-state-success-surface: 38 72 33;
+  --color-state-success-border: 96 139 66;
+  --color-state-warning: 255 190 95;
+  --color-state-warning-surface: 75 49 15;
+  --color-state-warning-border: 161 105 31;
+  --color-state-error: 255 155 137;
+  --color-state-error-surface: 78 34 27;
+  --color-state-error-border: 158 75 61;
 }
 
 * {
@@ -115,6 +115,7 @@ body {
 
 body {
   font-family: "Manrope", system-ui, -apple-system, sans-serif;
+  background-attachment: fixed;
 }
 
 ::selection {
@@ -145,6 +146,7 @@ button {
     border-color: rgb(var(--color-app-border));
     background-color: rgb(var(--color-app-surface));
     color: rgb(var(--color-app-text));
+    box-shadow: inset 0 1px 0 rgb(var(--color-app-surface) / 0.45);
   }
 
   .planner-input::placeholder {
@@ -162,6 +164,7 @@ button {
     background-color: rgb(var(--color-brand-primary));
     color: rgb(var(--color-brand-on-primary));
     cursor: pointer;
+    box-shadow: 0 8px 18px rgb(var(--color-brand-primary) / 0.16);
   }
 
   .planner-button-primary:hover {
@@ -235,6 +238,7 @@ button {
     background-color: rgb(var(--color-brand-secondary));
     color: rgb(var(--color-brand-on-secondary));
     cursor: pointer;
+    box-shadow: 0 8px 18px rgb(var(--color-brand-secondary) / 0.18);
   }
 
   .planner-button-accent:hover {
@@ -356,6 +360,7 @@ button {
     border-color: rgb(var(--color-app-border));
     background-color: rgb(var(--color-app-surface-muted));
     color: rgb(var(--color-app-muted));
+    box-shadow: inset 0 1px 0 rgb(var(--color-app-surface) / 0.7);
   }
 
   .planner-pill-active {
@@ -370,7 +375,7 @@ button {
     box-shadow:
       0 0 0 1px rgb(var(--color-brand-primary) / 0.08),
       0 0 0 10px rgb(var(--color-brand-primary) / 0.08),
-      0 24px 48px rgb(var(--color-app-overlay) / 0.12);
+      0 16px 36px rgb(var(--color-app-overlay) / 0.12);
   }
 
   .planner-library-row-selected {
@@ -497,7 +502,7 @@ button {
 }
 
 .maplibregl-ctrl-group {
-  border-radius: 8px !important;
+  border-radius: 14px !important;
   overflow: hidden;
   border: 1px solid rgb(var(--color-app-border)) !important;
   background: rgb(var(--color-app-surface)) !important;
@@ -505,7 +510,7 @@ button {
 }
 
 .maplibregl-popup-content {
-  border-radius: 8px !important;
+  border-radius: 16px !important;
   background: rgb(var(--color-app-surface)) !important;
   color: rgb(var(--color-app-text)) !important;
   border: 1px solid rgb(var(--color-app-border));
@@ -515,4 +520,53 @@ button {
 .maplibregl-popup-tip {
   border-top-color: rgb(var(--color-app-surface)) !important;
   border-bottom-color: rgb(var(--color-app-surface)) !important;
+}
+
+.maplibregl-ctrl-group button {
+  width: 34px !important;
+  height: 34px !important;
+}
+
+.planner-header-band {
+  background: #0e3527;
+  color: #fffdf7;
+}
+
+.planner-header-band .text-app-text,
+.planner-header-band .text-app-muted,
+.planner-header-band .planner-section-label,
+.planner-header-band .planner-link-button {
+  color: #fffdf7 !important;
+}
+
+.planner-header-band .text-app-border {
+  color: rgb(255 253 247 / 0.48) !important;
+}
+
+.planner-header-band .planner-pill,
+.planner-header-band .planner-button-secondary {
+  border-color: rgb(255 253 247 / 0.28);
+  background-color: rgb(255 253 247 / 0.1);
+  color: #fffdf7;
+  box-shadow: none;
+}
+
+.planner-header-band .planner-button-secondary:hover {
+  border-color: rgb(255 253 247 / 0.5);
+  background-color: rgb(255 253 247 / 0.18);
+  color: #fffdf7;
+}
+
+.planner-header-band .planner-button-tab {
+  border-color: rgb(255 253 247 / 0.3);
+  background-color: rgb(255 253 247 / 0.1);
+  color: #fffdf7;
+  box-shadow: none;
+}
+
+.planner-header-band .planner-button-tab:hover,
+.planner-header-band .planner-button-tab-active {
+  border-color: #fffdf7;
+  background-color: #fffdf7;
+  color: #0e3527;
 }

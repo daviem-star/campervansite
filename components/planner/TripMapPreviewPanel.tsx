@@ -60,7 +60,7 @@ export default function TripMapPreviewPanel({
   return (
     <section
       data-testid={panelTestId}
-      className={`rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 shadow-[0_18px_40px_rgb(var(--color-app-overlay)_/_0.08)] sm:px-5 ${
+      className={`rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 shadow-[0_18px_40px_rgb(var(--color-app-overlay)_/_0.1)] sm:px-5 ${
         isCompact ? "sm:py-4" : "sm:py-5"
       }`}
     >
@@ -85,7 +85,7 @@ export default function TripMapPreviewPanel({
                   type="button"
                   data-testid={mobileButtonTestId}
                   onClick={onOpenMobileMap}
-                  className="planner-button-secondary mt-4 rounded-full border px-4 py-2 text-sm font-semibold"
+                className="planner-button-accent mt-4 rounded-full border px-4 py-2 text-sm font-semibold"
                 >
                   {mobileCtaLabel}
                 </button>

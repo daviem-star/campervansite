@@ -33,7 +33,7 @@ type DashboardTripDetailsPanelProps = {
 };
 
 const actionButtonClass =
-  "rounded-lg border px-3 py-1.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60";
+  "rounded-xl border px-3 py-1.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60";
 
 export default function DashboardTripDetailsPanel({
   trip,
@@ -62,7 +62,7 @@ export default function DashboardTripDetailsPanel({
 
   return (
     <div className="space-y-3 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
-      <section className="rounded-lg border border-app-border/80 bg-app-surface px-4 py-3.5 sm:px-5">
+      <section className="rounded-[24px] border border-app-border/80 bg-app-surface px-4 py-4 shadow-[0_14px_32px_rgb(var(--color-app-overlay)_/_0.06)] sm:px-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className="planner-eyebrow planner-section-label">Trip</p>
@@ -70,16 +70,16 @@ export default function DashboardTripDetailsPanel({
               <>
                 <h2 className="planner-title-md mt-1 text-app-text">{trip.name}</h2>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  <span className="planner-pill rounded-lg border px-2.5 py-1 text-xs font-semibold">
+                  <span className="planner-pill rounded-full border px-2.5 py-1 text-xs font-semibold">
                     {formatTripDateRange(trip)}
                   </span>
-                  <span className="planner-pill rounded-lg border px-2.5 py-1 text-xs font-semibold">
+                  <span className="planner-pill rounded-full border px-2.5 py-1 text-xs font-semibold">
                     {tripDayCount} {tripDayCount === 1 ? "day" : "days"}
                   </span>
-                  <span className="planner-pill rounded-lg border px-2.5 py-1 text-xs font-semibold">
+                  <span className="planner-pill rounded-full border px-2.5 py-1 text-xs font-semibold">
                     {warnings.length} warning{warnings.length === 1 ? "" : "s"}
                   </span>
-                  <span className="planner-pill rounded-lg border px-2.5 py-1 text-xs font-semibold">
+                  <span className="planner-pill rounded-full border px-2.5 py-1 text-xs font-semibold">
                     {routeStatus === "fresh" ? "Live" : routeStatus === "stale" ? "Needs refresh" : "Unavailable"}
                   </span>
                 </div>

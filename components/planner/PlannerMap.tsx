@@ -230,6 +230,14 @@ const popupIconSvg = (kind: StopType, palette: MapPalette): string => {
   return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 20s6-5.1 6-10a6 6 0 10-12 0c0 4.9 6 10 6 10z" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="10" r="2" stroke="${color}" stroke-width="1.8"/></svg>`;
 };
 
+const mapMarkerOverlaySvg = (role: "stay" | "ferry_port"): string => {
+  if (role === "stay") {
+    return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 18h16M6 18v-7.2c0-.4.3-.8.8-.8h2.5c.3 0 .6-.1.8-.4l1.3-1.8c.3-.4.9-.4 1.2 0l1.3 1.8c.2.3.5.4.8.4h2.5c.5 0 .8.4.8.8V18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+
+  return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 11h14M7 11l1.5-4h7L17 11M4 16c1 .9 2 .9 3 0 1 .9 2 .9 3 0 1 .9 2 .9 3 0 1 .9 2 .9 3 0 1 .9 2 .9 3 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+};
+
 const entityLabel = (kind: StopType): string => {
   if (kind === "stay") {
     return "Campsite";
@@ -353,6 +361,7 @@ export default function PlannerMap({
 }: PlannerMapProps) {
   const mapCanvasRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const mapMarkerOverlaysRef = useRef<maplibregl.Marker[]>([]);
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const onSelectEntityRef = useRef(onSelectEntity);
   const tripRef = useRef(trip);
@@ -446,6 +455,51 @@ export default function PlannerMap({
     markerFeatureCollectionRef.current = markerFeatureCollection;
     segmentFeatureCollectionRef.current = segmentFeatureCollection;
   }, [markerFeatureCollection, segmentFeatureCollection]);
+
+  const syncMapMarkerOverlays = useCallback((mapOverride?: maplibregl.Map) => {
+    const map = mapOverride ?? mapRef.current;
+    if (!map || (!mapOverride && !map.isStyleLoaded())) {
+      return;
+    }
+
+    mapMarkerOverlaysRef.current.forEach((marker) => marker.remove());
+    mapMarkerOverlaysRef.current = [];
+
+    markersRef.current
+      .filter(
+        (marker): marker is MapMarker & { role: "stay" | "ferry_port"; stopId: string } =>
+          (marker.role === "stay" || marker.role === "ferry_port") && Boolean(marker.stopId),
+      )
+      .forEach((marker) => {
+        const isSelected = isSameEntity(marker, selectedEntityRef.current);
+        const element = document.createElement("button");
+        const roleLabel = marker.role === "stay" ? "Campsite" : "Ferry port";
+        const color =
+          marker.role === "stay" ? mapPaletteRef.current.stay : mapPaletteRef.current.ferryPort;
+
+        element.type = "button";
+        element.ariaLabel = `${roleLabel}: ${marker.label}`;
+        element.title = `${roleLabel}: ${marker.label}`;
+        element.dataset.testid = `map-marker-icon-${marker.role}`;
+        element.innerHTML = mapMarkerOverlaySvg(marker.role);
+        element.style.cssText = `display:flex;align-items:center;justify-content:center;width:22px;height:22px;padding:3px;border:2px solid ${mapPaletteRef.current.labelHalo};border-radius:999px;background:${isSelected ? mapPaletteRef.current.selectedStroke : color};color:${mapPaletteRef.current.labelHalo};box-shadow:0 2px 7px rgba(8,34,21,.28);cursor:pointer;`;
+        element.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          pendingMapClickAnchorRef.current = [marker.coordinates.lng, marker.coordinates.lat];
+          onSelectEntityRef.current({
+            kind: marker.entityKind === "ferry" ? "ferry" : "stay",
+            stopId: marker.stopId,
+          });
+        });
+
+        mapMarkerOverlaysRef.current.push(
+          new maplibregl.Marker({ element, anchor: "center" })
+            .setLngLat([marker.coordinates.lng, marker.coordinates.lat])
+            .addTo(map),
+        );
+      });
+  }, []);
 
   const getFerryMarkersForStop = useCallback((stopId: string): MapMarker[] => {
     return markersRef.current.filter(
@@ -693,8 +747,8 @@ export default function PlannerMap({
         ],
         paint: {
           "line-color": palette.routeLive,
-          "line-width": 2.5,
-          "line-opacity": 0.65,
+          "line-width": 4,
+          "line-opacity": 0.82,
         },
       });
 
@@ -709,7 +763,7 @@ export default function PlannerMap({
         ],
         paint: {
           "line-color": palette.routeFallback,
-          "line-width": 3,
+          "line-width": 4,
           "line-dasharray": [1.5, 1.5],
           "line-opacity": 0.9,
         },
@@ -722,7 +776,7 @@ export default function PlannerMap({
         filter: ["==", ["get", "type"], "ferry"],
         paint: {
           "line-color": palette.ferry,
-          "line-width": 3.5,
+          "line-width": 4,
           "line-dasharray": [2, 2],
           "line-opacity": 0.9,
         },
@@ -780,7 +834,7 @@ export default function PlannerMap({
             palette.ferryPort,
             palette.default,
           ],
-          "circle-stroke-width": 2,
+          "circle-stroke-width": 2.5,
           "circle-stroke-color": palette.labelHalo,
         },
       });
@@ -802,7 +856,7 @@ export default function PlannerMap({
           ],
           "circle-color": palette.selectedFill,
           "circle-stroke-color": palette.selectedStroke,
-          "circle-stroke-width": 2,
+          "circle-stroke-width": 2.5,
         },
       });
 
@@ -877,6 +931,7 @@ export default function PlannerMap({
         onSelectEntityRef.current(nextSelection);
       });
 
+      syncMapMarkerOverlays(map);
       fitOverview(map);
     });
 
@@ -888,10 +943,12 @@ export default function PlannerMap({
       }
       popupRef.current?.remove();
       popupRef.current = null;
+      mapMarkerOverlaysRef.current.forEach((marker) => marker.remove());
+      mapMarkerOverlaysRef.current = [];
       map.remove();
       mapRef.current = null;
     };
-  }, [fitOverview, mapError]);
+  }, [fitOverview, mapError, syncMapMarkerOverlays]);
 
   useEffect(() => {
     const syncPalette = () => {
@@ -900,6 +957,7 @@ export default function PlannerMap({
       const map = mapRef.current;
       if (map?.isStyleLoaded()) {
         applyMapPalette(map, mapPaletteRef.current);
+        syncMapMarkerOverlays();
 
         const selection = selectedEntityRef.current;
         if (selection && popupRef.current) {
@@ -917,7 +975,7 @@ export default function PlannerMap({
     });
 
     return () => observer.disconnect();
-  }, []);
+  }, [syncMapMarkerOverlays]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -929,7 +987,8 @@ export default function PlannerMap({
     const segmentSource = map.getSource("segments") as GeoJSONSource | undefined;
     markerSource?.setData(markerFeatureCollection);
     segmentSource?.setData(segmentFeatureCollection);
-  }, [markerFeatureCollection, segmentFeatureCollection]);
+    syncMapMarkerOverlays();
+  }, [markerFeatureCollection, segmentFeatureCollection, syncMapMarkerOverlays]);
 
   useEffect(() => {
     const map = mapRef.current;

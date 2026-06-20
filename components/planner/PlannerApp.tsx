@@ -1,6 +1,12 @@
 "use client";
 
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import {
+  CalendarCheck2,
+  CalendarDays,
+  LayoutDashboard,
+  MapPinned,
+} from "lucide-react";
 
 import AccountStatusControl from "@/components/planner/AccountStatusControl";
 import BookingsPanel from "@/components/planner/BookingsPanel";
@@ -46,10 +52,6 @@ import {
   pushPlannerScreen,
   replacePlannerScreen,
 } from "@/lib/plannerNavigation";
-import {
-  readPlannerRailCollapsed,
-  writePlannerRailCollapsed,
-} from "@/lib/plannerRail";
 import {
   getRouteEstimateCacheState,
   readCachedRouteEstimateSet,
@@ -238,43 +240,10 @@ const buildRoutePanelFromSnapshot = (
   };
 };
 
-const dashboardIcon = () => {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <rect x="4" y="5" width="16" height="14" rx="2.2" />
-      <path d="M8 9h8" strokeLinecap="round" />
-      <path d="M8 13h5" strokeLinecap="round" />
-    </svg>
-  );
-};
-
-const todayIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-    <circle cx="12" cy="12" r="7.5" />
-    <path d="M12 8v4l2.5 1.5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const placesIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-    <path d="M12 21s6-5.4 6-11a6 6 0 1 0-12 0c0 5.6 6 11 6 11Z" />
-    <circle cx="12" cy="10" r="2" />
-  </svg>
-);
-
-const bookingsIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-    <path d="M7 4v3M17 4v3M5 9h14M6 5.5h12a1 1 0 0 1 1 1V19H5V6.5a1 1 0 0 1 1-1Z" />
-    <path d="m9 14 2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-const collapseIcon = (collapsed: boolean) => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-    <path d={collapsed ? "m9 6 6 6-6 6" : "m15 6-6 6 6 6"} strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
+const dashboardIcon = () => <LayoutDashboard className="h-4 w-4" aria-hidden="true" />;
+const todayIcon = () => <CalendarDays className="h-4 w-4" aria-hidden="true" />;
+const placesIcon = () => <MapPinned className="h-4 w-4" aria-hidden="true" />;
+const bookingsIcon = () => <CalendarCheck2 className="h-4 w-4" aria-hidden="true" />;
 export default function PlannerApp() {
   const {
     data,
@@ -337,7 +306,6 @@ export default function PlannerApp() {
   const [todaySelectionOrigin, setTodaySelectionOrigin] = useState<SelectionOrigin>("system");
   const [mobileMapOverlay, setMobileMapOverlay] = useState<MobileMapOverlayContext | null>(null);
   const [mobileScreen, setMobileScreen] = useState<MobilePlannerScreen>("today");
-  const [isRailCollapsed, setIsRailCollapsed] = useState(false);
   const [isMapCockpitOpen, setIsMapCockpitOpen] = useState(false);
   const [isStopDetailsOpen, setIsStopDetailsOpen] = useState(false);
   const [saveFeedback, setSaveFeedback] = useState<{
@@ -350,10 +318,6 @@ export default function PlannerApp() {
   useEffect(() => {
     void initialize();
   }, [initialize]);
-
-  useEffect(() => {
-    setIsRailCollapsed(readPlannerRailCollapsed(window.localStorage));
-  }, []);
 
   const loadedTrip = useMemo(() => {
     if (!data) {
@@ -1591,7 +1555,8 @@ export default function PlannerApp() {
         : "border-state-success-border bg-state-success-surface text-state-success";
 
     return (
-      <div data-testid="trip-command-bar" className="min-w-0 flex-1">
+      <div data-testid="trip-workspace-header" className="min-w-0 flex-1">
+        <div data-testid="trip-command-bar">
         <div className="flex flex-wrap items-center gap-2 text-xs text-app-muted">
           <button
             type="button"
@@ -1677,6 +1642,7 @@ export default function PlannerApp() {
               </span>
             </span>
           ) : null}
+        </div>
         </div>
       </div>
     );
@@ -2509,20 +2475,19 @@ export default function PlannerApp() {
   return (
     <>
       <div className="min-h-screen bg-app-bg p-3 sm:p-4 lg:h-[100dvh] lg:overflow-hidden lg:p-5">
-        <div className="mx-auto h-full w-full max-w-[1660px] overflow-hidden rounded-[30px] border border-app-border/80 bg-app-surface/85 shadow-[0_28px_80px_rgb(var(--color-app-overlay)_/_0.08)] backdrop-blur-sm">
-          <div
-            className={`flex h-full flex-col lg:grid lg:grid-rows-[auto_minmax(0,1fr)] ${
-              isRailCollapsed
-                ? "lg:grid-cols-[80px_minmax(0,1fr)]"
-                : "lg:grid-cols-[240px_minmax(0,1fr)]"
-            }`}
-          >
-            <div className={`hidden lg:flex lg:items-center lg:border-r lg:border-b lg:border-app-border lg:bg-app-surface-muted/65 lg:py-3 ${isRailCollapsed ? "lg:justify-center lg:px-2" : "lg:px-4"}`}>
-              <PlannerBrandBadge variant="rail" compact={isRailCollapsed} />
+        <div className="mx-auto h-full w-full max-w-[1660px] overflow-hidden rounded-[32px] border border-app-border/80 bg-app-surface/90 shadow-[0_30px_90px_rgb(var(--color-app-overlay)_/_0.13)] backdrop-blur-sm">
+          <div className="flex h-full flex-col lg:grid lg:grid-cols-[80px_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)]">
+            <div className="planner-header-band hidden lg:flex lg:items-center lg:justify-center lg:border-r lg:border-b lg:border-app-border lg:px-2 lg:py-3 xl:justify-start xl:px-4">
+              <div className="lg:flex xl:hidden">
+                <PlannerBrandBadge variant="rail" compact />
+              </div>
+              <div className="hidden xl:flex">
+                <PlannerBrandBadge variant="rail" />
+              </div>
             </div>
 
             <header
-              className={`hidden lg:flex lg:items-center lg:justify-between lg:gap-6 lg:border-b lg:border-app-border lg:px-6 ${
+              className={`planner-header-band hidden lg:flex lg:items-center lg:justify-between lg:gap-6 lg:border-b lg:border-app-border lg:px-6 ${
                 isTripScreen ? "lg:py-2.5" : "lg:py-4"
               }`}
             >
@@ -2540,14 +2505,14 @@ export default function PlannerApp() {
               </div>
 
               <div className="flex shrink-0 items-center gap-3">
-                <TodayStatusControl todayTripName={todayTripName} actions={todayActions} />
+                <TodayStatusControl todayTripName={todayTripName} actions={todayActions} variant="header" />
                 <ThemeModeToggle />
               </div>
             </header>
 
             <aside
               data-testid="planner-rail-column"
-              className="hidden lg:flex lg:min-h-0 lg:flex-col lg:border-r lg:border-app-border lg:bg-app-surface-muted/65"
+              className="hidden lg:flex lg:min-h-0 lg:flex-col lg:border-r lg:border-app-border lg:bg-app-surface-muted/85"
             >
               <nav className="flex-1 overflow-y-auto px-3 py-4">
                 <div className="space-y-1">
@@ -2568,39 +2533,22 @@ export default function PlannerApp() {
                         aria-label={item.label}
                         data-testid={`desktop-panel-${item.screen}`}
                         onClick={() => navigateToAppScreen(item.screen)}
-                        className={`flex w-full items-center rounded-[18px] border py-3 text-sm font-medium transition ${
-                          isRailCollapsed ? "justify-center px-2" : "gap-3 px-3.5 text-left"
-                        } ${
+                        className={`flex w-full items-center justify-center rounded-[18px] border px-2 py-3 text-sm font-medium transition duration-200 xl:gap-3 xl:px-3.5 xl:text-left ${
                           active
-                            ? "border-app-border bg-app-surface text-brand-primary shadow-[0_1px_2px_rgb(var(--color-app-overlay)_/_0.04)]"
-                            : "border-transparent text-app-muted hover:border-app-border hover:bg-app-surface hover:text-app-text"
+                            ? "border-brand-primary/20 bg-app-surface text-brand-primary shadow-[0_8px_18px_rgb(var(--color-app-overlay)_/_0.08)]"
+                            : "border-transparent text-app-muted hover:border-brand-primary/15 hover:bg-app-surface hover:text-brand-primary"
                         }`}
                         title={item.label}
                       >
                         <span className="shrink-0">{item.icon}</span>
-                        {!isRailCollapsed ? <span className="min-w-0 flex-1 truncate">{item.label}</span> : null}
+                        <span className="hidden min-w-0 flex-1 truncate xl:block">{item.label}</span>
                       </button>
                     );
                   })}
                 </div>
               </nav>
 
-              <div className="space-y-2 border-t border-app-border px-3 py-4">
-                <button
-                  type="button"
-                  data-testid="planner-rail-collapse"
-                  aria-label={isRailCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                  title={isRailCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                  onClick={() => {
-                    const nextValue = !isRailCollapsed;
-                    setIsRailCollapsed(nextValue);
-                    writePlannerRailCollapsed(window.localStorage, nextValue);
-                  }}
-                  className={`planner-button-secondary flex w-full items-center rounded-[18px] border py-2.5 text-sm font-semibold ${isRailCollapsed ? "justify-center px-2" : "gap-3 px-3"}`}
-                >
-                  {collapseIcon(isRailCollapsed)}
-                  {!isRailCollapsed ? <span>Collapse</span> : null}
-                </button>
+              <div className="border-t border-app-border px-3 py-4">
                 <AccountStatusControl
                   authStatus={authStatus}
                   mode={mode}
@@ -2609,7 +2557,7 @@ export default function PlannerApp() {
                   isOfflineReadOnly={isOfflineReadOnly}
                   notice={accountNotice}
                   variant="rail"
-                  compact={isRailCollapsed}
+                  responsiveCompact
                   onSignIn={signInWithMagicLink}
                   onSignInAsTestUser={signInAsTestUser}
                   onSignOut={signOut}

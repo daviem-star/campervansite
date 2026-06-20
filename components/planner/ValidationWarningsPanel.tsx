@@ -14,7 +14,6 @@ import { ValidationWarning } from "@/types/trip";
 const defaultExpandedWarningSeverities: ValidationWarning["severity"][] = [
   "high",
   "medium",
-  "low",
 ];
 
 type ValidationWarningsPanelProps = {
@@ -36,7 +35,6 @@ export default function ValidationWarningsPanel({
   title = "Planning warnings",
   description = "Review anything that could affect timing, coverage, or trip confidence.",
   defaultExpandedSeverities = defaultExpandedWarningSeverities,
-  collapseLowSeverity = false,
   showSeverityCounts = false,
   compactHealthyState = false,
   density = "default",
@@ -56,9 +54,16 @@ export default function ValidationWarningsPanel({
   const mediumWarningCount = groupedWarnings.medium.length;
   const hasHighWarnings = highWarningCount > 0;
   const elevatedWarningCount = highWarningCount + mediumWarningCount;
-  const [isLowSeverityExpanded, setIsLowSeverityExpanded] = useState(
-    () => defaultExpandedSeverities.includes("low"),
-  );
+  const [expandedSeverities, setExpandedSeverities] = useState<
+    Record<ValidationWarning["severity"], boolean>
+  >(() => ({
+    high: defaultExpandedSeverities.includes("high"),
+    medium: defaultExpandedSeverities.includes("medium"),
+    low: defaultExpandedSeverities.includes("low"),
+  }));
+  const toggleSeverity = (severity: ValidationWarning["severity"]) => {
+    setExpandedSeverities((current) => ({ ...current, [severity]: !current[severity] }));
+  };
   const elevatedWarningSummary = hasHighWarnings
     ? `${highWarningCount} high-priority issue${highWarningCount === 1 ? "" : "s"} need attention${
         mediumWarningCount > 0
@@ -130,13 +135,14 @@ export default function ValidationWarningsPanel({
             </p>
           </div>
 
-          {lowSeverityWarnings.length > 0 && collapseLowSeverity ? (
+          {lowSeverityWarnings.length > 0 ? (
             <button
               type="button"
-              onClick={() => setIsLowSeverityExpanded((current) => !current)}
+              aria-expanded={expandedSeverities.low}
+              onClick={() => toggleSeverity("low")}
               className="planner-button-secondary rounded-full border px-3 py-1 text-[11px] font-semibold"
             >
-              {isLowSeverityExpanded
+              {expandedSeverities.low
                 ? "Hide low severity"
                 : `Show low severity (${lowSeverityWarnings.length})`}
             </button>
@@ -144,7 +150,7 @@ export default function ValidationWarningsPanel({
         </div>
 
         {lowSeverityWarnings.length > 0 &&
-        (!collapseLowSeverity || isLowSeverityExpanded) ? (
+        expandedSeverities.low ? (
           <ul className={`space-y-2 ${isCompact ? "mt-2.5" : "mt-3"}`}>
             {lowSeverityWarnings.map((warning) => (
               <li
@@ -191,13 +197,7 @@ export default function ValidationWarningsPanel({
             return null;
           }
 
-          const isCollapsibleLowSeverity = collapseLowSeverity && severity === "low";
-          const isExpanded =
-            severity === "low"
-              ? (isCollapsibleLowSeverity
-                  ? isLowSeverityExpanded
-                  : defaultExpandedSeverities.includes("low"))
-              : defaultExpandedSeverities.includes(severity);
+          const isExpanded = expandedSeverities[severity];
 
           return (
             <section key={severity} className={isCompact ? "space-y-1.5" : "space-y-2"}>
@@ -218,15 +218,14 @@ export default function ValidationWarningsPanel({
                     </span>
                   ) : null}
 
-                  {isCollapsibleLowSeverity ? (
-                    <button
-                      type="button"
-                      onClick={() => setIsLowSeverityExpanded((current) => !current)}
-                      className="planner-button-secondary rounded-full border px-3 py-1 text-[11px] font-semibold"
-                    >
-                      {isExpanded ? "Hide low severity" : `Show low severity (${severityWarnings.length})`}
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    aria-expanded={isExpanded}
+                    onClick={() => toggleSeverity(severity)}
+                    className="planner-button-secondary rounded-full border px-3 py-1 text-[11px] font-semibold"
+                  >
+                    {isExpanded ? `Hide ${validationWarningGroupMeta[severity].label.toLowerCase()}` : `Show ${validationWarningGroupMeta[severity].label.toLowerCase()} (${severityWarnings.length})`}
+                  </button>
                 </div>
               </div>
 

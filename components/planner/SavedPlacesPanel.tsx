@@ -19,7 +19,7 @@ export default function SavedPlacesPanel({
   onOpenOccurrence,
 }: SavedPlacesPanelProps) {
   return (
-    <section data-testid="desktop-saved-places-panel" className="min-h-0 overflow-hidden rounded-[24px] border border-app-border bg-app-surface lg:flex lg:flex-col">
+    <section data-testid="desktop-saved-places-panel" className="min-h-0 overflow-hidden rounded-[24px] border border-app-border bg-app-surface shadow-[0_14px_32px_rgb(var(--color-app-overlay)_/_0.06)] lg:flex lg:flex-col">
       <div className="border-b border-app-border px-5 py-5">
         <p className="planner-eyebrow planner-section-label">Saved Places</p>
         <h2 className="planner-title-xl mt-2 text-app-text">Places across your trips</h2>

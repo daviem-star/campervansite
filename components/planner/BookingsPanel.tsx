@@ -67,7 +67,7 @@ export default function BookingsPanel({
   const attentionCount = bookings.filter((booking) => booking.needsAttention).length;
 
   return (
-    <section data-testid="desktop-bookings-panel" className="min-h-0 overflow-hidden rounded-[24px] border border-app-border bg-app-surface lg:flex lg:flex-col">
+    <section data-testid="desktop-bookings-panel" className="min-h-0 overflow-hidden rounded-[24px] border border-app-border bg-app-surface shadow-[0_14px_32px_rgb(var(--color-app-overlay)_/_0.06)] lg:flex lg:flex-col">
       <div className="border-b border-app-border px-5 py-5">
         <p className="planner-eyebrow planner-section-label">Bookings</p>
         <h2 className="planner-title-xl mt-2 text-app-text">Campsite and ferry bookings</h2>

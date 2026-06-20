@@ -22,6 +22,7 @@ type AccountStatusControlProps = {
   notice: PlannerNotice | null;
   variant?: "default" | "rail";
   compact?: boolean;
+  responsiveCompact?: boolean;
   onSignIn: (email: string) => Promise<void>;
   onSignInAsTestUser: () => Promise<void>;
   onSignOut: () => Promise<void>;
@@ -50,6 +51,7 @@ export default function AccountStatusControl({
   notice,
   variant = "default",
   compact = false,
+  responsiveCompact = false,
   onSignIn,
   onSignInAsTestUser,
   onSignOut,
@@ -75,8 +77,18 @@ export default function AccountStatusControl({
       }
     };
 
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
     document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [isOpen]);
 
   const runAction = async (action: () => Promise<void>) => {
@@ -136,9 +148,10 @@ export default function AccountStatusControl({
     syncStatus === "offline" || isOfflineReadOnly
       ? plannerSyncDotClass.offline
       : plannerSyncDotClass.saved;
+  const mobileSheetClass = "fixed inset-x-0 bottom-0 z-50 max-h-[min(82dvh,48rem)] overflow-y-auto rounded-t-[30px] border border-app-border bg-app-surface px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-[0_-20px_60px_rgb(var(--color-app-overlay)_/_0.24)]";
   const panelClassName = isRail
-    ? `fixed inset-y-0 left-0 z-40 w-[min(24rem,92vw)] overflow-y-auto border-r border-app-border bg-app-surface p-5 shadow-2xl lg:absolute lg:bottom-[calc(100%+0.75rem)] lg:top-auto lg:inset-y-auto lg:max-h-[min(78vh,44rem)] lg:w-[23rem] lg:overflow-y-auto lg:rounded-[28px] lg:border lg:shadow-[0_24px_60px_rgb(var(--color-app-overlay)_/_0.16)] ${compact ? "lg:left-[calc(100%+0.75rem)]" : "lg:left-0"}`
-    : "fixed inset-y-0 left-0 z-40 w-[min(24rem,92vw)] overflow-y-auto border-r border-app-border bg-app-surface p-5 shadow-2xl lg:absolute lg:left-0 lg:top-[calc(100%+0.75rem)] lg:inset-y-auto lg:max-h-[min(78vh,44rem)] lg:w-[23rem] lg:overflow-y-auto lg:rounded-[28px] lg:border lg:shadow-[0_24px_60px_rgb(var(--color-app-overlay)_/_0.16)]";
+    ? `${mobileSheetClass} lg:absolute lg:bottom-[calc(100%+0.75rem)] lg:top-auto lg:inset-x-auto lg:max-h-[min(78vh,44rem)] lg:w-[23rem] lg:rounded-[28px] lg:px-5 lg:pb-5 lg:pt-5 lg:shadow-[0_24px_60px_rgb(var(--color-app-overlay)_/_0.16)] ${compact ? "lg:left-[calc(100%+0.75rem)]" : responsiveCompact ? "lg:left-[calc(100%+0.75rem)] xl:left-0" : "lg:left-0"}`
+    : `${mobileSheetClass} lg:absolute lg:left-0 lg:top-[calc(100%+0.75rem)] lg:inset-x-auto lg:bottom-auto lg:max-h-[min(78vh,44rem)] lg:w-[23rem] lg:rounded-[28px] lg:px-5 lg:pb-5 lg:pt-5 lg:shadow-[0_24px_60px_rgb(var(--color-app-overlay)_/_0.16)]`;
 
   return (
     <div ref={containerRef} className="relative z-30 lg:w-full">
@@ -151,7 +164,7 @@ export default function AccountStatusControl({
         title={accountLabel}
         className={
           isRail
-            ? `inline-flex w-full items-center rounded-[18px] border border-app-border bg-app-surface py-2.5 text-left transition hover:border-brand-primary/18 hover:bg-app-surface-muted ${compact ? "justify-center px-2" : "gap-3 px-3"}`
+            ? `inline-flex w-full items-center rounded-[18px] border border-app-border bg-app-surface py-2.5 text-left transition hover:border-brand-primary/18 hover:bg-app-surface-muted ${compact ? "justify-center px-2" : responsiveCompact ? "justify-center px-2 xl:justify-start xl:gap-3 xl:px-3" : "gap-3 px-3"}`
             : "inline-flex items-center justify-center rounded-2xl border border-app-border bg-app-surface p-2 text-left transition hover:border-brand-primary/18 hover:bg-app-surface-muted lg:w-full lg:rounded-3xl lg:p-3"
         }
       >
@@ -167,7 +180,7 @@ export default function AccountStatusControl({
         </span>
 
         {isRail && !compact ? (
-          <span className="min-w-0 flex-1">
+          <span className={`min-w-0 flex-1 ${responsiveCompact ? "hidden xl:block" : ""}`}>
             <span className="planner-title-sm block truncate text-app-text">{accountLabel}</span>
             <span className="planner-meta block text-app-muted">{displayedStatusLabel}</span>
           </span>
@@ -176,7 +189,12 @@ export default function AccountStatusControl({
 
       {isOpen ? (
         <>
-          <div className="fixed inset-0 z-30 bg-app-overlay/30 lg:hidden" />
+          <button
+            type="button"
+            aria-label="Close account and sync"
+            onClick={() => setIsOpen(false)}
+            className="fixed inset-0 z-40 cursor-default bg-app-overlay/45 lg:hidden"
+          />
 
           <div
             data-testid="account-status-panel"

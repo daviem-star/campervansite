@@ -63,7 +63,7 @@ export default function DesktopTodayPanel({
 
   if (!trip) {
     return (
-      <section data-testid="desktop-today-panel" className="rounded-[24px] border border-app-border bg-app-surface p-6">
+      <section data-testid="desktop-today-panel" className="rounded-[24px] border border-app-border bg-app-surface p-6 shadow-[0_14px_32px_rgb(var(--color-app-overlay)_/_0.06)]">
         <p className="planner-eyebrow planner-section-label">Today</p>
         <h2 className="planner-title-xl mt-2 text-app-text">Choose a Today trip</h2>
         <p className="planner-copy mt-3 max-w-2xl text-app-muted">

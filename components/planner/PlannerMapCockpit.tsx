@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { RotateCw, X } from "lucide-react";
 
 import MapSelectionSummary from "@/components/planner/MapSelectionSummary";
 import PlannerMap from "@/components/planner/PlannerMap";
@@ -141,8 +142,8 @@ export default function PlannerMapCockpit({
       aria-modal="true"
       aria-label={`${trip.name} map cockpit`}
     >
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-app-border bg-app-surface shadow-[0_24px_70px_rgb(var(--color-app-overlay)_/_0.22)]">
-        <header className="flex min-h-12 items-center justify-between gap-3 border-b border-app-border bg-app-surface-muted/75 px-3 py-2">
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-app-border bg-app-surface shadow-[0_24px_70px_rgb(var(--color-app-overlay)_/_0.22)]">
+        <header className="flex min-h-14 items-center justify-between gap-3 border-b border-app-border bg-app-surface-muted/75 px-4 py-2.5">
           <div className="min-w-0">
             <p className="planner-eyebrow text-app-muted">Map cockpit</p>
             <h2 className="planner-title-lg truncate text-app-text">{trip.name}</h2>
@@ -158,14 +159,20 @@ export default function PlannerMapCockpit({
               disabled={isRefreshing || roadLegCount === 0}
               className="planner-button-primary rounded-lg border px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isRefreshing ? "Refreshing..." : "Refresh"}
+              <span className="inline-flex items-center gap-1.5">
+                <RotateCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} aria-hidden="true" />
+                {isRefreshing ? "Refreshing..." : "Refresh"}
+              </span>
             </button>
             <button
               type="button"
               onClick={onClose}
               className="planner-button-secondary rounded-lg border px-3 py-1.5 text-xs font-semibold"
             >
-              Close
+              <span className="inline-flex items-center gap-1.5">
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
+                Close
+              </span>
             </button>
           </div>
         </header>

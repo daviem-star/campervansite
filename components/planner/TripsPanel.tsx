@@ -34,7 +34,7 @@ export default function TripsPanel({
   onPreviewTrip,
 }: TripsPanelProps) {
   return (
-    <section className="overflow-hidden rounded-[24px] border border-app-border/80 bg-app-surface lg:flex lg:h-full lg:min-h-0 lg:flex-col">
+    <section className="overflow-hidden rounded-[24px] border border-app-border/80 bg-app-surface shadow-[0_14px_32px_rgb(var(--color-app-overlay)_/_0.06)] lg:flex lg:h-full lg:min-h-0 lg:flex-col">
       <div className="flex flex-wrap items-start justify-between gap-4 border-b border-app-border px-4 py-4 sm:px-5 sm:py-5">
         <div>
           <p className="planner-eyebrow planner-section-label">Trip library</p>
@@ -48,7 +48,7 @@ export default function TripsPanel({
           type="button"
           onClick={onCreateTrip}
           disabled={isWorking || isOfflineReadOnly}
-          className="planner-button-primary rounded-xl border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed"
+          className="planner-button-primary rounded-full border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed"
         >
           New trip
         </button>
