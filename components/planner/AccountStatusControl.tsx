@@ -150,7 +150,7 @@ export default function AccountStatusControl({
       : plannerSyncDotClass.saved;
   const mobileSheetClass = "fixed inset-x-0 bottom-0 z-50 max-h-[min(82dvh,48rem)] overflow-y-auto rounded-t-[30px] border border-app-border bg-app-surface px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-[0_-20px_60px_rgb(var(--color-app-overlay)_/_0.24)]";
   const panelClassName = isRail
-    ? `${mobileSheetClass} lg:absolute lg:bottom-[calc(100%+0.75rem)] lg:top-auto lg:inset-x-auto lg:max-h-[min(78vh,44rem)] lg:w-[23rem] lg:rounded-[28px] lg:px-5 lg:pb-5 lg:pt-5 lg:shadow-[0_24px_60px_rgb(var(--color-app-overlay)_/_0.16)] ${compact ? "lg:left-[calc(100%+0.75rem)]" : responsiveCompact ? "lg:left-[calc(100%+0.75rem)] xl:left-0" : "lg:left-0"}`
+    ? `${mobileSheetClass} lg:absolute lg:bottom-[calc(100%+0.75rem)] lg:top-auto lg:inset-x-auto lg:max-h-[min(78vh,44rem)] lg:w-[23rem] lg:rounded-[28px] lg:px-5 lg:pb-5 lg:pt-5 lg:shadow-[0_24px_60px_rgb(var(--color-app-overlay)_/_0.16)] ${compact || responsiveCompact ? "lg:left-[calc(100%+0.75rem)]" : "lg:left-0"}`
     : `${mobileSheetClass} lg:absolute lg:left-0 lg:top-[calc(100%+0.75rem)] lg:inset-x-auto lg:bottom-auto lg:max-h-[min(78vh,44rem)] lg:w-[23rem] lg:rounded-[28px] lg:px-5 lg:pb-5 lg:pt-5 lg:shadow-[0_24px_60px_rgb(var(--color-app-overlay)_/_0.16)]`;
 
   return (
