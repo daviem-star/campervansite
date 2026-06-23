@@ -43,7 +43,7 @@ export default function MobilePlannerShell({
               alt=""
               width={708}
               height={624}
-              className="mt-0.5 h-9 w-9 shrink-0 object-contain"
+              className="mt-0.5 h-auto w-9 shrink-0 object-contain"
             />
             <div className="min-w-0">
               <p className="planner-eyebrow planner-section-label">Campervansite</p>

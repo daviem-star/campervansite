@@ -130,7 +130,7 @@ const defaultRoutePanelState: RoutePanelState = {
 };
 
 const saveFeedbackToneClass: Record<PlannerNoticeTone, string> = plannerNoticeToneClass;
-const defaultExpandedWarningSeverities: ValidationWarning["severity"][] = ["high", "medium"];
+const defaultExpandedWarningSeverities: ValidationWarning["severity"][] = [];
 
 const routeStatusLabels: Record<RouteInsightsState, string> = {
   fresh: "Live",
@@ -2512,7 +2512,7 @@ export default function PlannerApp() {
 
             <aside
               data-testid="planner-rail-column"
-              className="hidden lg:flex lg:min-h-0 lg:flex-col lg:border-r lg:border-app-border lg:bg-app-surface-muted/85"
+              className="group/rail hidden lg:z-40 lg:flex lg:min-h-0 lg:w-20 lg:flex-col lg:border-r lg:border-app-border lg:bg-app-surface-muted/95 lg:transition-[width,box-shadow] lg:duration-200 lg:hover:w-60 lg:hover:shadow-[18px_0_36px_rgb(var(--color-app-overlay)_/_0.12)] xl:w-auto xl:hover:shadow-none"
             >
               <nav className="flex-1 overflow-y-auto px-3 py-4">
                 <div className="space-y-1">
@@ -2533,7 +2533,7 @@ export default function PlannerApp() {
                         aria-label={item.label}
                         data-testid={`desktop-panel-${item.screen}`}
                         onClick={() => navigateToAppScreen(item.screen)}
-                        className={`flex w-full items-center justify-center rounded-[18px] border px-2 py-3 text-sm font-medium transition duration-200 xl:gap-3 xl:px-3.5 xl:text-left ${
+                        className={`flex w-full items-center justify-center rounded-[18px] border px-2 py-3 text-sm font-medium transition duration-200 lg:group-hover/rail:justify-start lg:group-hover/rail:gap-3 lg:group-hover/rail:px-3.5 lg:group-hover/rail:text-left xl:gap-3 xl:px-3.5 xl:text-left ${
                           active
                             ? "border-brand-primary/20 bg-app-surface text-brand-primary shadow-[0_8px_18px_rgb(var(--color-app-overlay)_/_0.08)]"
                             : "border-transparent text-app-muted hover:border-brand-primary/15 hover:bg-app-surface hover:text-brand-primary"
@@ -2541,7 +2541,7 @@ export default function PlannerApp() {
                         title={item.label}
                       >
                         <span className="shrink-0">{item.icon}</span>
-                        <span className="hidden min-w-0 flex-1 truncate xl:block">{item.label}</span>
+                        <span className="hidden min-w-0 flex-1 truncate lg:group-hover/rail:block xl:block">{item.label}</span>
                       </button>
                     );
                   })}

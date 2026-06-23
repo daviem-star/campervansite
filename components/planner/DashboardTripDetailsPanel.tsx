@@ -7,7 +7,7 @@ import ValidationWarningsPanel from "@/components/planner/ValidationWarningsPane
 import { formatTripDateRange, getTripDays } from "@/lib/tripDerived";
 import { TravelLegEstimate, Trip, ValidationWarning } from "@/types/trip";
 
-const defaultExpandedWarningSeverities: ValidationWarning["severity"][] = ["high", "medium"];
+const defaultExpandedWarningSeverities: ValidationWarning["severity"][] = [];
 
 type DashboardTripDetailsPanelProps = {
   trip: Trip | null;

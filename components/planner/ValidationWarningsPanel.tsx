@@ -11,10 +11,7 @@ import {
 } from "@/lib/validationWarnings";
 import { ValidationWarning } from "@/types/trip";
 
-const defaultExpandedWarningSeverities: ValidationWarning["severity"][] = [
-  "high",
-  "medium",
-];
+const defaultExpandedWarningSeverities: ValidationWarning["severity"][] = [];
 
 type ValidationWarningsPanelProps = {
   warnings: ValidationWarning[];

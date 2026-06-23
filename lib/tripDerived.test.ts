@@ -389,6 +389,45 @@ describe("tripDerived", () => {
     });
   });
 
+  it("only warns about campsite arrival when it reaches the following day after 08:00", () => {
+    const trip = buildTrip();
+    const baseEstimate: TravelLegEstimate = {
+      id: "road-ferry-1-stay-2",
+      fromId: "ferry-1",
+      fromLabel: "Morning ferry",
+      toId: "stay-2",
+      toLabel: "Camp two",
+      kind: "road",
+      distanceKm: 150,
+      durationMinutes: 180,
+      bufferedDurationMinutes: 300,
+      provider: "fallback_haversine",
+      fetchedAt: new Date().toISOString(),
+      confidence: "fallback",
+      date: "2026-04-04",
+      relatedStopId: "stay-2",
+    };
+
+    expect(
+      getValidationWarnings(trip, [baseEstimate]).some(
+        (warning) => warning.id === "late-arrival-road-ferry-1-stay-2",
+      ),
+    ).toBe(false);
+
+    const nextDayWarnings = getValidationWarnings(trip, [
+      { ...baseEstimate, bufferedDurationMinutes: 1_140 },
+    ]);
+    const campsiteWarning = nextDayWarnings.find(
+      (warning) => warning.id === "late-arrival-road-ferry-1-stay-2",
+    );
+
+    expect(campsiteWarning).toMatchObject({
+      severity: "medium",
+      label: "Late campsite arrival may be an issue for Camp two",
+    });
+    expect(campsiteWarning?.detail).toMatch(/check its arrival rules/i);
+  });
+
   it("builds day-first itinerary rows with travel estimates and active base coverage", () => {
     const trip = buildTrip();
     const estimates: TravelLegEstimate[] = [

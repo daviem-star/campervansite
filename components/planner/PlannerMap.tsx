@@ -139,14 +139,12 @@ const readMapPalette = (): MapPalette => {
   const styles = window.getComputedStyle(document.documentElement);
 
   return {
-    routeLive: cssRgb(styles, "--color-brand-primary", DEFAULT_MAP_PALETTE.routeLive),
-    routeFallback: cssRgb(
-      styles,
-      "--color-brand-secondary-variant",
-      DEFAULT_MAP_PALETTE.routeFallback,
-    ),
-    ferry: cssRgb(styles, "--color-state-info", DEFAULT_MAP_PALETTE.ferry),
-    ferrySelected: cssRgb(styles, "--color-brand-primary", DEFAULT_MAP_PALETTE.ferrySelected),
+    // Keep route geometry consistent with the light-mode map: it remains legible
+    // over the shared OSM base tiles even when the surrounding planner is dark.
+    routeLive: DEFAULT_MAP_PALETTE.routeLive,
+    routeFallback: DEFAULT_MAP_PALETTE.routeFallback,
+    ferry: DEFAULT_MAP_PALETTE.ferry,
+    ferrySelected: DEFAULT_MAP_PALETTE.ferrySelected,
     home: cssRgb(styles, "--color-brand-primary-variant", DEFAULT_MAP_PALETTE.home),
     stay: cssRgb(styles, "--color-brand-support", DEFAULT_MAP_PALETTE.stay),
     poi: cssRgb(styles, "--color-brand-secondary", DEFAULT_MAP_PALETTE.poi),

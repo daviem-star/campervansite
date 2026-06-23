@@ -8,6 +8,7 @@ import {
   formatDateOnly,
   formatDateTime,
   formatDurationMinutes,
+  formatTime,
   minutesBetweenIso,
   todayDateInTimezone,
 } from "@/lib/date";
@@ -57,8 +58,7 @@ type TravelLegContext = {
 const DRIVE_DAY_WARNING_MINUTES = 240;
 const DRIVE_DAY_HIGH_MINUTES = 360;
 const LONG_LEG_WARNING_MINUTES = 180;
-const LATE_ARRIVAL_HOUR = 20;
-const LATE_ARRIVAL_MINUTE = 30;
+const NEXT_DAY_CAMPSITE_WARNING_HOUR = 8;
 
 const toMillis = (isoValue: string): number => new Date(isoValue).getTime();
 
@@ -812,7 +812,11 @@ export const getValidationWarnings = (
       });
     }
 
-    if (context.fromEventEndAt && context.targetArrivalBy) {
+    if (
+      context.targetArrivalLabel === "ferry check-in" &&
+      context.fromEventEndAt &&
+      context.targetArrivalBy
+    ) {
       const estimatedArrivalAt = addMinutesIso(
         context.fromEventEndAt,
         estimate.bufferedDurationMinutes,
@@ -821,23 +825,16 @@ export const getValidationWarnings = (
       if (estimatedArrivalAt > context.targetArrivalBy) {
         warnings.push({
           id: `timing-${estimate.id}`,
-          kind:
-            context.targetArrivalLabel === "ferry check-in" ? "ferry_check_in" : "arrival_window",
+          kind: "ferry_check_in",
           severity: "high",
-          label:
-            context.targetArrivalLabel === "ferry check-in"
-              ? `Risk of missing check-in for ${estimate.toLabel}`
-              : `Late arrival risk for ${estimate.toLabel}`,
+          label: `Risk of missing check-in for ${estimate.toLabel}`,
           detail: `Buffered arrival would be ${formatDateTime(
             estimatedArrivalAt,
-          )}, later than ${context.targetArrivalLabel} at ${formatDateTime(context.targetArrivalBy)}.`,
+          )}, later than ferry check-in at ${formatDateTime(context.targetArrivalBy)}.`,
           date: estimate.date,
           relatedStopId: estimate.relatedStopId,
         });
-      } else if (
-        context.targetArrivalLabel === "ferry check-in" &&
-        minutesBetweenIso(estimatedArrivalAt, context.targetArrivalBy) <= 20
-      ) {
+      } else if (minutesBetweenIso(estimatedArrivalAt, context.targetArrivalBy) <= 20) {
         warnings.push({
           id: `timing-tight-${estimate.id}`,
           kind: "ferry_check_in",
@@ -862,19 +859,19 @@ export const getValidationWarnings = (
         context.fromEventEndAt,
         estimate.bufferedDurationMinutes,
       );
-      const arrivalHourMinutes =
-        Number.parseInt(estimatedArrivalAt.slice(11, 13), 10) * 60 +
-        Number.parseInt(estimatedArrivalAt.slice(14, 16), 10);
+      const arrivalHour = Number.parseInt(formatTime(estimatedArrivalAt).slice(0, 2), 10);
+      const arrivesTheFollowingDay =
+        dateOnlyFromIso(estimatedArrivalAt) > dateOnlyFromIso(relatedStop.checkInAt);
 
-      if (arrivalHourMinutes >= LATE_ARRIVAL_HOUR * 60 + LATE_ARRIVAL_MINUTE) {
+      if (arrivesTheFollowingDay && arrivalHour >= NEXT_DAY_CAMPSITE_WARNING_HOUR) {
         warnings.push({
           id: `late-arrival-${estimate.id}`,
           kind: "arrival_window",
           severity: "medium",
-          label: `Late campsite arrival risk for ${relatedStop.title}`,
+          label: `Late campsite arrival may be an issue for ${relatedStop.title}`,
           detail: `Buffered arrival lands around ${formatDateTime(
             estimatedArrivalAt,
-          )}. Consider easing the day or choosing a closer overnight stop.`,
+          )}. This may be later than the location allows; check its arrival rules before travelling.`,
           date: estimate.date,
           relatedStopId: relatedStop.id,
         });

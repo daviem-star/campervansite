@@ -164,7 +164,7 @@ export default function AccountStatusControl({
         title={accountLabel}
         className={
           isRail
-            ? `inline-flex w-full items-center rounded-[18px] border border-app-border bg-app-surface py-2.5 text-left transition hover:border-brand-primary/18 hover:bg-app-surface-muted ${compact ? "justify-center px-2" : responsiveCompact ? "justify-center px-2 xl:justify-start xl:gap-3 xl:px-3" : "gap-3 px-3"}`
+            ? `inline-flex w-full items-center rounded-[18px] border border-app-border bg-app-surface py-2.5 text-left transition hover:border-brand-primary/18 hover:bg-app-surface-muted ${compact ? "justify-center px-2" : responsiveCompact ? "justify-center px-2 lg:group-hover/rail:justify-start lg:group-hover/rail:gap-3 lg:group-hover/rail:px-3 xl:justify-start xl:gap-3 xl:px-3" : "gap-3 px-3"}`
             : "inline-flex items-center justify-center rounded-2xl border border-app-border bg-app-surface p-2 text-left transition hover:border-brand-primary/18 hover:bg-app-surface-muted lg:w-full lg:rounded-3xl lg:p-3"
         }
       >
@@ -180,7 +180,7 @@ export default function AccountStatusControl({
         </span>
 
         {isRail && !compact ? (
-          <span className={`min-w-0 flex-1 ${responsiveCompact ? "hidden xl:block" : ""}`}>
+          <span className={`min-w-0 flex-1 ${responsiveCompact ? "hidden lg:group-hover/rail:block xl:block" : ""}`}>
             <span className="planner-title-sm block truncate text-app-text">{accountLabel}</span>
             <span className="planner-meta block text-app-muted">{displayedStatusLabel}</span>
           </span>
