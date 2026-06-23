@@ -359,6 +359,41 @@ export default function PlannerApp() {
   }, [isTripScreen, loadedTrip]);
 
   useEffect(() => {
+    if (!isCloudTripLibraryAvailable || previewTripId || isPreviewingTripId || tripSummaries.length === 0) {
+      return;
+    }
+
+    const nextPreviewTripId = tripSummaries[0].id;
+    let isCancelled = false;
+    setIsPreviewingTripId(nextPreviewTripId);
+
+    void (async () => {
+      try {
+        const nextTrip = await previewCloudTrip(nextPreviewTripId);
+        if (!isCancelled && nextTrip) {
+          setPreviewTripId(nextTrip.id);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsPreviewingTripId((current) =>
+            current === nextPreviewTripId ? null : current,
+          );
+        }
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    isCloudTripLibraryAvailable,
+    isPreviewingTripId,
+    previewCloudTrip,
+    previewTripId,
+    tripSummaries,
+  ]);
+
+  useEffect(() => {
     if (plannerInteractionMode !== "edit") {
       setDraftTrip(null);
       return;
@@ -2441,9 +2476,14 @@ export default function PlannerApp() {
     <>
       <div className="min-h-screen bg-app-bg p-3 sm:p-4 lg:h-[100dvh] lg:overflow-hidden lg:p-5">
         <div className="mx-auto h-full w-full max-w-[1660px] overflow-hidden rounded-[32px] border border-app-border/80 bg-app-surface/90 shadow-[0_30px_90px_rgb(var(--color-app-overlay)_/_0.13)] backdrop-blur-sm">
-          <div className="flex h-full flex-col lg:grid lg:grid-cols-[80px_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)]">
-            <div className="planner-header-band hidden lg:flex lg:items-center lg:justify-center lg:border-b lg:border-app-border lg:px-2 lg:py-3">
-              <PlannerBrandBadge variant="rail" compact />
+          <div className="flex h-full flex-col lg:grid lg:grid-cols-[80px_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)]">
+            <div className="planner-header-band hidden lg:flex lg:items-center lg:justify-center lg:border-r lg:border-b lg:border-app-border lg:px-2 lg:py-3 xl:justify-start xl:px-4">
+              <div className="lg:flex xl:hidden">
+                <PlannerBrandBadge variant="rail" compact />
+              </div>
+              <div className="hidden xl:flex">
+                <PlannerBrandBadge variant="rail" />
+              </div>
             </div>
 
             <header
